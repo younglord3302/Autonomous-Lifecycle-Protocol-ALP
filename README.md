@@ -3,10 +3,10 @@
 </div>
 
 # Autonomous Lifecycle Protocol (ALP)
-**Version 1.0.0 (MVP)**
+**Version 2.0.0 (MVP)**
 
 [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 
 ALP is the world's first open protocol for Autonomous Software Engineering. 
@@ -37,9 +37,12 @@ ALP provides the following reference implementations:
 
 | Package | Description |
 |---|---|
-| `@alp/schemas` | The official JSON Schema definitions for all 21 ALP protocol objects |
+| `@alp/schemas` | The official JSON Schema definitions for all 22 ALP protocol objects |
 | `@alp/parser` | The TypeScript engine for reading `.alp` files, building dependency graphs, and managing execution loops |
 | `@alp/cli` | The terminal interface (`alp init`, `alp validate`, `alp graph`, `alp status`) |
+| `@alp/sdk` | The TypeScript SDK for programmatic access to ALP workspaces |
+| `alp-sdk` | The Python SDK native implementation with JSON schema validation |
+| `alp-vscode` | The official VS Code extension for syntax highlighting and real-time diagnostics |
 
 ## 🛠️ Installation
 
