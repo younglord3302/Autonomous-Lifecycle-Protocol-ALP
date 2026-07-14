@@ -1,5 +1,8 @@
-# Autonomous Lifecycle Protocol (ALP)
+<div align="center">
+  <img src="branding/alp-logo.png" alt="ALP Logo" width="150" />
+</div>
 
+# Autonomous Lifecycle Protocol (ALP)
 **Version 1.0.0 (MVP)**
 
 [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)

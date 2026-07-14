@@ -5,6 +5,9 @@ hero:
   name: "ALP"
   text: "Autonomous Lifecycle Protocol"
   tagline: "The universal protocol for autonomous software engineering."
+  image:
+    src: /alp-logo.png
+    alt: ALP Logo
   actions:
     - theme: brand
       text: Get Started
