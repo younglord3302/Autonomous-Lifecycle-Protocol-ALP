@@ -1,0 +1,32 @@
+!alp-version: 0.1.0
+
+// ----------------------------------------------------------------------------
+// WORKFLOW TEMPLATE
+// Use this template to orchestrate sequential steps across multiple agents.
+// ----------------------------------------------------------------------------
+
+@workflow
+  id: wf-example-process
+  name: "Example Process Workflow"
+  goal: "Execute a standard multi-step process automatically"
+  
+  // Options: stop, skip, rollback, retry
+  !fail-strategy: rollback
+  
+  agents:
+    - -> agent-planner
+    - -> agent-developer
+    
+  // Ordered execution steps
+  steps:
+    - name: "Step 1: Planning"
+      agent: -> agent-planner
+      task: -> task-example-plan
+      on_success: "Proceed to implementation"
+      on_failure: "Halt workflow"
+      
+    - name: "Step 2: Implementation"
+      agent: -> agent-developer
+      task: -> task-example-code
+      on_success: "Complete"
+      on_failure: "Return to planning"

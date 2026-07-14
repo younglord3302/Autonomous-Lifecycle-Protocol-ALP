@@ -1,0 +1,13 @@
+!alp-version: 2.0.0
+
+@state
+  id: state-todo-app
+  phase: "development"
+  active_workflow: -> wf-standard-development
+  active_tasks:
+    - -> task-api-routes
+  last_checkpoint: "chk-2025-07-15-a1b2c3"
+  agent_states:
+    agent-developer: "working on api routes"
+  global_milestones:
+    backend-complete: false

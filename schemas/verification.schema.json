@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/verification.schema.json",
+  "title": "ALP Verification Object",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "status": {
+      "$ref": "common.schema.json#/definitions/status"
+    },
+    "type": {
+      "type": "string"
+    },
+    "target": {
+      "$ref": "common.schema.json#/definitions/ref"
+    },
+    "command": {
+      "type": "string"
+    },
+    "required": {
+      "type": "boolean"
+    },
+    "timeout": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    }
+  }
+}

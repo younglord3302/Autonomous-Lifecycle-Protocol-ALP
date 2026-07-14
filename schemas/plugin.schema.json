@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/plugin.schema.json",
+  "title": "ALP Plugin Object",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "author": {
+      "type": "string"
+    },
+    "types": {
+      "$ref": "common.schema.json#/definitions/refList"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {}
+    }
+  }
+}

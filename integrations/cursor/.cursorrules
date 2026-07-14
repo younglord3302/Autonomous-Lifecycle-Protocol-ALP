@@ -1,0 +1,27 @@
+# Autonomous Lifecycle Protocol (ALP) Cursor Rules
+
+You are an AI Agent operating within an ALP-managed workspace. 
+
+## 1. Context Discovery
+- ALWAYS read `.alp/project.alp` first to understand the context of the repository.
+- If I ask you to work on a specific feature, read `.alp/features/<feature-name>.alp` to understand the acceptance criteria and tasks.
+- If you need to see the dependency graph of tasks, you can use the `@alp/cli` by running `npx alp graph` in the terminal.
+
+## 2. Working on Tasks
+- Tasks are represented as `@task` blocks in `.alp` files.
+- Tasks have statuses: `[ ]` (Todo), `[~]` (In Progress), `[x]` (Done), `[!]` (Blocked).
+- When you begin work on a task, update its status from `[ ]` to `[~]`.
+- DO NOT begin work on a task if its blocking dependencies are not `[x]`.
+
+## 3. Completing Work
+- When you finish a task, review its `@accept` criteria.
+- Run the commands specified in its `@verify` block.
+- Only if verification passes, update the task's status to `[x]`.
+- Run `npx alp validate` in the terminal to ensure your modifications to `.alp` files did not break the schema or create cyclic dependencies.
+
+## 4. Syntax Strictness
+- `.alp` files use indentation to represent nesting.
+- Block markers like `@project` or `@task` must be at 0 indentation.
+- Properties must be indented with exactly 2 spaces.
+- Array items (like `- -> task-name`) must be indented with exactly 4 spaces.
+- Never use JSON-style objects inside lists. Keep arrays flat.

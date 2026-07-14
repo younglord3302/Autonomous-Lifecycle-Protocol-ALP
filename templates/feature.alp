@@ -1,0 +1,35 @@
+!alp-version: 0.1.0
+
+// ----------------------------------------------------------------------------
+// FEATURE TEMPLATE
+// Use this template to define a major capability of your project.
+// Create one .alp file per feature in the .alp/features/ directory.
+// ----------------------------------------------------------------------------
+
+@feature
+  id: feat-example                  // Use kebab-case (e.g., feat-auth)
+  name: "Example Feature"
+  
+  // Current lifecycle stage. Must follow the order:
+  // discover -> understand -> plan -> design -> implement -> test -> 
+  // review -> refactor -> verify -> complete
+  lifecycle_stage: discover
+  
+  priority: medium                  // critical, high, medium, low
+  
+  description: |
+    Describe the feature in detail. What does the user accomplish with it?
+  
+  // High-level requirements for the feature to be considered complete
+  acceptance_criteria:
+    - Example requirement 1
+    - Example requirement 2
+  
+  // Tasks required to implement this feature
+  tasks: []
+    // - -> task-example-ui
+    // - -> task-example-api
+  
+  // Features that must be completed before this one can start
+  depends_on: []
+    // - -> feat-core-system | requires

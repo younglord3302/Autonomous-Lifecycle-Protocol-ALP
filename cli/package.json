@@ -1,0 +1,20 @@
+{
+  "name": "@alp/cli",
+  "version": "1.0.0",
+  "description": "Command Line Interface for ALP",
+  "main": "dist/index.js",
+  "bin": {
+    "alp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "@alp/parser": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "@types/node": "^20.0.0"
+  }
+}

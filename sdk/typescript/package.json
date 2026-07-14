@@ -1,0 +1,19 @@
+{
+  "name": "@alp/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript SDK for the Autonomous Lifecycle Protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@alp/parser": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": ["alp", "autonomous", "protocol", "sdk"],
+  "license": "MIT"
+}

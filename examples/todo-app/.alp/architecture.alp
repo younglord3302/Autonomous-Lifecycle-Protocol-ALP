@@ -1,0 +1,35 @@
+!alp-version: 2.0.0
+
+@decision
+  id: dec-tech-stack
+  status: [x]
+  context: "Need a full-stack framework with strong TypeScript support and easy deployment."
+  options:
+    - "React + Express backend"
+    - "Vue + Nuxt"
+    - "Next.js App Router"
+  selected: "Next.js App Router"
+  rationale: "Vercel lock-in is acceptable for the optimal performance benefits."
+  author: -> agent-planner
+
+---
+
+@decision
+  id: dec-database
+  status: [x]
+  context: "Need a relational database that works well with serverless environments."
+  options:
+    - "MongoDB"
+    - "Supabase (PostgreSQL)"
+  selected: "Supabase (PostgreSQL)"
+  rationale: "Serverless PostgreSQL support is unmatched."
+  author: -> agent-planner
+
+---
+
+@rule
+  id: rule-typescript
+  type: coding
+  condition: "Writing any TypeScript code"
+  action: "All code must be strictly typed. No 'any' allowed."
+  severity: error

@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/common.schema.json",
+  "title": "ALP Common Definitions",
+  "description": "Common types and fields shared across all ALP protocol objects.",
+  "definitions": {
+    "status": {
+      "type": "string",
+      "enum": ["[ ]", "[~]", "[x]", "[!]", "[-]"],
+      "description": "Lifecycle status marker: [ ] Todo, [~] In Progress, [x] Done, [!] Blocked, [-] Canceled"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^-> [a-z0-9-]+(::[a-z0-9-]+)*$",
+      "description": "A reference to another ALP object, e.g. '-> task-1' or '-> my-project::task-1'"
+    },
+    "refList": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ref" },
+      "description": "A list of references"
+    },
+    "commonFields": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Unique identifier (kebab-case)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version of this object"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Arbitrary tags for filtering"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human/agent-readable description"
+        }
+      },
+      "required": ["id"]
+    }
+  }
+}

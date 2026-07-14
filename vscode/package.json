@@ -1,0 +1,49 @@
+{
+  "name": "alp-vscode",
+  "displayName": "ALP Language Support",
+  "description": "Language support for the Autonomous Lifecycle Protocol (.alp)",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "alp",
+        "aliases": [
+          "Autonomous Lifecycle Protocol",
+          "ALP"
+        ],
+        "extensions": [
+          ".alp"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "alp",
+        "scopeName": "source.alp",
+        "path": "./syntaxes/alp.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@alp/parser": "*"
+  }
+}

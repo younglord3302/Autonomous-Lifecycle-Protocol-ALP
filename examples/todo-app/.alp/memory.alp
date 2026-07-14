@@ -1,0 +1,17 @@
+!alp-version: 2.0.0
+
+@memory
+  id: mem-auth-token
+  type: feature
+  content: "We are storing JWT tokens in HTTP-only cookies, not localStorage, to prevent XSS attacks. The cookie name is 'sb-auth-token'."
+  related:
+    - -> feat-user-auth
+  agent: -> agent-planner
+
+---
+
+@memory
+  id: mem-db-issue
+  type: error
+  content: "Row Level Security (RLS) must be enabled on all tables, otherwise insertions fail silently via the client SDK."
+  agent: -> agent-developer

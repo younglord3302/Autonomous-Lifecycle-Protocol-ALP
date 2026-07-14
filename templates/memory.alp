@@ -1,0 +1,22 @@
+!alp-version: 0.1.0
+
+// ----------------------------------------------------------------------------
+// MEMORY TEMPLATE
+// This file stores persistent knowledge discovered by agents.
+// Agents will append to this file automatically.
+// ----------------------------------------------------------------------------
+
+@memory
+  id: mem-example-001
+  
+  // Types: project, architecture, feature, task, decision, error, etc.
+  type: project
+  
+  key: "coding-standard"
+  value: |
+    Always use 2 spaces for indentation.
+    Prefer functional components in React.
+    
+  importance: high                // critical, high, medium, low
+  source: "agent-planner"
+  created: 2025-07-14T12:00:00Z

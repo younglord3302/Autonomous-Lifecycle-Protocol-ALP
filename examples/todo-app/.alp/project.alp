@@ -1,0 +1,18 @@
+!alp-version: 2.0.0
+
+@project
+  id: todo-app
+  status: [~]
+  description: "A demonstration project for the Autonomous Lifecycle Protocol. This is a standard Todo application with user authentication and task management."
+  features:
+    - -> feat-user-auth
+    - -> feat-task-management
+
+---
+
+@goal
+  id: goal-mvp
+  status: [~]
+  target: "Launch a working todo application with auth and core task management"
+  deadline: "2026-12-31T23:59:59Z"
+  priority: critical

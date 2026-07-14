@@ -1,0 +1,27 @@
+!alp-version: 2.0.0
+
+@workspace
+  id: example-monorepo
+  description: "A demonstration workspace containing multiple interconnected projects (microservices and frontend apps)."
+  projects:
+    - "apps/*"
+    - "packages/*"
+    - "git+https://github.com/example/auth-service.git"
+  shared_agents:
+    - -> agent-devops
+  shared_rules:
+    - -> rule-typescript-strict
+
+---
+
+@agent
+  id: agent-devops
+  role: "Workspace DevOps"
+  permissions:
+    - execute
+    - deploy
+  responsibilities:
+    - Deploy all services
+    - Monitor cross-project dependencies
+  workspace_access:
+    - all

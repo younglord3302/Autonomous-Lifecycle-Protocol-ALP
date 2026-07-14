@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/workflow.schema.json",
+  "title": "ALP Workflow Object",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "status": {
+      "$ref": "common.schema.json#/definitions/status"
+    },
+    "type": {
+      "type": "string"
+    },
+    "trigger": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "items": {}
+    }
+  }
+}

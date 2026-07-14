@@ -1,0 +1,7 @@
+!alp-version: 1.0.0
+
+@project
+  id: bad-indent-project
+  name: "Bad Indent Project"
+   version: 1.0.0
+  state: planning

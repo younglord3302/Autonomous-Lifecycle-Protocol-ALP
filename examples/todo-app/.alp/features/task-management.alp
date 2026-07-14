@@ -1,0 +1,26 @@
+!alp-version: 2.0.0
+
+@feature
+  id: feat-task-management
+  status: [~]
+  description: "Core functionality allowing users to CRUD their todo items."
+  depends_on:
+    - -> feat-user-auth
+
+---
+
+@task
+  id: task-db-schema
+  status: [x]
+  feature: -> feat-task-management
+  owner: -> agent-developer
+
+---
+
+@task
+  id: task-api-crud
+  status: [ ]
+  feature: -> feat-task-management
+  owner: -> agent-developer
+  depends_on:
+    - -> task-db-schema

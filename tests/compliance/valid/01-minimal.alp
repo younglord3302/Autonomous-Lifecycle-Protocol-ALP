@@ -1,0 +1,7 @@
+!alp-version: 1.0.0
+
+@project
+  id: minimal-project
+  name: "Minimal Valid Project"
+  version: 1.0.0
+  state: planning

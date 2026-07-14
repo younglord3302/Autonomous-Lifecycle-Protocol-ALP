@@ -1,0 +1,24 @@
+!alp-version: 2.0.0
+
+@feature
+  id: feat-user-auth
+  status: [~]
+  description: "User registration, login, and session management."
+
+---
+
+@task
+  id: task-auth-setup
+  status: [x]
+  feature: -> feat-user-auth
+  owner: -> agent-developer
+
+---
+
+@task
+  id: task-login-ui
+  status: [~]
+  feature: -> feat-user-auth
+  owner: -> agent-developer
+  depends_on:
+    - -> task-auth-setup

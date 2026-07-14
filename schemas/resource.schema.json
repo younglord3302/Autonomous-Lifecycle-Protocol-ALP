@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/resource.schema.json",
+  "title": "ALP Resource Object",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "type": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "credentials": {
+      "$ref": "common.schema.json#/definitions/ref"
+    }
+  }
+}

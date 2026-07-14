@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/state.schema.json",
+  "title": "ALP State Object",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "phase": {
+      "type": "string"
+    },
+    "active_workflow": {
+      "$ref": "common.schema.json#/definitions/ref"
+    },
+    "active_tasks": {
+      "$ref": "common.schema.json#/definitions/refList"
+    },
+    "last_checkpoint": {
+      "type": "string"
+    },
+    "agent_states": {
+      "type": "object"
+    },
+    "global_milestones": {
+      "type": "object"
+    }
+  }
+}

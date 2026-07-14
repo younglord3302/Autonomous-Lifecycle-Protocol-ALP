@@ -1,0 +1,40 @@
+!alp-version: 2.0.0
+
+@agent
+  id: agent-planner
+  role: "Lead Planner"
+  permissions:
+    - read
+    - write
+  tools:
+    - github-api
+  responsibilities:
+    - Breakdown features into tasks
+    - Update project state
+    - Manage dependencies
+  limits:
+    max_concurrent_tasks: 2
+  workspace_access:
+    - "todo-app"
+
+---
+
+@agent
+  id: agent-developer
+  role: "Fullstack Developer"
+  permissions:
+    - read
+    - write
+    - execute
+  tools:
+    - terminal
+    - editor
+  responsibilities:
+    - Write React components
+    - Create API endpoints
+    - Write Jest tests
+  limits:
+    max_concurrent_tasks: 1
+    requires_review: 0
+  workspace_access:
+    - "todo-app"

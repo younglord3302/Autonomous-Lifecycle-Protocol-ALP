@@ -1,0 +1,35 @@
+!alp-version: 0.1.0
+
+// ----------------------------------------------------------------------------
+// PROJECT TEMPLATE
+// This file defines the root project settings and overall metadata.
+// Keep exactly one project.alp file in the .alp/ directory.
+// ----------------------------------------------------------------------------
+
+@project
+  id: my-project                  // Use kebab-case (e.g., e-commerce-app)
+  name: "My Project"              // Human-readable project name
+  version: 0.1.0                  // Semantic version (MAJOR.MINOR.PATCH)
+  
+  // Current high-level state.
+  // Valid states: planning, architecture, development, testing, blocked, 
+  // waiting, review, completed, archived.
+  state: planning
+  
+  // Basic project characteristics
+  language: typescript
+  framework: next.js
+  
+  description: |
+    Provide a detailed description of the project here. What does it do?
+    Who is it for? What is the core value proposition?
+  
+  // References to main features (create these in features/*.alp)
+  features: []
+    // - -> feat-example-auth
+    // - -> feat-example-dashboard
+  
+  // References to assigned agents (create these in agents.alp)
+  agents: []
+    // - -> agent-planner
+    // - -> agent-developer

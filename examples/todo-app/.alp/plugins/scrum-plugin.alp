@@ -1,0 +1,39 @@
+!alp-version: 0.2.0
+
+@plugin
+  id: plugin-scrum
+  name: "Scrum Extension"
+  version: 1.0.0
+  description: "Adds Agile/Scrum object types like Epics and Sprints"
+  author: "ALP Community"
+  types:
+    - -> type-epic
+    - -> type-sprint
+
+---
+
+@type_definition
+  id: type-epic
+  type_name: epic
+  description: "A large body of work that can be broken down into specific tasks (or stories)"
+  properties:
+    - { name: "id", type: "String", required: true }
+    - { name: "name", type: "String", required: true }
+    - { name: "status", type: "Status", required: true }
+    - { name: "features", type: "List[Ref]", required: false }
+  allowed_nested:
+    - "accept"
+    - "verify"
+
+---
+
+@type_definition
+  id: type-sprint
+  type_name: sprint
+  description: "A time-boxed iteration of work"
+  properties:
+    - { name: "id", type: "String", required: true }
+    - { name: "name", type: "String", required: true }
+    - { name: "start_date", type: "Date", required: true }
+    - { name: "end_date", type: "Date", required: true }
+    - { name: "tasks", type: "List[Ref]", required: false }

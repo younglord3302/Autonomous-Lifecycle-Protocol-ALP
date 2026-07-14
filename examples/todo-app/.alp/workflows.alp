@@ -1,0 +1,12 @@
+!alp-version: 2.0.0
+
+@workflow
+  id: wf-standard-development
+  status: [~]
+  type: "development-loop"
+  trigger: "manual"
+  
+  steps:
+    - "Implementation"
+    - "Testing"
+    - "Verification"

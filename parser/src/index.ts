@@ -1,0 +1,37 @@
+import { AlpReader, AlpObject } from './reader';
+import { AlpValidator } from './validator';
+export * from './error';
+export * from './graph';
+export * from './loop';
+export * from './memory';
+export { AlpObject };
+
+export class AlpParser {
+  private reader: AlpReader;
+  private validator: AlpValidator;
+  
+  constructor() {
+    this.reader = new AlpReader();
+    this.validator = new AlpValidator();
+  }
+  
+  /**
+   * Parse raw .alp content into objects (no validation).
+   */
+  public parse(content: string): AlpObject[] {
+    return this.reader.parse(content);
+  }
+
+  /**
+   * Parse and validate .alp content against JSON schemas.
+   */
+  public parseAndValidate(content: string): AlpObject[] {
+    const objects = this.reader.parse(content);
+    
+    for (const obj of objects) {
+      this.validator.validate(obj);
+    }
+    
+    return objects;
+  }
+}

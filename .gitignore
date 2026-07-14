@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.npm
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Cache
+.alp/.cache/
+*.lock
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary
+tmp/
+temp/
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# VitePress
+docs-site/.vitepress/dist/
+docs-site/.vitepress/cache/

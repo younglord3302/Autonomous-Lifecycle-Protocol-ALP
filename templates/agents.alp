@@ -1,0 +1,49 @@
+!alp-version: 0.1.0
+
+// ----------------------------------------------------------------------------
+// AGENTS TEMPLATE
+// Define the AI agents that will work on this project.
+// ----------------------------------------------------------------------------
+
+@agent
+  id: agent-planner
+  name: "Project Planner"
+  
+  // Roles: planner, architect, frontend, backend, fullstack, qa, etc.
+  role: planner
+  
+  description: "Responsible for breaking down features and assigning tasks."
+  
+  responsibilities:
+    - Analyze user requirements
+    - Create and maintain task lists
+    - Update project state
+    
+  permissions:
+    - read
+    - write
+    
+  limits:
+    max_concurrent_tasks: 2
+
+---
+
+@agent
+  id: agent-developer
+  name: "Fullstack Developer"
+  role: fullstack
+  description: "Responsible for implementing tasks and writing tests."
+  
+  responsibilities:
+    - Write application code
+    - Write unit tests
+    - Fix bugs
+    
+  permissions:
+    - read
+    - write
+    - execute
+    
+  limits:
+    max_concurrent_tasks: 1
+    requires_review: true

@@ -1,0 +1,37 @@
+{
+  "name": "alp-monorepo",
+  "version": "2.0.0",
+  "description": "Autonomous Lifecycle Protocol (ALP) - The universal protocol for autonomous software engineering",
+  "private": true,
+  "workspaces": [
+    "schemas",
+    "parser",
+    "cli",
+    "sdk/*",
+    "playground",
+    "vscode",
+    "docs-site"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alp-protocol/alp.git"
+  },
+  "keywords": [
+    "alp",
+    "protocol",
+    "ai",
+    "agent",
+    "autonomous",
+    "software-engineering"
+  ],
+  "author": "ALP Contributors",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/alp-protocol/alp/issues"
+  },
+  "homepage": "https://github.com/alp-protocol/alp#readme"
+}

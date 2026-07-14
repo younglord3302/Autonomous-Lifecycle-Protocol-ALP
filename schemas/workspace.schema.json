@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/workspace.schema.json",
+  "title": "ALP Workspace Object",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "projects": {
+      "type": "array",
+      "items": {}
+    },
+    "workspaces": {
+      "type": "array",
+      "items": {}
+    },
+    "shared_agents": {
+      "$ref": "common.schema.json#/definitions/refList"
+    },
+    "shared_rules": {
+      "$ref": "common.schema.json#/definitions/refList"
+    },
+    "shared_constraints": {
+      "$ref": "common.schema.json#/definitions/refList"
+    },
+    "shared_context": {
+      "$ref": "common.schema.json#/definitions/refList"
+    }
+  }
+}
