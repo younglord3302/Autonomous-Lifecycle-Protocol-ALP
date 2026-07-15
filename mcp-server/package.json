@@ -1,0 +1,21 @@
+{
+  "name": "@alp/mcp-server",
+  "version": "2.0.0",
+  "description": "ALP Model Context Protocol Server — Connect any AI agent to your ALP workspace",
+  "main": "dist/index.js",
+  "bin": {
+    "alp-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@alp/parser": "file:../parser"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

@@ -4,6 +4,7 @@ import { initCommand } from './commands/init';
 import { validateCommand } from './commands/validate';
 import { graphCommand } from './commands/graph';
 import { statusCommand } from './commands/status';
+import { runCommand } from './commands/run';
 
 const program = new Command();
 
@@ -34,4 +35,13 @@ program
   .description('Show project state and progress')
   .action(statusCommand);
 
+program
+  .command('run')
+  .description('Execute a task by compiling its full context bundle')
+  .argument('[task]', 'Task ID to execute (auto-selects next available if omitted)')
+  .option('--agent <agent>', 'Override the assigned agent')
+  .option('--dry-run', 'Preview the context bundle without executing')
+  .action((task, opts) => runCommand(task, opts));
+
 program.parse(process.argv);
+
