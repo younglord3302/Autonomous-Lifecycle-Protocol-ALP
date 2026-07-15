@@ -10,11 +10,13 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@alp/parser": "*",
     "commander": "^11.0.0",
-    "@alp/parser": "*"
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "typescript": "^5.2.2",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "@types/yaml": "^1.9.6",
+    "typescript": "^5.2.2"
   }
 }

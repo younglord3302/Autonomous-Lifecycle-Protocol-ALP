@@ -6,6 +6,11 @@ import { graphCommand } from './commands/graph';
 import { statusCommand } from './commands/status';
 import { runCommand } from './commands/run';
 import { installCommand } from './commands/install';
+import { exportCommand } from './commands/export';
+import { lintCommand } from './commands/lint';
+import { verifyCommand } from './commands/verify';
+import { doctorCommand } from './commands/doctor';
+import { upgradeCommand } from './commands/upgrade';
 
 const program = new Command();
 
@@ -24,6 +29,27 @@ program
   .description('Validate all .alp files against schemas')
   .argument('[file]', 'Optional specific file to validate')
   .action(validateCommand);
+
+program
+  .command('lint')
+  .description('Lint the ALP workspace for style conventions and best practices')
+  .action(lintCommand);
+
+program
+  .command('verify')
+  .description('Execute quality gates and verification scripts for a task')
+  .argument('<taskId>', 'The ID of the task to verify')
+  .action(verifyCommand);
+
+program
+  .command('doctor')
+  .description('Diagnose workspace health and environment configuration')
+  .action(doctorCommand);
+
+program
+  .command('upgrade')
+  .description('Upgrade legacy ALP files to the latest specification version')
+  .action(upgradeCommand);
 
 program
   .command('graph')
@@ -49,6 +75,14 @@ program
   .description('Install a community package from the ALP Registry')
   .argument('<package>', 'Name of the package to install (e.g. @community/scrum-master)')
   .action(installCommand);
+
+program
+  .command('export')
+  .description('Export the ALP workspace to a unified JSON or YAML file')
+  .option('--format <format>', 'Export format: json or yaml', 'json')
+  .option('--out <file>', 'Output file path (prints to stdout if omitted)')
+  .option('--minified', 'Minify JSON output (only applies to json format)')
+  .action(exportCommand);
 
 program.parse(process.argv);
 
