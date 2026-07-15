@@ -52,3 +52,6 @@ venv/
 docs-site/.vitepress/dist/
 docs-site/.vitepress/cache/
 docs-site/.vitepress/.temp/
+docs-site/src/.vitepress/dist/
+docs-site/src/.vitepress/cache/
+docs-site/src/.vitepress/.temp/
