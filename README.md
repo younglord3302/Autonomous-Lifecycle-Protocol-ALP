@@ -1,56 +1,134 @@
 <div align="center">
   <img src="branding/alp-logo.png" alt="ALP Logo" width="150" />
+  <br/>
+  <h1>Autonomous Lifecycle Protocol (ALP)</h1>
+  <p><b>The open standard and execution engine for Autonomous Software Engineering.</b></p>
+  <br/>
+
+  [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
+  [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](#)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 
-# Autonomous Lifecycle Protocol (ALP)
-**Version 2.0.0 (MVP)**
+<br/>
 
-[![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](#)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
+> **Git** standardized version control.  
+> **Docker** standardized environments.  
+> **OpenAPI** standardized APIs.  
+> **ALP** standardizes how AI builds software.
 
-ALP is the world's first open protocol for Autonomous Software Engineering. 
+Currently, every AI coding assistant (Devin, Claude Code, Cursor, OpenHands) relies on unstructured prompts and brittle context-gathering. They forget decisions, overwrite each other's work, and fail to track complex dependencies. 
 
-Just as Git standardized version control and Docker standardized containers, **ALP standardizes how AI agents build software**.
+**ALP is a machine-readable coordination layer stored directly in your repository (`.alp/`).** It provides a universal standard for tracking architecture, decisions, and tasks, alongside a powerful **Execution Engine** to orchestrate it all.
 
-## 📖 Quick Links
+---
 
-- [Usage Guide](docs/USAGE.md) - Get started with ALP in your projects
-- [Vision & Manifesto](docs/VISION.md) - Why ALP exists
-- [Formal Specification](spec/01-overview.md) - The technical protocol definitions
-- [Architecture Schemas](schemas/README.md) - JSON Schemas for validation
+## 🆚 Why ALP? (Comparison)
 
-## 🚀 What is ALP?
+How does ALP compare to traditional workflows and AI tools?
 
-Currently, every AI coding assistant (Devin, Claude Code, OpenHands, etc.) relies on unstructured text prompts and fragmented context gathering to understand a codebase. 
+| Feature | Traditional Workflow (Jira / Linear) | Current AI Tools (Cursor, Claude) | The ALP Standard |
+| :--- | :--- | :--- | :--- |
+| **Location** | External SaaS (Siloed) | Scrapes `.md` files blindly | Native `.alp/` files in the repo |
+| **State Tracking** | Human-updated tickets | AI guesses what needs to be done | Machine-enforced Directed Acyclic Graph |
+| **Context** | Lost in Slack / Confluence | Context window gets polluted | Precise `alp run` Context Bundles |
+| **Execution** | Manual assignment | Auto-executes blindly | `alp verify` enforces Quality Gates |
+| **Tooling** | Web UI only | Proprietary IDEs | Open Ecosystem (CLI, LSP, MCP) |
 
-ALP provides a **machine-readable coordination layer** stored directly in the repository (`.alp/`). It provides a universal standard for:
+---
 
-1. **State:** What is being built right now?
-2. **Context:** What architectural decisions have been made?
-3. **Coordination:** How do multiple specialized agents communicate without losing context?
-4. **Memory:** How do agents remember things across sessions?
+## 🧠 How it Works
+
+ALP parses your project into a **Directed Acyclic Graph (DAG)**. Agents only receive the exact context they need, exactly when they need it.
+
+```mermaid
+graph TD
+    subgraph "Your Repository (.alp/)"
+        D[Decision: Use PostgreSQL] --> T1[Task: Setup DB]
+        T1 --> T2[Task: Build API]
+        R[Rule: No ORMs] --> T2
+    end
+    
+    subgraph "Execution Engine (alp run)"
+        T2 --> |Context Bundle| C[Claude/Cursor Agent]
+    end
+
+    subgraph "Quality Gates (alp verify)"
+        C --> |npm test| V{Tests Pass?}
+        V --> |Yes| X(Mark [x] Done)
+        V --> |No| B(Mark [!] Blocked)
+    end
+```
+
+---
+
+## 🚀 The ALP Ecosystem
+
+ALP is not just a specification. It is a complete, production-ready ecosystem of tools designed to manage autonomous workflows.
+
+### 1. The Execution Engine (`alp run`)
+ALP parses your `.alp` files into a Dependency Graph. Run `alp run` to automatically topological-sort your dependencies and compile highly optimized **Context Bundles**.
+```bash
+alp run | claude-code
+```
+This pipes the exact state of the project, relevant decisions, rules, and cross-session memories directly into your agent, ensuring zero hallucinations.
+
+### 2. Verification & Quality Gates (`alp verify`)
+An AI shouldn't mark a task as done unless it proves it works. 
+```bash
+alp verify task-auth
+```
+This command automatically executes the shell scripts defined in your task's `verify` array. If they exit `0`, the task is marked `[x]`. If they fail, the task is marked `[!]` (Blocked), stopping the Execution Engine from proceeding.
+
+### 3. Model Context Protocol Server (`@alp/mcp-server`)
+Natively expose your project's architecture to Claude Desktop and Cursor. Agents can use tools like `alp_get_graph` and `alp_read_object` to query your repository's state in real time before writing a single line of code.
+
+### 4. VS Code Language Server (`alp-vscode`)
+Writing `.alp` files is a first-class experience. Install the packaged `alp-vscode-2.0.0.vsix` to get:
+- **IntelliSense**: Autocomplete IDs and directives.
+- **Go to Definition**: Jump directly to task or decision definitions across files.
+- **Rich Hover**: View task descriptions, status, and metadata instantly.
+
+---
 
 ## 📦 Packages
 
-ALP provides the following reference implementations:
-
 | Package | Description |
 |---|---|
-| `@alp/schemas` | The official JSON Schema definitions for all 22 ALP protocol objects |
-| `@alp/parser` | The TypeScript engine for reading `.alp` files, building dependency graphs, and managing execution loops |
-| `@alp/cli` | The terminal interface (`alp init`, `alp validate`, `alp graph`, `alp status`) |
-| `@alp/sdk` | The TypeScript SDK for programmatic access to ALP workspaces |
-| `alp-sdk` | The Python SDK native implementation with JSON schema validation |
-| `alp-vscode` | The official VS Code extension for syntax highlighting and real-time diagnostics |
+| [`@alp/cli`](cli/) | The terminal interface (`run`, `verify`, `doctor`, `lint`, `export`, `upgrade`) |
+| [`@alp/parser`](parser/) | The engine for parsing `.alp` files and managing Kahn's Topological sort |
+| [`@alp/mcp-server`](mcp-server/) | The MCP server for IDE and Agent integrations |
+| [`@alp/vscode`](vscode/) | The official VS Code extension |
+| [`@alp/sdk`](sdk/) | The TypeScript SDK for programmatic access |
+| [`alp-sdk`](sdk/python/) | The Python SDK native implementation |
+| [`docs-site`](docs-site/) | The official VitePress documentation site |
 
-## 🛠️ Installation
+---
 
+## 🛠️ Quick Start
+
+Install the CLI globally:
 ```bash
 npm install -g @alp/cli
 ```
 
-*See the [Usage Guide](docs/USAGE.md) for full commands and Node.js API integration.*
+Initialize a new ALP workspace in your repository:
+```bash
+alp init --template react
+```
+
+Start the Execution Engine:
+```bash
+alp run
+```
+
+---
+
+## 📖 Documentation
+
+- **[Official Documentation Site](docs-site/)**: Read the guides on the Execution Engine and MCP Integrations.
+- **[Vision & Manifesto](docs/VISION.md)**: Why ALP exists.
+- **[Formal Specification](spec/01-overview.md)**: The technical protocol definitions.
 
 ## 🤝 Contributing
 
