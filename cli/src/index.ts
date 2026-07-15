@@ -11,6 +11,7 @@ import { lintCommand } from './commands/lint';
 import { verifyCommand } from './commands/verify';
 import { doctorCommand } from './commands/doctor';
 import { upgradeCommand } from './commands/upgrade';
+import { importCommand } from './commands/import';
 
 const program = new Command();
 
@@ -50,6 +51,12 @@ program
   .command('upgrade')
   .description('Upgrade legacy ALP files to the latest specification version')
   .action(upgradeCommand);
+
+program
+  .command('import')
+  .description('Import legacy markdown rules (.cursorrules, etc.) into ALP format')
+  .argument('[file]', 'Optional specific file to import')
+  .action(importCommand);
 
 program
   .command('graph')

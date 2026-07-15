@@ -1,0 +1,17 @@
+# TypeScript Standards
+Use strict TypeScript with no `any` types. All functions must have return types. Use `interface` over `type` for object shapes.
+
+## No Console Logs
+Remove all console.log statements before committing. Use proper logging libraries instead.
+
+# Code Style
+Use 2-space indentation. Use single quotes for strings. Max line length: 100 characters.
+
+## Testing Requirements
+All new functions must have unit tests. Minimum 80% code coverage. Use Vitest for all tests.
+
+# Security Rules
+Never commit secrets or API keys. Use environment variables for all credentials. Validate all user input before processing.
+
+## Database
+Use parameterized queries only. Never write raw SQL strings with user input. Always use transactions for multi-step writes.
