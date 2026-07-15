@@ -33,5 +33,8 @@
   "bugs": {
     "url": "https://github.com/alp-protocol/alp/issues"
   },
-  "homepage": "https://github.com/alp-protocol/alp#readme"
+  "homepage": "https://github.com/alp-protocol/alp#readme",
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
 }

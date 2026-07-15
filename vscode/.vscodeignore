@@ -1,0 +1,13 @@
+node_modules
+src
+.vscode-test
+*.map
+tsconfig.json
+.git
+.gitignore
+server/node_modules
+server/src
+server/tsconfig.json
+server/package.json
+server/package-lock.json
+esbuild.js

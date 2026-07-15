@@ -3,8 +3,13 @@
   "displayName": "ALP Language Support",
   "description": "Full language support for the Autonomous Lifecycle Protocol (.alp) — IntelliSense, Go to Definition, Hover, and Diagnostics",
   "version": "2.0.0",
+  "publisher": "younglord3302",
   "engines": {
     "vscode": "^1.80.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/younglord3302/Autonomous-Lifecycle-Protocol-ALP-"
   },
   "categories": [
     "Programming Languages",
@@ -36,12 +41,13 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "compile": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.80.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.0.0"
   },
   "dependencies": {
