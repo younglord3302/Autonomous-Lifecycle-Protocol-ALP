@@ -1,0 +1,61 @@
+name: "ALP State Sync"
+
+on:
+  pull_request:
+    types: [opened, reopened, closed, synchronize]
+
+jobs:
+  alp_sync:
+    name: Sync PR status to ALP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ALP CLI
+        run: npm install -g @alp/cli
+
+      - name: Sync Task Status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+
+            // Extract ALP task ID from PR title or branch name
+            // Convention: feat/task-id or title contains [task-id]
+            let taskId = null;
+            const branchMatch = pr.head.ref.match(/(?:feat|fix|chore)\/([a-zA-Z0-9_-]+)/);
+            if (branchMatch) taskId = branchMatch[1];
+            
+            const titleMatch = pr.title.match(/\[([a-zA-Z0-9_-]+)\]/);
+            if (titleMatch) taskId = titleMatch[1];
+
+            if (!taskId) {
+              console.log("No ALP task ID found in branch name or PR title.");
+              return;
+            }
+
+            console.log(`Matched ALP task ID: ${taskId}`);
+
+            // Determine target status
+            let newStatus = '';
+            if (pr.merged) {
+              newStatus = '[x]'; // Done
+            } else if (pr.state === 'closed') {
+              newStatus = '[ ]'; // Reverted to Todo
+            } else {
+              newStatus = '[~]'; // In Progress / Review
+            }
+
+            console.log(`Setting task ${taskId} status to ${newStatus}`);
+
+            // In a real implementation, this script would run a local tool
+            // or script to update the specific .alp file containing the task.
+            // Example:
+            // execSync(`alp status --update ${taskId} "${newStatus}"`);

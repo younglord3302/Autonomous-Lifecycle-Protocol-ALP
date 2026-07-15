@@ -1,0 +1,184 @@
+- _type: agent
+  id: agent-planner
+  role: Lead Planner
+  permissions:
+    - read
+    - write
+  tools:
+    - github-api
+  responsibilities:
+    - Breakdown features into tasks
+    - Update project state
+    - Manage dependencies
+  limits:
+    max_concurrent_tasks: 2
+  workspace_access:
+    - '"todo-app"'
+- _type: agent
+  id: agent-developer
+  role: Fullstack Developer
+  permissions:
+    - read
+    - write
+    - execute
+  tools:
+    - terminal
+    - editor
+  responsibilities:
+    - Write React components
+    - Create API endpoints
+    - Write Jest tests
+  limits:
+    max_concurrent_tasks: 1
+    requires_review: 0
+  workspace_access:
+    - '"todo-app"'
+- _type: decision
+  id: dec-tech-stack
+  status: "[x]"
+  context: Need a full-stack framework with strong TypeScript support and easy
+    deployment.
+  options:
+    - '"React + Express backend"'
+    - '"Vue + Nuxt"'
+    - '"Next.js App Router"'
+  selected: Next.js App Router
+  rationale: Vercel lock-in is acceptable for the optimal performance benefits.
+  author: -> agent-planner
+- _type: decision
+  id: dec-database
+  status: "[x]"
+  context: Need a relational database that works well with serverless environments.
+  options:
+    - '"MongoDB"'
+    - '"Supabase (PostgreSQL)"'
+  selected: Supabase (PostgreSQL)
+  rationale: Serverless PostgreSQL support is unmatched.
+  author: -> agent-planner
+- _type: rule
+  id: rule-typescript
+  type: coding
+  condition: Writing any TypeScript code
+  action: All code must be strictly typed. No 'any' allowed.
+  severity: error
+- _type: task
+  id: task-db-schema
+  status: "[x]"
+  feature: -> feat-task-management
+  owner: -> agent-developer
+- _type: feature
+  id: feat-user-auth
+  status: "[~]"
+  description: User registration, login, and session management.
+- _type: task
+  id: task-auth-setup
+  status: "[x]"
+  feature: -> feat-user-auth
+  owner: -> agent-developer
+- _type: memory
+  id: mem-auth-token
+  type: feature
+  content: We are storing JWT tokens in HTTP-only cookies, not localStorage, to
+    prevent XSS attacks. The cookie name is 'sb-auth-token'.
+  related:
+    - -> feat-user-auth
+  agent: -> agent-planner
+- _type: memory
+  id: mem-db-issue
+  type: error
+  content: Row Level Security (RLS) must be enabled on all tables, otherwise
+    insertions fail silently via the client SDK.
+  agent: -> agent-developer
+- _type: plugin
+  id: plugin-scrum
+  name: Scrum Extension
+  version: 1.0.0
+  description: Adds Agile/Scrum object types like Epics and Sprints
+  author: ALP Community
+  types:
+    - -> type-epic
+    - -> type-sprint
+- _type: type_definition
+  id: type-epic
+  type_name: epic
+  description: A large body of work that can be broken down into specific tasks (or stories)
+  properties:
+    - '{ name: "id", type: "String", required: true }'
+    - '{ name: "name", type: "String", required: true }'
+    - '{ name: "status", type: "Status", required: true }'
+    - '{ name: "features", type: "List[Ref]", required: false }'
+  allowed_nested:
+    - '"accept"'
+    - '"verify"'
+- _type: type_definition
+  id: type-sprint
+  type_name: sprint
+  description: A time-boxed iteration of work
+  properties:
+    - '{ name: "id", type: "String", required: true }'
+    - '{ name: "name", type: "String", required: true }'
+    - '{ name: "start_date", type: "Date", required: true }'
+    - '{ name: "end_date", type: "Date", required: true }'
+    - '{ name: "tasks", type: "List[Ref]", required: false }'
+- _type: project
+  id: todo-app
+  status: "[~]"
+  description: A demonstration project for the Autonomous Lifecycle Protocol. This
+    is a standard Todo application with user authentication and task management.
+  features:
+    - -> feat-user-auth
+    - -> feat-task-management
+- _type: goal
+  id: goal-mvp
+  status: "[~]"
+  target: Launch a working todo application with auth and core task management
+  deadline: 2026-12-31T23:59:59Z
+  priority: critical
+- _type: state
+  id: state-todo-app
+  phase: development
+  active_workflow: -> wf-standard-development
+  active_tasks:
+    - -> task-api-routes
+  last_checkpoint: chk-2025-07-15-a1b2c3
+  agent_states:
+    agent-developer: working on api routes
+  global_milestones:
+    backend-complete: "false"
+- _type: workflow
+  id: wf-scrum-sprint
+  description: Standard 2-week Agile Scrum Sprint
+  phases:
+    - sprint-planning
+    - daily-standups
+    - sprint-review
+    - retrospective
+- _type: workflow
+  id: wf-standard-development
+  status: "[~]"
+  type: development-loop
+  trigger: manual
+  steps:
+    - '"Implementation"'
+    - '"Testing"'
+    - '"Verification"'
+- _type: task
+  id: task-api-crud
+  status: "[ ]"
+  feature: -> feat-task-management
+  owner: -> agent-developer
+  depends_on:
+    - -> task-db-schema
+- _type: feature
+  id: feat-task-management
+  status: "[~]"
+  description: Core functionality allowing users to CRUD their todo items.
+  depends_on:
+    - -> feat-user-auth
+- _type: task
+  id: task-login-ui
+  status: "[~]"
+  feature: -> feat-user-auth
+  owner: -> agent-developer
+  depends_on:
+    - -> task-auth-setup

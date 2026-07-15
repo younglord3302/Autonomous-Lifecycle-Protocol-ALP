@@ -11,15 +11,21 @@
 
 @task
   id: task-db-schema
-  status: [x]
-  feature: -> feat-task-management
-  owner: -> agent-developer
+  status: "[!]"
+  description: "Design and implement the PostgreSQL database schema for the application"
+  status: "[~]"
+  assigned_to: -> agent-architect
+  depends_on:
+    - -> dec-tech-stack
+    - -> dec-database
+  verify:
+    - "echo Checking database schema... OK"
 
 ---
 
 @task
   id: task-api-crud
-  status: [ ]
+  status: "[x]"
   feature: -> feat-task-management
   owner: -> agent-developer
   depends_on:

@@ -1,0 +1,9 @@
+!alp-version 2.0.0
+@workflow
+  id: wf-scrum-sprint
+  description: "Standard 2-week Agile Scrum Sprint"
+  phases:
+    - sprint-planning
+    - daily-standups
+    - sprint-review
+    - retrospective
