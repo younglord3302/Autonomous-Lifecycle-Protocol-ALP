@@ -5,6 +5,7 @@ import { validateCommand } from './commands/validate';
 import { graphCommand } from './commands/graph';
 import { statusCommand } from './commands/status';
 import { runCommand } from './commands/run';
+import { installCommand } from './commands/install';
 
 const program = new Command();
 
@@ -42,6 +43,12 @@ program
   .option('--agent <agent>', 'Override the assigned agent')
   .option('--dry-run', 'Preview the context bundle without executing')
   .action((task, opts) => runCommand(task, opts));
+
+program
+  .command('install')
+  .description('Install a community package from the ALP Registry')
+  .argument('<package>', 'Name of the package to install (e.g. @community/scrum-master)')
+  .action(installCommand);
 
 program.parse(process.argv);
 
