@@ -1,8 +1,16 @@
 import { defineConfig } from 'vitepress'
+import { alp, ebnf } from './langs'
 
 export default defineConfig({
   title: "ALP",
   description: "Autonomous Lifecycle Protocol",
+  markdown: {
+    code: {
+      shiki: {
+        languages: [alp, ebnf],
+      },
+    },
+  },
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
@@ -28,31 +36,23 @@ export default defineConfig({
         ]
       },
       {
-        text: 'Language Spec',
-        items: [
-          { text: 'Objects', link: '/objects' },
-          { text: 'Syntax', link: '/syntax' },
-          { text: 'References', link: '/references' }
-        ]
-      },
-      {
         text: 'Specification',
         items: [
           { text: '1. Overview', link: '/spec/01-overview' },
-          { text: '2. Core Syntax', link: '/spec/02-syntax' },
-          { text: '3. Project & Feature', link: '/spec/03-project-feature' },
-          { text: '4. Tasks', link: '/spec/04-tasks' },
-          { text: '5. Workflows', link: '/spec/05-workflows' },
-          { text: '6. Dependencies', link: '/spec/06-dependencies' },
-          { text: '7. Goals', link: '/spec/07-goals' },
-          { text: '8. Agents', link: '/spec/08-agents' },
-          { text: '9. Memory', link: '/spec/09-memory' },
-          { text: '10. State', link: '/spec/10-state' },
-          { text: '11. Rule & Decision', link: '/spec/11-rule-decision' },
-          { text: '12. Plugins', link: '/spec/12-plugins' },
+          { text: '2. Syntax', link: '/spec/02-syntax' },
+          { text: '3. Protocol Objects', link: '/spec/03-protocol-objects' },
+          { text: '4. Lifecycle', link: '/spec/04-lifecycle' },
+          { text: '5. Engines', link: '/spec/05-engines' },
+          { text: '6. Memory Model', link: '/spec/06-memory' },
+          { text: '7. Dependency Graph', link: '/spec/07-dependency-graph' },
+          { text: '8. Agent Model', link: '/spec/08-agent-model' },
+          { text: '9. Directory Structure', link: '/spec/09-directory-structure' },
+          { text: '10. Versioning', link: '/spec/10-versioning' },
+          { text: '11. Plugin System', link: '/spec/11-plugins' },
+          { text: '12. Expressions (ALPEL)', link: '/spec/12-expressions' },
           { text: '13. Multi-Project', link: '/spec/13-multi-project' },
-          { text: '14. Expressions', link: '/spec/14-expressions' },
-          { text: '15. Schema Validation', link: '/spec/15-schema-validation' },
+          { text: '14. Plugin Registry', link: '/spec/14-plugin-registry' },
+          { text: '15. Formal Grammar', link: '/spec/15-formal-grammar' },
           { text: '16. Compliance', link: '/spec/16-compliance' }
         ]
       }

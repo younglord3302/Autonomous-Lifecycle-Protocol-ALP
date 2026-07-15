@@ -1,0 +1,7 @@
+!alp-version: 1.0.0
+
+@agent
+  id: agent-backend
+  role: backend
+  permissions:
+    - admin

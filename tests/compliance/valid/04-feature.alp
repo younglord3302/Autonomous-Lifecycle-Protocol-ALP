@@ -1,0 +1,7 @@
+!alp-version: 1.0.0
+
+@feature
+  id: user-management
+  description: "User registration and login"
+  depends_on:
+    - -> build-auth

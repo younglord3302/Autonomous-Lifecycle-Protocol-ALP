@@ -1,0 +1,5 @@
+!alp-version: 1.0.0
+
+@rule
+  id: no-orms
+  description: "Do not use ORMs"

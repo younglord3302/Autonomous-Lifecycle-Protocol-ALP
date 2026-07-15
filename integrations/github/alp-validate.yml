@@ -1,25 +1,53 @@
-name: "ALP Validation"
+name: "ALP CI"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  validate:
+  test:
+    name: Unit & Compliance Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          
-      - name: Install ALP CLI
-        run: npm install -g @alp/cli
-        
-      - name: Validate ALP Workspace
-        run: alp validate
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Run unit & compliance tests
+        run: npm test
+
+  validate:
+    name: Validate Example Workspace
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build --workspace @alp/cli
+
+      - name: Validate examples/todo-app
+        working-directory: examples/todo-app
+        run: node ../cli/dist/index.js validate

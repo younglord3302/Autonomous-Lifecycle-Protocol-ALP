@@ -1,0 +1,9 @@
+!alp-version: 1.0.0
+
+@task
+  id: build-auth
+  description: "Build the authentication service"
+  depends_on:
+    - -> design-auth
+  status: "[ ]"
+  assigned_to: -> agent-backend

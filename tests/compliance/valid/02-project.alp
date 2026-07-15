@@ -1,0 +1,8 @@
+!alp-version: 1.0.0
+
+@project
+  id: ecommerce-platform
+  name: "E-commerce Platform"
+  version: 2.1.0
+  language: typescript
+  state: planning

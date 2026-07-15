@@ -1,0 +1,5 @@
+!alp-version: 1.0.0
+
+@decision
+  id: use-postgres
+  description: "Use PostgreSQL for persistence"

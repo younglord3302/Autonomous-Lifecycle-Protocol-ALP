@@ -52,21 +52,27 @@ export class AlpWorkspace {
   }
 
   /**
-   * Helper to recursively find all .alp files.
+   * Helper to recursively find all .alp files under a directory.
    */
   private findAlpFiles(dir: string): string[] {
     const fileList: string[] = [];
     const alpDir = path.join(dir, '.alp');
     if (!fs.existsSync(alpDir)) return fileList;
-    
-    const files = fs.readdirSync(alpDir);
-    for (const file of files) {
-      const filePath = path.join(alpDir, file);
-      const stat = fs.statSync(filePath);
-      if (!stat.isDirectory() && file.endsWith('.alp')) {
-        fileList.push(filePath);
+
+    const walk = (current: string): void => {
+      const entries = fs.readdirSync(current);
+      for (const entry of entries) {
+        const filePath = path.join(current, entry);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+          walk(filePath);
+        } else if (filePath.endsWith('.alp')) {
+          fileList.push(filePath);
+        }
       }
-    }
+    };
+
+    walk(alpDir);
     return fileList;
   }
 }

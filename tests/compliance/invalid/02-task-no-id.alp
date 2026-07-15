@@ -1,0 +1,4 @@
+!alp-version: 1.0.0
+
+@task
+  description: "Task without an ID should fail validation"
