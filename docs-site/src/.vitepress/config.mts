@@ -19,6 +19,23 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Ecosystem & Execution (V2)',
+        items: [
+          { text: 'Execution Engine (alp run)', link: '/execution-engine' },
+          { text: 'CLI Verification & Tools', link: '/cli-tools' },
+          { text: 'MCP Server', link: '/mcp-server' },
+          { text: 'VS Code Extension', link: '/vscode-extension' }
+        ]
+      },
+      {
+        text: 'Language Spec',
+        items: [
+          { text: 'Objects', link: '/objects' },
+          { text: 'Syntax', link: '/syntax' },
+          { text: 'References', link: '/references' }
+        ]
+      },
+      {
         text: 'Specification',
         items: [
           { text: '1. Overview', link: '/spec/01-overview' },
