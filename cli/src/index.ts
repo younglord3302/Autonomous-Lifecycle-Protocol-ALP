@@ -12,13 +12,14 @@ import { verifyCommand } from './commands/verify';
 import { doctorCommand } from './commands/doctor';
 import { upgradeCommand } from './commands/upgrade';
 import { importCommand } from './commands/import';
+import { checkpointCommand } from './commands/checkpoint';
 
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('2.0.0');
+  .version('3.0.0');
 
 program
   .command('init')
@@ -75,7 +76,16 @@ program
   .argument('[task]', 'Task ID to execute (auto-selects next available if omitted)')
   .option('--agent <agent>', 'Override the assigned agent')
   .option('--dry-run', 'Preview the context bundle without executing')
+  .option('--concurrent <n>', 'Number of parallel agent loops (v3 swarm mode)', parseInt)
   .action((task, opts) => runCommand(task, opts));
+
+program
+  .command('checkpoint')
+  .description('Report a task status update from an agent (used in swarm mode)')
+  .argument('<taskId>', 'The ID of the task to update')
+  .argument('<status>', 'New status: done, blocked, in-progress, todo')
+  .argument('[message]', 'Optional message to log to the runtime log')
+  .action(checkpointCommand);
 
 program
   .command('install')

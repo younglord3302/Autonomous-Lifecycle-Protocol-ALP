@@ -11,9 +11,9 @@
 
 @task
   id: task-db-schema
-  status: "[!]"
+  status: "[x]"
   description: "Design and implement the PostgreSQL database schema for the application"
-  status: "[~]"
+  status: "[x]"
   assigned_to: -> agent-architect
   depends_on:
     - -> dec-tech-stack

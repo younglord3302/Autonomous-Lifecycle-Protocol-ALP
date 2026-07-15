@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { AlpParser, AlpObject } from '@alp/parser';
+import { AlpParser, AlpObject, LockManager } from '@alp/parser';
 
 interface RunOptions {
   task?: string;
   agent?: string;
   dryRun?: boolean;
+  concurrent?: number;
 }
 
 /**
@@ -59,12 +60,21 @@ export function runCommand(taskId?: string, options?: RunOptions) {
         .map((obj) => obj.id)
     );
 
+    // Load lock manager to skip tasks claimed by concurrent runners
+    const lockManager = new LockManager(process.cwd());
+    const lockedIds = lockManager.getLockedTaskIds();
+
     for (const task of tasks) {
       if (task.status === '[ ]' || task.status === 'todo') {
+        if (lockedIds.has(task.id as string)) continue; // skip claimed tasks
         const deps = extractDependencies(task);
         const allDepsMet = deps.every((d) => doneIds.has(d));
         if (allDepsMet) {
           targetTask = task;
+          // Claim this task atomically
+          const agentId = options?.agent || 'default-agent';
+          const claimed = lockManager.claim(task.id as string, agentId);
+          if (!claimed) continue; // Another process sniped it — try next
           break;
         }
       }
@@ -75,6 +85,7 @@ export function runCommand(taskId?: string, options?: RunOptions) {
       return;
     }
   }
+
 
   // ─── 3. Gather Context ──────────────────────────────────────────────
   const project = allObjects.find((obj) => obj._type === 'project');

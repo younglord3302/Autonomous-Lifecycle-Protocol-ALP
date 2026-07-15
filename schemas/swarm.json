@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp.dev/schemas/swarm.json",
+  "title": "ALP Swarm",
+  "description": "Defines a pool of specialized agents that collaborate on a project concurrently.",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Unique kebab-case identifier for this swarm."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the swarm's purpose."
+    },
+    "agents": {
+      "type": "array",
+      "description": "References to @agent objects in this swarm.",
+      "items": { "type": "string" }
+    },
+    "max_concurrent": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16,
+      "default": 1,
+      "description": "Maximum number of tasks that can run in parallel in this swarm."
+    },
+    "strategy": {
+      "type": "string",
+      "enum": ["priority", "round-robin", "capability-match"],
+      "default": "priority",
+      "description": "The task-assignment strategy for the swarm scheduler."
+    }
+  },
+  "additionalProperties": false
+}

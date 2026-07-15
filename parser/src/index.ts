@@ -4,6 +4,7 @@ export * from './error';
 export * from './graph';
 export * from './loop';
 export * from './memory';
+export * from './lock-manager';
 export { AlpObject };
 
 export class AlpParser {

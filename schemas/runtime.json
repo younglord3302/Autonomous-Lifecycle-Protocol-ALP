@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp.dev/schemas/runtime.json",
+  "title": "ALP Runtime",
+  "description": "Runtime state object written by the ALP execution engine to track active agent claims on tasks.",
+  "type": "object",
+  "required": ["task_id", "agent_id", "claimed_at"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "The ID of the task being executed."
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "The ID of the agent that has claimed this task."
+    },
+    "claimed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the task was claimed."
+    },
+    "pid": {
+      "type": "integer",
+      "description": "The OS process ID of the agent loop that claimed this task."
+    }
+  },
+  "additionalProperties": false
+}
