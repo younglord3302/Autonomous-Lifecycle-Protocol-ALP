@@ -1,96 +1,53 @@
 import * as vscode from 'vscode';
-import { AlpParser } from '@alp/parser';
+import * as path from 'path';
+import {
+  LanguageClient,
+  LanguageClientOptions,
+  ServerOptions,
+  TransportKind,
+} from 'vscode-languageclient/node';
 
+let client: LanguageClient;
 let diagnosticCollection: vscode.DiagnosticCollection;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('ALP Language Support is now active.');
+  console.log('ALP Language Support v2.0 is now active.');
 
-  diagnosticCollection = vscode.languages.createDiagnosticCollection('alp');
-  context.subscriptions.push(diagnosticCollection);
+  // ─── Language Server ────────────────────────────────────────────────
+  const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
 
-  // Validate on open
-  if (vscode.window.activeTextEditor) {
-    validateDocument(vscode.window.activeTextEditor.document);
-  }
+  const serverOptions: ServerOptions = {
+    run: { module: serverModule, transport: TransportKind.ipc },
+    debug: { module: serverModule, transport: TransportKind.ipc },
+  };
 
-  // Validate when a document is opened
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument((doc) => {
-      if (doc.languageId === 'alp') {
-        validateDocument(doc);
-      }
-    })
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [{ scheme: 'file', language: 'alp' }],
+    synchronize: {
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.alp'),
+    },
+  };
+
+  client = new LanguageClient(
+    'alpLanguageServer',
+    'ALP Language Server',
+    serverOptions,
+    clientOptions
   );
 
-  // Validate when a document is changed
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument((event) => {
-      if (event.document.languageId === 'alp') {
-        validateDocument(event.document);
-      }
-    })
-  );
+  client.start();
 
-  // Clear diagnostics when document is closed
-  context.subscriptions.push(
-    vscode.workspace.onDidCloseTextDocument((doc) => {
-      diagnosticCollection.delete(doc.uri);
-    })
-  );
-
-  // Validate all open .alp documents on activation
-  vscode.workspace.textDocuments.forEach((doc) => {
-    if (doc.languageId === 'alp') {
-      validateDocument(doc);
-    }
-  });
+  // ─── Status Bar ─────────────────────────────────────────────────────
+  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusBar.text = '$(symbol-misc) ALP';
+  statusBar.tooltip = 'Autonomous Lifecycle Protocol — Active';
+  statusBar.show();
+  context.subscriptions.push(statusBar);
 }
 
-function validateDocument(document: vscode.TextDocument) {
-  if (document.languageId !== 'alp') {
-    return;
+export function deactivate(): Thenable<void> | undefined {
+  if (!client) {
+    return undefined;
   }
-
-  const text = document.getText();
-  const diagnostics: vscode.Diagnostic[] = [];
-
-  try {
-    const parser = new AlpParser();
-    parser.parseAndValidate(text);
-    // No errors — clear diagnostics
-  } catch (err: any) {
-    const message = err.message || 'Unknown ALP error';
-
-    // Try to extract the line number from our custom SyntaxError format
-    // Our errors look like: "message at line N"
-    let line = 0;
-    const lineMatch = message.match(/at line (\d+)/);
-    if (lineMatch) {
-      line = Math.max(0, parseInt(lineMatch[1], 10) - 1); // VS Code is 0-indexed
-    }
-
-    // Ensure line is within document bounds
-    if (line >= document.lineCount) {
-      line = document.lineCount - 1;
-    }
-
-    const range = document.lineAt(line).range;
-
-    const severity = message.includes('Validation failed')
-      ? vscode.DiagnosticSeverity.Warning
-      : vscode.DiagnosticSeverity.Error;
-
-    const diagnostic = new vscode.Diagnostic(range, message, severity);
-    diagnostic.source = 'ALP';
-    diagnostics.push(diagnostic);
-  }
-
-  diagnosticCollection.set(document.uri, diagnostics);
-}
-
-export function deactivate() {
-  if (diagnosticCollection) {
-    diagnosticCollection.dispose();
-  }
+  return client.stop();
 }

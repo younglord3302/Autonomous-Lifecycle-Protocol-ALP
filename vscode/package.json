@@ -1,14 +1,15 @@
 {
   "name": "alp-vscode",
   "displayName": "ALP Language Support",
-  "description": "Language support for the Autonomous Lifecycle Protocol (.alp)",
-  "version": "1.0.0",
+  "description": "Full language support for the Autonomous Lifecycle Protocol (.alp) — IntelliSense, Go to Definition, Hover, and Diagnostics",
+  "version": "2.0.0",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
     "Programming Languages",
-    "Linters"
+    "Linters",
+    "Other"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -44,6 +45,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@alp/parser": "*"
+    "@alp/parser": "*",
+    "vscode-languageclient": "^9.0.1"
   }
 }
