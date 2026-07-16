@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     include: [
       'parser/tests/**/*.test.ts',
+      'cli/tests/**/*.test.ts',
       'sdk/typescript/test/**/*.test.ts',
       'tests/compliance/**/*.test.ts',
     ],

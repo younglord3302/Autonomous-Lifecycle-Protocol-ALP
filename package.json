@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "vitest run"
+    "test": "npm run build && vitest run"
   },
   "repository": {
     "type": "git",
