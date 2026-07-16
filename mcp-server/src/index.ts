@@ -58,7 +58,7 @@ function loadDirectory(dir: string, parser: AlpParser, results: AlpObject[]) {
 // ─── MCP Server ───────────────────────────────────────────────────────────
 const server = new Server(
   { name: 'alp-mcp-server', version: '2.0.0' },
-  { capabilities: { tools: {} } }
+  { capabilities: { tools: {}, resources: {} } }
 );
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────

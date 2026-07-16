@@ -6,6 +6,11 @@ export function validateCommand(filePath?: string) {
   const parser = new AlpParser();
   
   if (filePath) {
+    const stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      validateDirectory(parser, filePath);
+      return;
+    }
     validateFile(parser, filePath);
   } else {
     // Validate everything in .alp directory
@@ -29,6 +34,27 @@ export function validateCommand(filePath?: string) {
     } else {
       console.log('✅ All ALP files are valid!');
     }
+  }
+}
+
+function validateDirectory(parser: AlpParser, dir: string): void {
+  let hasErrors = false;
+  const walk = (current: string): void => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (fullPath.endsWith('.alp')) {
+        if (!validateFile(parser, fullPath)) hasErrors = true;
+      }
+    }
+  };
+  walk(dir);
+
+  if (hasErrors) {
+    process.exit(1);
+  } else {
+    console.log('✅ All ALP files are valid!');
   }
 }
 

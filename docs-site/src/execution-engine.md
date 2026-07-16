@@ -1,6 +1,6 @@
 # The Execution Engine (`alp run`)
 
-In V2 of the Autonomous Lifecycle Protocol, ALP transitioned from a static schema validation tool into an active **Execution Engine**.
+In V2 of the Autonomous Lifecycle Protocol, ALP transitioned from a static schema validation tool into an active **Execution Engine**. In V3 it became a **multi-agent orchestrator** capable of running concurrent agent swarms.
 
 The `@alp/cli` provides the `alp run` command to natively orchestrate your autonomous workforce.
 
@@ -29,6 +29,47 @@ alp run --dry-run
 # Target a specific task manually
 alp run task-login-ui
 ```
+
+## V3 Swarm Mode (concurrent execution)
+
+In V3, `alp run` can orchestrate **multiple agents in parallel**. Pass
+`--concurrent <n>` to spin up `n` worker loops that read the Dependency
+Graph, claim available tasks via the `LockManager`, and execute
+dependency-unblocked tasks asynchronously:
+
+```bash
+# Run up to 3 agents concurrently
+alp run --concurrent 3
+```
+
+- **Dependency-aware**: a worker only claims a task once all of its
+  blocking dependencies (`depends_on`, `blocked_by`, `requires`) are
+  `[x]`. Reference links such as `feature:` or `owner:` do **not** block.
+- **LockManager**: each claimed task is locked with the claiming agent's
+  PID. A task locked by a live process cannot be double-executed;
+  stale locks left by dead processes are auto-stolen.
+- **Graceful shutdown**: workers exit once every task is done or none
+  remain actionable.
+
+### Native LLM execution
+
+Instead of piping the context bundle to an external CLI, ALP can drive
+an LLM directly. Supply a provider and model and the engine runs its
+internal Loop Engine against the task:
+
+```bash
+alp run task-login-ui --provider anthropic --model claude-sonnet-4
+```
+
+Useful flags:
+
+| Flag | Description |
+| :--- | :--- |
+| `--concurrent <n>` | Number of parallel agent loops (V3 swarm mode) |
+| `--provider <p>` | LLM provider for native execution (`openai`, `anthropic`, `ollama`) |
+| `--model <m>` | LLM model to use with the selected provider |
+| `--agent <a>` | Override the assigned agent for the task |
+| `--dry-run` | Preview the context bundle without executing |
 
 ## Integrating with AI Agents
 
