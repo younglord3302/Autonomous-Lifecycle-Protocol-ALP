@@ -7,7 +7,7 @@ SDK_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SDK_ROOT not in sys.path:
     sys.path.insert(0, SDK_ROOT)
 
-from alp_sdk import load_workspace, validate_object
+from alp_sdk import load_workspace, validate_object, compute_analytics
 from alp_sdk.reader import AlpReader
 
 REPO_ROOT = os.path.dirname(os.path.dirname(SDK_ROOT))
@@ -52,6 +52,26 @@ class TestValidation(unittest.TestCase):
 """)
             for obj in objs:
                 validate_object(obj._type, obj.properties)
+
+
+class TestAnalytics(unittest.TestCase):
+    def test_cycle_time_and_hotspots(self):
+        events = [
+            {"timestamp": "2026-01-01T00:00:00Z", "type": "run_start"},
+            {"timestamp": "2026-01-01T00:00:00Z", "type": "task_claim", "task_id": "T1", "agent": "a1"},
+            {"timestamp": "2026-01-01T00:00:10Z", "type": "task_status", "task_id": "T1", "status": "[x]", "agent": "a1"},
+            {"timestamp": "2026-01-01T00:00:01Z", "type": "task_claim", "task_id": "T2"},
+            {"timestamp": "2026-01-01T00:00:02Z", "type": "task_status", "task_id": "T2", "status": "[!]"},
+            {"timestamp": "2026-01-01T00:00:03Z", "type": "task_status", "task_id": "T2", "status": "[!]"},
+            {"timestamp": "2026-01-01T00:00:04Z", "type": "human_handoff", "task_id": "T3"},
+        ]
+        a = compute_analytics(events)
+        self.assertEqual(a["total_events"], 7)
+        self.assertEqual(a["runs"], 1)
+        self.assertEqual(a["avg_cycle_time_ms"], 10000)
+        self.assertEqual(a["failure_hotspots"][0]["task_id"], "T2")
+        self.assertEqual(a["failure_hotspots"][0]["failures"], 2)
+        self.assertIn("T3", [h["task_id"] for h in a["failure_hotspots"]])
 
 
 if __name__ == '__main__':

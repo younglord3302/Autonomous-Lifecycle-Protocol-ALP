@@ -54,10 +54,13 @@ grows from one `.alp/` folder to many, working together under shared policy.
 
 ## Pillar 5: Persistent State Store
 **Target:** Durable, queryable history beyond the JSONL tail.
-- **SQLite/embedded store:** Optional `alp serve --db` backing the event log for
-  fast queries, metrics, and long-running clusters.
-- **Analytics endpoints:** Cycle time per task, agent utilization, failure
-  hotspots — feeding `alp evolve` with richer telemetry.
+- **Durable state store:** Optional `alp serve --db` ingests the runtime event
+  log into a dependency-free JSON snapshot (`.alp/.runtime/state.db.json`) for
+  fast queries, metrics, and clusters that outlive a single process.
+- **Analytics endpoints:** `/api/analytics` returns cycle time per task, agent
+  utilization, failure hotspots, and event throughput — feeding `alp evolve`
+  with richer telemetry. The same computation runs against a raw JSONL tail via
+  the `computeAnalytics()` pure function (TS + Python SDK).
 
 ---
 
@@ -66,10 +69,10 @@ grows from one `.alp/` folder to many, working together under shared policy.
 | Phase | Goal | Status |
 |---|---|---|
 | Pillar 4 | Policy & Permission Governance | ✅ Complete (toward 4.0.0) |
+| Pillar 5 | Persistent State Store | ✅ Complete (toward 4.0.0) |
 | Pillar 1 | Remote & Networked Swarms | 🔜 Next |
 | Pillar 2 | Cross-Repository Orchestration | 🔜 |
 | Pillar 3 | Hosted Registry & Marketplace | 🔜 |
-| Pillar 5 | Persistent State Store | 🔜 |
 
 > V4 is a **major** version: `@policy` and cross-repo references may introduce
 > breaking changes to the workspace schema, gated behind the deprecation policy

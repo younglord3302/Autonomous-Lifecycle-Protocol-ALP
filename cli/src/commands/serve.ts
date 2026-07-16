@@ -1,12 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
-import { AlpParser, AlpObject } from '@alp/parser';
+import { AlpParser, AlpObject, StateStore, computeAnalytics } from '@alp/parser';
 import { readEvents, runtimeLogPath } from '../runtime';
 
 interface ServeOptions {
   port?: number;
   host?: string;
+  db?: boolean;
 }
 
 /**
@@ -32,6 +33,16 @@ export function serveCommand(options?: ServeOptions) {
   const port = options?.port || 4000;
   const host = options?.host || '127.0.0.1';
 
+  // Optional persistent state store (Pillar 5). When enabled, ingested events
+  // are durably stored and analytics survive restarts.
+  const store = options?.db ? new StateStore(alpDir) : null;
+  if (store) {
+    // Seed the store with any history already in the log.
+    const added = store.ingest(readEvents(alpDir) as any);
+    store.save();
+    console.log(`💾 State store enabled (${store.size} events, +${added} new).`);
+  }
+
   // Live SSE clients.
   const clients = new Set<http.ServerResponse>();
 
@@ -53,10 +64,22 @@ export function serveCommand(options?: ServeOptions) {
       fs.closeSync(fd);
       lastSize = size;
       const chunk = buf.toString('utf-8');
+      const ingested: any[] = [];
       for (const line of chunk.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) continue;
         broadcast(trimmed);
+        if (store) {
+          try {
+            ingested.push(JSON.parse(trimmed));
+          } catch {
+            /* skip malformed */
+          }
+        }
+      }
+      if (store && ingested.length) {
+        store.ingest(ingested);
+        store.save();
       }
     } catch {
       /* best-effort tail */
@@ -148,6 +171,12 @@ export function serveCommand(options?: ServeOptions) {
       return;
     }
 
+    if (url === '/api/analytics') {
+      const events = store ? store.analytics() : computeAnalytics(readEvents(alpDir) as any);
+      sendJson(res, events);
+      return;
+    }
+
     if (url === '/api/stream') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -168,6 +197,7 @@ export function serveCommand(options?: ServeOptions) {
     console.log(`\n🛰️  ALP State Server running at http://${host}:${port}`);
     console.log(`   Dashboard:   http://${host}:${port}/`);
     console.log(`   Live stream: http://${host}:${port}/api/stream`);
+    console.log(`   Analytics:   http://${host}:${port}/api/analytics${store ? '  (persistent)' : ''}`);
     console.log(`   Tailing:     ${path.relative(cwd, logPath)}`);
     console.log(`\nPress Ctrl+C to stop.\n`);
   });
@@ -249,8 +279,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
   header h1 { font-size: 16px; margin: 0; }
   .dot { width:10px;height:10px;border-radius:50%;background:#3fb950;
          box-shadow:0 0 8px #3fb950; }
-  main { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:24px; }
-  .card { background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px; }
+   main { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:24px; }
+   .card { background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px; }
+   #analytics { grid-column: 1 / -1; }
   .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em;
              color:#8b949e; margin:0 0 12px; }
   .stat { display:flex; justify-content:space-between; padding:4px 0;
@@ -269,7 +300,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 <main>
   <div class="card"><h2>Task Status</h2><div id="status"></div></div>
   <div class="card"><h2>Agents &amp; Locks</h2><div id="agents"></div></div>
-  <div class="card" id="log"><h2>Live Event Stream</h2><div id="events"></div></div>
+   <div class="card" id="log"><h2>Live Event Stream</h2><div id="events"></div></div>
+   <div class="card" id="analytics"><h2>Analytics</h2><div id="analyticsBody">loading…</div></div>
 </main>
 <script>
 async function refresh() {
@@ -280,9 +312,25 @@ async function refresh() {
     'Total tasks: <b>' + s.totalTasks + '</b><br/><br/>' +
     Object.entries(s.statusCount).map(([k,v]) =>
       '<div class="stat"><span class="badge '+cls(k)+'">'+k+'</span><b>'+v+'</b></div>').join('');
-  document.getElementById('agents').innerHTML =
-    '<b>Agents:</b> ' + (s.agents.join(', ') || 'none') +
-    '<br/><br/><b>Active locks:</b> ' + (s.activeLocks.join(', ') || 'none');
+   document.getElementById('agents').innerHTML =
+     '<b>Agents:</b> ' + (s.agents.join(', ') || 'none') +
+     '<br/><br/><b>Active locks:</b> ' + (s.activeLocks.join(', ') || 'none');
+   await renderAnalytics();
+}
+async function renderAnalytics() {
+  let a;
+  try { a = await (await fetch('/api/analytics')).json(); }
+  catch { return; }
+  const fmt = ms => ms == null ? '—' : (ms/1000).toFixed(1) + 's';
+  const sec = h => '<div class="stat"><span>' + h.task_id + '</span><span>b' + h.failures + ' / ?' + h.handoffs + '</span></div>';
+  document.getElementById('analyticsBody').innerHTML =
+    '<div class="stat"><span>Total events</span><b>' + a.total_events + '</b></div>' +
+    '<div class="stat"><span>Runs</span><b>' + a.runs + '</b></div>' +
+    '<div class="stat"><span>Avg cycle time</span><b>' + fmt(a.avg_cycle_time_ms) + '</b></div>' +
+    '<div class="stat"><span>Agents active</span><b>' + a.agents.length + '</b></div>' +
+    (a.failure_hotspots.length
+      ? '<br/><b>Failure hotspots</b>' + a.failure_hotspots.slice(0,8).map(sec).join('')
+      : '<br/><b>Failure hotspots</b><br/>none 🎉');
 }
 function addEvent(e) {
   const box = document.getElementById('events');

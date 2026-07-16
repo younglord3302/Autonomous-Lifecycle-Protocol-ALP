@@ -99,6 +99,7 @@ program
   .description('Run the ALP State Server: a live dashboard for the swarm (v3 Pillar 4)')
   .option('--port <n>', 'Port to listen on (default 4000)', (v) => parseInt(v, 10))
   .option('--host <host>', 'Host to bind to (default 127.0.0.1)')
+  .option('--db', 'Persist a durable state store of runtime events for analytics (v4 Pillar 5)')
   .action((opts) => serveCommand(opts));
 
 program

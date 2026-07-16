@@ -49,12 +49,14 @@ Server-Sent Events.
 
 ```bash
 alp serve --port 4000
+alp serve --db          # persist a durable state store + analytics
 ```
 
 | Flag | Description |
 | :--- | :--- |
 | `--port <n>` | Port to listen on (default `4000`) |
 | `--host <host>` | Host to bind to (default `127.0.0.1`) |
+| `--db` | *New in V4 (Pillar 5).* Persist a durable state store of runtime events to `.alp/.runtime/state.db.json` and expose `/api/analytics` |
 
 Endpoints:
 
@@ -64,6 +66,7 @@ Endpoints:
 | `/api/state` | Task status counts, agents, active locks, recent events |
 | `/api/graph` | The dependency graph (nodes + edges) |
 | `/api/events` | The full runtime event history |
+| `/api/analytics` | *V4 Pillar 5.* Cycle time per task, agent utilization, failure hotspots, event throughput |
 | `/api/stream` | Live SSE stream of new events |
 
 ## Self-Evolving Protocol (`alp evolve`)
