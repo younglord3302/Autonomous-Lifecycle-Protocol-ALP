@@ -19,6 +19,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { AlpParser, AlpObject, AlpGraph } from '@alp/parser';
 import * as fs from 'fs';
@@ -114,6 +116,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           cwd: { type: 'string', description: 'Working directory' },
         },
       },
+    },
+    {
+      name: 'alp_update_status',
+      description: 'Update the status of a specific task in the ALP workspace',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Task ID' },
+          status: { type: 'string', description: 'New status (e.g. [ ], [~], [x], [!])' },
+          cwd: { type: 'string' }
+        },
+        required: ['id', 'status']
+      }
+    },
+    {
+      name: 'alp_get_impact',
+      description: 'Get all downstream nodes affected by a change to the given node',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Node ID' },
+          cwd: { type: 'string' }
+        },
+        required: ['id']
+      }
+    },
+    {
+      name: 'alp_search',
+      description: 'Fuzzy search across all object IDs and descriptions',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          query: { type: 'string', description: 'Search query' },
+          cwd: { type: 'string' }
+        },
+        required: ['query']
+      }
     },
   ],
 }));
@@ -235,6 +274,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         isError: true,
       };
     }
+    
+    case 'alp_update_status': {
+      // Very basic implementation: search files for id: X and change status above/below it
+      const targetId = args?.id as string;
+      const newStatus = args?.status as string;
+      const alpDir = path.join(cwd, '.alp');
+      let updated = false;
+      const walk = (dir: string) => {
+        if (updated) return;
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (updated) return;
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) walk(fullPath);
+          else if (fullPath.endsWith('.alp')) {
+            let content = fs.readFileSync(fullPath, 'utf8');
+            if (content.includes(`id: ${targetId}`)) {
+              // naive replace of status
+              content = content.replace(/(id:\s*.*?\n\s*status:\s*).*?(\n)/, `$1${newStatus}$2`);
+              fs.writeFileSync(fullPath, content, 'utf8');
+              updated = true;
+            }
+          }
+        }
+      };
+      if (fs.existsSync(alpDir)) walk(alpDir);
+      
+      return {
+        content: [{ type: 'text', text: updated ? `Status of ${targetId} updated to ${newStatus}` : `Task ${targetId} not found` }]
+      };
+    }
+
+    case 'alp_get_impact': {
+      const objects = loadWorkspace(cwd);
+      const graph = new AlpGraph();
+      graph.buildGraph(objects);
+      const targetId = args?.id as string;
+      const impacted = graph.getImpact(targetId);
+      return {
+        content: [{ type: 'text', text: JSON.stringify(impacted.map(i => ({ id: i.id, type: i.type })), null, 2) }]
+      };
+    }
+
+    case 'alp_search': {
+      const objects = loadWorkspace(cwd);
+      const query = (args?.query as string).toLowerCase();
+      const results = objects.filter(o => 
+        (o.id && o.id.toLowerCase().includes(query)) ||
+        (o.description && o.description.toLowerCase().includes(query))
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify(results.map(r => ({ id: r.id, type: r._type, description: r.description })), null, 2) }]
+      };
+    }
 
     default:
       return {
@@ -261,6 +354,50 @@ function validateDirectory(dir: string, errors: string[]) {
     }
   }
 }
+
+// ─── Resources ─────────────────────────────────────────────────────────────
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  const cwd = process.cwd();
+  const alpDir = path.join(cwd, '.alp');
+  const resources: any[] = [];
+  
+  if (fs.existsSync(alpDir)) {
+    const walk = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(fullPath);
+        else if (fullPath.endsWith('.alp')) {
+          resources.push({
+            uri: `file://${fullPath}`,
+            name: path.relative(cwd, fullPath),
+            mimeType: 'text/plain'
+          });
+        }
+      }
+    };
+    walk(alpDir);
+  }
+  
+  return { resources };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const uri = request.params.uri;
+  if (uri.startsWith('file://')) {
+    const filePath = uri.substring(7);
+    if (fs.existsSync(filePath)) {
+      return {
+        contents: [{
+          uri,
+          mimeType: 'text/plain',
+          text: fs.readFileSync(filePath, 'utf8')
+        }]
+      };
+    }
+  }
+  throw new Error(`Resource not found: ${uri}`);
+});
 
 // ─── Start Server ─────────────────────────────────────────────────────────
 async function main() {

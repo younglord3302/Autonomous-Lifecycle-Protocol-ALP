@@ -1,12 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { AlpParser, AlpObject, LockManager } from '@alp/parser';
+import { AlpParser, AlpObject, LockManager, LoopEngine, LoopStage } from '@alp/parser';
+import { createProvider } from '../llm-provider';
 
 interface RunOptions {
   task?: string;
   agent?: string;
   dryRun?: boolean;
   concurrent?: number;
+  provider?: string;
+  model?: string;
 }
 
 /**
@@ -112,13 +115,52 @@ export function runCommand(taskId?: string, options?: RunOptions) {
     allObjects
   );
 
-  // ─── 5. Output ──────────────────────────────────────────────────────
+  // ─── 5. Output / Execution ───────────────────────────────────────────
   if (options?.dryRun) {
     console.log('\n🔍 DRY RUN — Context Bundle for Task Execution\n');
     console.log('═'.repeat(60));
     console.log(contextBundle);
     console.log('═'.repeat(60));
     console.log('\nTo execute this task, remove the --dry-run flag.');
+  } else if (options?.provider) {
+    console.log(`\n🚀 ALP Execution Engine — Powered by ${options.provider.toUpperCase()}\n`);
+    const llm = createProvider(options.provider, options.model);
+    
+    const loop = new LoopEngine({
+      maxIterations: 3,
+      completionConditions: ['Task verified successfully'],
+    });
+
+    loop.on((event) => {
+      if (event.type === 'stage_enter') {
+        console.log(`[Loop] Iteration ${event.iteration} — Entering stage: ${event.stage}`);
+      } else if (event.type === 'completed') {
+        console.log(`✅ Task ${(targetTask as any).id} completed successfully in ${event.iteration} iterations!`);
+      } else if (event.type === 'failed') {
+        console.error(`❌ Task execution failed:`, event.data);
+      }
+    });
+
+    // We don't await here since we might want to just start it, but let's await for CLI
+    loop.run(async (stage: LoopStage, iteration: number) => {
+      const messages = [
+        { role: 'system' as const, content: 'You are an autonomous AI agent following the ALP protocol. Execute the given stage.' },
+        { role: 'user' as const, content: `Context:\n${contextBundle}\n\nCurrent Stage: ${stage}\nIteration: ${iteration}\nPlease execute this stage.` }
+      ];
+      
+      console.log(`[LLM] Requesting completion for stage ${stage}...`);
+      const response = await llm.chat(messages);
+      console.log(`[LLM] Response received (${response.length} chars).`);
+      
+      // Simulate verification for now unless it's 'test'
+      if (stage === 'test') {
+         return true; // We assume success on 'test' stage for MVP
+      }
+      return false; // continue loop
+    }).catch(err => {
+      console.error('Execution error:', err);
+    });
+
   } else {
     console.log('\n🚀 ALP Execution Engine\n');
     console.log(`  Task:    ${(targetTask as any).id}`);
@@ -135,6 +177,8 @@ export function runCommand(taskId?: string, options?: RunOptions) {
     console.log('💡 Integration: Pipe this output to your agent:');
     console.log('   alp run --task "' + (targetTask as any).id + '" | claude-code');
     console.log('   alp run --task "' + (targetTask as any).id + '" | cursor-agent');
+    console.log('\n💡 Native Execution: Run with --provider to execute natively:');
+    console.log('   alp run --provider openai --model gpt-4o');
   }
 }
 

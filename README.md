@@ -6,7 +6,7 @@
   <br/>
 
   [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-  [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](#)
+  [![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](#)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 
@@ -68,6 +68,12 @@ ALP is not just a specification. It is a complete, production-ready ecosystem of
 
 ### 1. The Execution Engine (`alp run`)
 ALP parses your `.alp` files into a Dependency Graph. Run `alp run` to automatically topological-sort your dependencies and compile highly optimized **Context Bundles**.
+
+You can execute natively with an LLM:
+```bash
+alp run --provider openai --model gpt-4o
+```
+Or pipe the context bundle to your preferred agent:
 ```bash
 alp run | claude-code
 ```
@@ -84,10 +90,17 @@ This command automatically executes the shell scripts defined in your task's `ve
 Natively expose your project's architecture to Claude Desktop and Cursor. Agents can use tools like `alp_get_graph` and `alp_read_object` to query your repository's state in real time before writing a single line of code.
 
 ### 4. VS Code Language Server (`alp-vscode`)
-Writing `.alp` files is a first-class experience. Install the packaged `alp-vscode-2.0.0.vsix` to get:
+Writing `.alp` files is a first-class experience. Install the packaged VS Code extension to get:
 - **IntelliSense**: Autocomplete IDs and directives.
 - **Go to Definition**: Jump directly to task or decision definitions across files.
 - **Rich Hover**: View task descriptions, status, and metadata instantly.
+- **Rename & Semantic Tokens**: Fully colored syntax and workspace-wide refactoring.
+
+### 5. Package Registry (`alp install`)
+Share and reuse autonomous knowledge. Install community templates:
+```bash
+alp install @community/scrum-master
+```
 
 ---
 

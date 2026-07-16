@@ -6,6 +6,8 @@ import { graphCommand } from './commands/graph';
 import { statusCommand } from './commands/status';
 import { runCommand } from './commands/run';
 import { installCommand } from './commands/install';
+import { uninstallCommand } from './commands/uninstall';
+import { publishCommand } from './commands/publish';
 import { exportCommand } from './commands/export';
 import { lintCommand } from './commands/lint';
 import { verifyCommand } from './commands/verify';
@@ -77,6 +79,8 @@ program
   .option('--agent <agent>', 'Override the assigned agent')
   .option('--dry-run', 'Preview the context bundle without executing')
   .option('--concurrent <n>', 'Number of parallel agent loops (v3 swarm mode)', parseInt)
+  .option('--provider <provider>', 'LLM provider to use for native execution (openai, anthropic, ollama)')
+  .option('--model <model>', 'LLM model to use with the selected provider')
   .action((task, opts) => runCommand(task, opts));
 
 program
@@ -92,6 +96,18 @@ program
   .description('Install a community package from the ALP Registry')
   .argument('<package>', 'Name of the package to install (e.g. @community/scrum-master)')
   .action(installCommand);
+
+program
+  .command('uninstall')
+  .description('Uninstall a package from the ALP Registry')
+  .argument('<package>', 'Name of the package to uninstall')
+  .action(uninstallCommand);
+
+program
+  .command('publish')
+  .description('Publish a local package to the ALP Registry')
+  .argument('<directory>', 'Directory containing the package (must have alp-package.json)')
+  .action(publishCommand);
 
 program
   .command('export')

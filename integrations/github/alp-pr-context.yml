@@ -1,0 +1,68 @@
+name: "ALP PR Context"
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  alp_context:
+    name: Post ALP Context to PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ALP CLI
+        run: npm install -g @alp/cli
+
+      - name: Generate and Post Context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+
+            let taskId = null;
+            const branchMatch = pr.head.ref.match(/(?:feat|fix|chore)\/([a-zA-Z0-9_-]+)/);
+            if (branchMatch) taskId = branchMatch[1];
+            
+            const titleMatch = pr.title.match(/\[([a-zA-Z0-9_-]+)\]/);
+            if (titleMatch) taskId = titleMatch[1];
+
+            if (!taskId) {
+              console.log("No ALP task ID found.");
+              return;
+            }
+
+            console.log(`Matched task ID: ${taskId}`);
+            
+            const { execSync } = require('child_process');
+            try {
+              // Run the CLI tool in dry-run mode to get the context string
+              const output = execSync(`alp run --task ${taskId} --dry-run`).toString();
+              
+              // Find the start of the context bundle
+              const bundleStart = output.indexOf('📋 CONTEXT BUNDLE');
+              let contextText = output;
+              if (bundleStart > -1) {
+                // Extract just the context part, skipping the border lines
+                const lines = output.substring(bundleStart).split('\n');
+                contextText = lines.slice(2, lines.length - 3).join('\n'); // naive strip of borders
+              }
+
+              const body = `🤖 **ALP Context Bundle** for Task \`${taskId}\`\n\n<details>\n<summary>Click to view full context (Rules, Memories, Dependencies)</summary>\n\n\`\`\`markdown\n${contextText}\n\`\`\`\n\n</details>`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: body
+              });
+            } catch (e) {
+              console.error("Failed to generate context:", e);
+            }

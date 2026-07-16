@@ -1,0 +1,50 @@
+name: "ALP Weekly Status Report"
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Every Monday at 9:00 AM UTC
+  workflow_dispatch:
+
+jobs:
+  alp_report:
+    name: Generate Status Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ALP CLI
+        run: npm install -g @alp/cli
+
+      - name: Generate Report
+        run: |
+          mkdir -p docs/reports
+          REPORT_FILE="docs/reports/status-$(date +%Y-%m-%d).md"
+          
+          echo "# ALP Status Report: $(date +%Y-%m-%d)" > $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "## Project State" >> $REPORT_FILE
+          echo "\`\`\`" >> $REPORT_FILE
+          alp status >> $REPORT_FILE
+          echo "\`\`\`" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "## Dependency Graph Summary" >> $REPORT_FILE
+          echo "\`\`\`" >> $REPORT_FILE
+          alp graph >> $REPORT_FILE
+          echo "\`\`\`" >> $REPORT_FILE
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add $REPORT_FILE
+          
+          if git diff-index --quiet HEAD; then
+            echo "No changes to report"
+          else
+            git commit -m "docs(alp): auto-generate weekly status report"
+            git push
+          fi

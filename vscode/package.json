@@ -2,7 +2,7 @@
   "name": "alp-vscode",
   "displayName": "ALP Language Support",
   "description": "Full language support for the Autonomous Lifecycle Protocol (.alp) — IntelliSense, Go to Definition, Hover, and Diagnostics",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "publisher": "younglord3302",
   "engines": {
     "vscode": "^1.80.0"
@@ -36,6 +36,28 @@
         "language": "alp",
         "scopeName": "source.alp",
         "path": "./syntaxes/alp.tmLanguage.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "keyword",
+        "superType": "keyword",
+        "description": "Style for ALP keywords"
+      },
+      {
+        "id": "type",
+        "superType": "type",
+        "description": "Style for ALP types"
+      },
+      {
+        "id": "variable",
+        "superType": "variable",
+        "description": "Style for ALP variables/references"
+      },
+      {
+        "id": "property",
+        "superType": "property",
+        "description": "Style for ALP properties"
       }
     ]
   },

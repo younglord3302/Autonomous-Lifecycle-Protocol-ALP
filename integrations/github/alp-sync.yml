@@ -55,7 +55,55 @@ jobs:
 
             console.log(`Setting task ${taskId} status to ${newStatus}`);
 
-            // In a real implementation, this script would run a local tool
-            // or script to update the specific .alp file containing the task.
-            // Example:
-            // execSync(`alp status --update ${taskId} "${newStatus}"`);
+            console.log(`Setting task ${taskId} status to ${newStatus}`);
+
+            const fs = require('fs');
+            const path = require('path');
+            const alpDir = path.resolve('.alp');
+            let updatedFile = null;
+            
+            if (fs.existsSync(alpDir)) {
+              const walk = (dir) => {
+                if (updatedFile) return;
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                  if (updatedFile) return;
+                  const fullPath = path.join(dir, entry.name);
+                  if (entry.isDirectory()) walk(fullPath);
+                  else if (fullPath.endsWith('.alp')) {
+                    let content = fs.readFileSync(fullPath, 'utf8');
+                    if (content.includes(`id: ${taskId}`)) {
+                      content = content.replace(/(id:\s*.*?\n\s*status:\s*).*?(\n)/, `$1${newStatus}$2`);
+                      fs.writeFileSync(fullPath, content, 'utf8');
+                      updatedFile = fullPath;
+                    }
+                  }
+                }
+              };
+              walk(alpDir);
+            }
+
+            if (updatedFile) {
+              const { execSync } = require('child_process');
+              execSync(`git config --global user.name "github-actions[bot]"`);
+              execSync(`git config --global user.email "github-actions[bot]@users.noreply.github.com"`);
+              execSync(`git add "${updatedFile}"`);
+              // Only commit if there are changes
+              try {
+                execSync(`git commit -m "chore(alp): update task ${taskId} status to ${newStatus}"`);
+                execSync(`git push`);
+                console.log("Successfully committed and pushed status update.");
+                
+                // Add a comment to the PR
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `🤖 **ALP Tracker:** Successfully updated task \`${taskId}\` status to \`${newStatus}\` in the workspace.`
+                });
+              } catch (e) {
+                console.log("No changes to commit.");
+              }
+            } else {
+              console.log(`Task ${taskId} not found in .alp directory.`);
+            }

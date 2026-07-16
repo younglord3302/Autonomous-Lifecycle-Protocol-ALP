@@ -15,6 +15,20 @@ import {
   DiagnosticSeverity,
   Hover,
   HoverParams,
+  RenameParams,
+  WorkspaceEdit,
+  TextEdit,
+  SymbolInformation,
+  SymbolKind,
+  DocumentSymbolParams,
+  DocumentSymbol,
+  SemanticTokensParams,
+  SemanticTokensBuilder,
+  SemanticTokens,
+  CodeActionParams,
+  CodeAction,
+  CodeActionKind,
+  CompletionParams,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -58,6 +72,17 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       definitionProvider: true,
       hoverProvider: true,
+      renameProvider: { prepareProvider: false },
+      workspaceSymbolProvider: true,
+      documentSymbolProvider: true,
+      semanticTokensProvider: {
+        legend: {
+          tokenTypes: ['keyword', 'type', 'variable', 'string', 'property'],
+          tokenModifiers: ['declaration']
+        },
+        full: true
+      },
+      codeActionProvider: true,
     },
   };
 });
@@ -254,35 +279,197 @@ connection.onHover((params: HoverParams): Hover | null => {
 });
 
 // ─── Completion (IntelliSense) ──────────────────────────────────────────────
-connection.onCompletion((): CompletionItem[] => {
+connection.onCompletion((params: CompletionParams): CompletionItem[] => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return [];
+  const lineStr = doc.getText(Range.create(params.position.line, 0, params.position.line, Number.MAX_SAFE_INTEGER));
+  const textBeforeCursor = lineStr.substring(0, params.position.character);
+  
   const items: CompletionItem[] = [];
 
-  // Suggest all known IDs when user types `-> `
-  for (const [id, entry] of workspaceIndex) {
-    items.push({
-      label: id,
-      kind: CompletionItemKind.Reference,
-      detail: `@${entry.type}`,
-      documentation: entry.properties.description || `Reference to @${entry.type} ${id}`,
-      insertText: id,
-    });
-  }
-
-  // Suggest block markers
-  const blockTypes = [
-    'project', 'task', 'feature', 'workflow', 'agent',
-    'memory', 'state', 'goal', 'rule', 'decision', 'plugin',
-  ];
-  for (const t of blockTypes) {
-    items.push({
-      label: `@${t}`,
-      kind: CompletionItemKind.Keyword,
-      detail: 'ALP Block Marker',
-      insertText: `@${t}\n  id: `,
-    });
+  if (textBeforeCursor.match(/->\s*$/)) {
+    // Suggest all known IDs when user types `-> `
+    for (const [id, entry] of workspaceIndex) {
+      items.push({
+        label: id,
+        kind: CompletionItemKind.Reference,
+        detail: `@${entry.type}`,
+        documentation: entry.properties.description || `Reference to @${entry.type} ${id}`,
+        insertText: id,
+      });
+    }
+  } else if (textBeforeCursor.match(/^@$/)) {
+    // Suggest block markers
+    const blockTypes = [
+      'project', 'task', 'feature', 'workflow', 'agent',
+      'memory', 'state', 'goal', 'rule', 'decision', 'plugin',
+    ];
+    for (const t of blockTypes) {
+      items.push({
+        label: t,
+        kind: CompletionItemKind.Keyword,
+        detail: 'ALP Block Marker',
+        insertText: `${t}\n  id: `,
+      });
+    }
   }
 
   return items;
+});
+
+// ─── Rename ─────────────────────────────────────────────────────────────────
+connection.onRenameRequest((params: RenameParams): WorkspaceEdit | null => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return null;
+  const line = doc.getText(Range.create(params.position.line, 0, params.position.line, Number.MAX_SAFE_INTEGER));
+  
+  let oldId = '';
+  let refMatch = line.match(/->\s+([a-zA-Z0-9_-]+)/);
+  if (refMatch && params.position.character >= line.indexOf(refMatch[1])) {
+    oldId = refMatch[1];
+  } else {
+    let idMatch = line.match(/id:\s*([a-zA-Z0-9_-]+)/);
+    if (idMatch && params.position.character >= line.indexOf(idMatch[1])) {
+      oldId = idMatch[1];
+    }
+  }
+
+  if (!oldId || !workspaceIndex.has(oldId)) return null;
+
+  const newId = params.newName;
+  const changes: Record<string, TextEdit[]> = {};
+
+  const alpDir = path.join(workspaceRoot, '.alp');
+  if (fs.existsSync(alpDir)) {
+    const walk = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(fullPath);
+        else if (fullPath.endsWith('.alp')) {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const lines = content.split('\n');
+          const uri = 'file:///' + fullPath.replace(/\\/g, '/');
+          const edits: TextEdit[] = [];
+          
+          for (let i = 0; i < lines.length; i++) {
+             const idRegex = new RegExp(`^(\\s*id:\\s*)${oldId}(\\s*)$`);
+             let match = lines[i].match(idRegex);
+             if (match) {
+                edits.push(TextEdit.replace(
+                  Range.create(i, match[1].length, i, match[1].length + oldId.length),
+                  newId
+                ));
+             }
+             const refRegex = new RegExp(`(->\\s+)${oldId}\\b`, 'g');
+             let rMatch;
+             while ((rMatch = refRegex.exec(lines[i])) !== null) {
+                edits.push(TextEdit.replace(
+                  Range.create(i, rMatch.index + rMatch[1].length, i, rMatch.index + rMatch[1].length + oldId.length),
+                  newId
+                ));
+             }
+          }
+          if (edits.length > 0) changes[uri] = edits;
+        }
+      }
+    };
+    walk(alpDir);
+  }
+
+  return { changes };
+});
+
+// ─── Workspace Symbols ──────────────────────────────────────────────────────
+connection.onWorkspaceSymbol((params) => {
+  const query = params.query.toLowerCase();
+  const symbols: SymbolInformation[] = [];
+  for (const [id, entry] of workspaceIndex) {
+    if (id.toLowerCase().includes(query) || entry.type.toLowerCase().includes(query)) {
+      symbols.push(SymbolInformation.create(
+        id,
+        SymbolKind.Object,
+        Range.create(entry.line, 0, entry.line, id.length),
+        entry.uri,
+        entry.type
+      ));
+    }
+  }
+  return symbols;
+});
+
+// ─── Document Symbols ───────────────────────────────────────────────────────
+connection.onDocumentSymbol((params: DocumentSymbolParams): DocumentSymbol[] => {
+  const symbols: DocumentSymbol[] = [];
+  for (const [id, entry] of workspaceIndex) {
+    if (entry.uri === params.textDocument.uri) {
+      symbols.push(DocumentSymbol.create(
+        id,
+        `@${entry.type}`,
+        SymbolKind.Object,
+        Range.create(entry.line, 0, entry.line + 5, 0), // approximate range
+        Range.create(entry.line, 0, entry.line, id.length)
+      ));
+    }
+  }
+  return symbols;
+});
+
+// ─── Semantic Tokens ────────────────────────────────────────────────────────
+connection.languages.semanticTokens.on((params: SemanticTokensParams): SemanticTokens => {
+  const builder = new SemanticTokensBuilder();
+  const doc = documents.get(params.textDocument.uri);
+  if (doc) {
+    const lines = doc.getText().split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const typeMatch = line.match(/^@([a-z_]+)$/);
+      if (typeMatch) {
+        builder.push(i, 0, typeMatch[0].length, 0, 0); // keyword
+      }
+      const propMatch = line.match(/^(\s*)([a-z_!][a-z0-9_-]*):\s*(.*)$/);
+      if (propMatch) {
+        builder.push(i, propMatch[1].length, propMatch[2].length, 4, 0); // property
+      }
+      const refRegex = /(->\s+)([a-zA-Z0-9_-]+)/g;
+      let refMatch;
+      while ((refMatch = refRegex.exec(line)) !== null) {
+         builder.push(i, refMatch.index, 2, 0, 0); // keyword for `->`
+         builder.push(i, refMatch.index + refMatch[1].length, refMatch[2].length, 2, 0); // variable for ID
+      }
+    }
+  }
+  return builder.build();
+});
+
+// ─── Code Actions (Quick Fixes) ─────────────────────────────────────────────
+connection.onCodeAction((params: CodeActionParams): CodeAction[] => {
+  const actions: CodeAction[] = [];
+  for (const diag of params.context.diagnostics) {
+    if (diag.message.startsWith('Unresolved reference:')) {
+      const match = diag.message.match(/'([^']+)'/);
+      if (match) {
+        const badId = match[1];
+        for (const [id] of workspaceIndex) {
+          if (id.includes(badId) || badId.includes(id) || 
+              id.substring(0, 3) === badId.substring(0, 3)) {
+            actions.push(CodeAction.create(
+              `Change to '${id}'`,
+              {
+                changes: {
+                  [params.textDocument.uri]: [
+                    TextEdit.replace(diag.range, id)
+                  ]
+                }
+              },
+              CodeActionKind.QuickFix
+            ));
+          }
+        }
+      }
+    }
+  }
+  return actions;
 });
 
 // ─── File Watcher (re-index when .alp files change) ─────────────────────────

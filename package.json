@@ -1,6 +1,6 @@
 {
   "name": "alp-monorepo",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Autonomous Lifecycle Protocol (ALP) - The universal protocol for autonomous software engineering",
   "private": true,
   "workspaces": [
@@ -10,7 +10,8 @@
     "sdk/*",
     "playground",
     "vscode",
-    "docs-site"
+    "docs-site",
+    "mcp-server"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
