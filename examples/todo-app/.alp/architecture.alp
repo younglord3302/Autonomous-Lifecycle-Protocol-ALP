@@ -3,6 +3,7 @@
 @decision
   id: dec-tech-stack
   status: [x]
+  description: "Chosen full-stack framework for the todo application."
   context: "Need a full-stack framework with strong TypeScript support and easy deployment."
   options:
     - "React + Express backend"
@@ -17,6 +18,7 @@
 @decision
   id: dec-database
   status: [x]
+  description: "Chosen relational database for the todo application."
   context: "Need a relational database that works well with serverless environments."
   options:
     - "MongoDB"
@@ -30,6 +32,7 @@
 @rule
   id: rule-typescript
   type: coding
+  description: "Enforces strict TypeScript typing across the codebase."
   condition: "Writing any TypeScript code"
   action: "All code must be strictly typed. No 'any' allowed."
   severity: error

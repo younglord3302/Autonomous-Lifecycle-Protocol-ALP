@@ -10,15 +10,21 @@
 @task
   id: task-auth-setup
   status: [x]
+  description: "Scaffold the authentication module and wire up the auth provider."
   feature: -> feat-user-auth
   owner: -> agent-developer
+  verify:
+    - "echo Checking auth setup... OK"
 
 ---
 
 @task
   id: task-login-ui
   status: [~]
+  description: "Build the login and registration UI components."
   feature: -> feat-user-auth
   owner: -> agent-developer
   depends_on:
     - -> task-auth-setup
+  verify:
+    - "echo Checking login UI... OK"

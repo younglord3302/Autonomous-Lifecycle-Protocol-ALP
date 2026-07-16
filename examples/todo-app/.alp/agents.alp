@@ -3,6 +3,7 @@
 @agent
   id: agent-planner
   role: "Lead Planner"
+  description: "Breaks features into tasks, manages dependencies, and keeps project state current."
   permissions:
     - read
     - write
@@ -22,6 +23,7 @@
 @agent
   id: agent-developer
   role: "Fullstack Developer"
+  description: "Implements React components, API endpoints, and Jest tests for the application."
   permissions:
     - read
     - write

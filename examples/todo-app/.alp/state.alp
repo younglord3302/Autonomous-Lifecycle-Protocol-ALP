@@ -2,6 +2,7 @@
 
 @state
   id: state-todo-app
+  description: "Live runtime state for the todo-app workspace."
   phase: "development"
   active_workflow: -> wf-standard-development
   active_tasks:

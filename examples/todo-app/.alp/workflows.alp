@@ -3,6 +3,7 @@
 @workflow
   id: wf-standard-development
   status: [~]
+  description: "The default ALP development loop used to drive task execution."
   type: "development-loop"
   trigger: "manual"
   

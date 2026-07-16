@@ -112,16 +112,17 @@ def load_workspace(dir_path: str) -> List[AlpObject]:
     alp_dir = os.path.join(dir_path, '.alp')
     if not os.path.exists(alp_dir):
         return []
-        
+
     reader = AlpReader()
     all_objects = []
-    
-    for filename in os.listdir(alp_dir):
-        if filename.endswith('.alp'):
-            filepath = os.path.join(alp_dir, filename)
-            if os.path.isfile(filepath):
+
+    for root, _dirs, files in os.walk(alp_dir):
+        for filename in files:
+            if filename.endswith('.alp'):
+                filepath = os.path.join(root, filename)
                 with open(filepath, 'r', encoding='utf-8') as f:
                     content = f.read()
                     all_objects.extend(reader.parse(content))
-                    
+
     return all_objects
+

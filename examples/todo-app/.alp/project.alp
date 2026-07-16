@@ -13,6 +13,7 @@
 @goal
   id: goal-mvp
   status: [~]
+  description: "Deliver a minimal viable product covering authentication and core task management."
   target: "Launch a working todo application with auth and core task management"
   deadline: "2026-12-31T23:59:59Z"
   priority: critical

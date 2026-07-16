@@ -3,6 +3,7 @@
 @memory
   id: mem-auth-token
   type: feature
+  description: "How authentication tokens are stored and protected."
   content: "We are storing JWT tokens in HTTP-only cookies, not localStorage, to prevent XSS attacks. The cookie name is 'sb-auth-token'."
   related:
     - -> feat-user-auth
@@ -13,5 +14,6 @@
 @memory
   id: mem-db-issue
   type: error
+  description: "Pitfall when inserting rows without Row Level Security enabled."
   content: "Row Level Security (RLS) must be enabled on all tables, otherwise insertions fail silently via the client SDK."
   agent: -> agent-developer

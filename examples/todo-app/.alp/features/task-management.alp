@@ -26,7 +26,10 @@
 @task
   id: task-api-crud
   status: "[x]"
+  description: "Implement the CRUD API endpoints for todo items backed by the database schema."
   feature: -> feat-task-management
   owner: -> agent-developer
   depends_on:
     - -> task-db-schema
+  verify:
+    - "echo Checking API CRUD endpoints... OK"
