@@ -122,6 +122,8 @@ Deprecated elements:
 
 | Version | Date | Changes |
 |---|---|---|
+| `3.1.0` | 2026-07-17 | The Observability Release. Completed V3 Pillars 4 & 5: `alp serve` (live State Server dashboard over HTTP + SSE, structured runtime event log) and `alp evolve` (failure telemetry + auto-proposed `@rule` safety checks). |
+| `3.0.0` | 2026-07-15 | The Swarm Era. Concurrent multi-agent execution (`alp run --concurrent`, `LockManager`), sub-agent delegation (`alp_delegate`, `alp_decompose`), and Human-in-the-Loop handoffs (`[?]` status, `alp checkpoint --ask-human`). |
 | `2.0.0` | 2025-07-15 | Final Release Candidate. Formal grammar locked. Strict semantic versioning and deprecation policies established. |
 | `1.4.0` | 2025-07-15 | Dynamic object generation (`@macro`) and real-time multi-agent concurrency (file locking) |
 | `1.3.0` | 2025-07-15 | Cross-Workspace References (`-> ws::proj::obj`) and automatic project discovery (`glob`) |
@@ -141,4 +143,4 @@ Deprecated elements:
 
 | Version | Planned Features |
 |---|---|
-| `2.1.0` | Additional core object schemas (TBD) |
+| `4.0.0` | The Federation Era — networked/remote swarms, cross-repo orchestration, a hosted registry, and policy/permission governance for autonomous agents. |

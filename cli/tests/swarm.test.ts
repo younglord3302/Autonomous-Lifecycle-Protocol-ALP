@@ -67,4 +67,80 @@ describe('alp run --concurrent (swarm mode)', () => {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  it('clears a stale lock from a dead process instead of deadlocking', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-swarm-'));
+    try {
+      fs.cpSync(EXAMPLE, tmp, { recursive: true });
+
+      // Make task-login-ui actionable.
+      const file = path.join(tmp, '.alp', 'features', 'user-auth.alp');
+      const content = fs.readFileSync(file, 'utf-8');
+      fs.writeFileSync(
+        file,
+        content.replace(/(?<=id: task-login-ui[\s\S]*?status: )\[~\]/, '[ ]'),
+      );
+
+      // Simulate a leaked lock from a previous crashed run. PID 999999 is
+      // effectively guaranteed not to exist, so it must be treated as stale.
+      const runtime = path.join(tmp, '.alp', '.runtime');
+      fs.mkdirSync(runtime, { recursive: true });
+      fs.writeFileSync(
+        path.join(runtime, 'locks.json'),
+        JSON.stringify(
+          {
+            'task-login-ui': {
+              task_id: 'task-login-ui',
+              agent_id: 'ghost',
+              claimed_at: '2020-01-01T00:00:00Z',
+              pid: 999999,
+            },
+          },
+          null,
+          2,
+        ),
+      );
+
+      const output = execFileSync(
+        'node',
+        [CLI, 'run', '--concurrent', '2', '--dry-run'],
+        { cwd: tmp, encoding: 'utf-8', timeout: 30000 },
+      );
+
+      // The swarm must reclaim the stale lock and finish — not hang.
+      expect(output).toContain('stale lock');
+      expect(output).toContain('Claimed task: task-login-ui');
+      expect(output).toContain('Swarm Execution Complete');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }, 40000);
+
+  it('does not leak a lock after a single (non-concurrent) run', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-single-'));
+    try {
+      fs.cpSync(EXAMPLE, tmp, { recursive: true });
+
+      const file = path.join(tmp, '.alp', 'features', 'user-auth.alp');
+      const content = fs.readFileSync(file, 'utf-8');
+      fs.writeFileSync(
+        file,
+        content.replace(/(?<=id: task-login-ui[\s\S]*?status: )\[~\]/, '[ ]'),
+      );
+
+      execFileSync('node', [CLI, 'run', '--dry-run'], {
+        cwd: tmp,
+        encoding: 'utf-8',
+        timeout: 30000,
+      });
+
+      const lockFile = path.join(tmp, '.alp', '.runtime', 'locks.json');
+      if (fs.existsSync(lockFile)) {
+        const locks = JSON.parse(fs.readFileSync(lockFile, 'utf-8'));
+        expect(Object.keys(locks)).toHaveLength(0);
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }, 40000);
 });

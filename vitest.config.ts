@@ -8,6 +8,7 @@ export default defineConfig({
     include: [
       'parser/tests/**/*.test.ts',
       'cli/tests/**/*.test.ts',
+      'mcp-server/tests/**/*.test.ts',
       'sdk/typescript/test/**/*.test.ts',
       'tests/compliance/**/*.test.ts',
     ],

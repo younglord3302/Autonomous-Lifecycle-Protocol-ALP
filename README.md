@@ -6,7 +6,7 @@
   <br/>
 
   [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-  [![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](#)
+  [![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](#)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 
@@ -102,13 +102,29 @@ Share and reuse autonomous knowledge. Install community templates:
 alp install @community/scrum-master
 ```
 
+### 6. Live State Server (`alp serve`) — *new in 3.1*
+Watch your swarm work in real time. `alp serve` runs a zero-dependency local
+dashboard (HTTP + Server-Sent Events) that tails the structured runtime log and
+streams task claims, status changes, and human handoffs to your browser.
+```bash
+alp serve --port 4000
+```
+
+### 7. Self-Evolving Protocol (`alp evolve`) — *new in 3.1*
+Let the protocol learn from failure. `alp evolve` analyzes runtime telemetry to
+find tasks that repeatedly fail or escalate to a human, then proposes new
+`@rule` safety checks for your review.
+```bash
+alp evolve --apply   # writes proposals to .alp/evolved.alp
+```
+
 ---
 
 ## 📦 Packages
 
 | Package | Description |
 |---|---|
-| [`@alp/cli`](cli/) | The terminal interface (`run`, `verify`, `doctor`, `lint`, `export`, `upgrade`) |
+| [`@alp/cli`](cli/) | The terminal interface (`run`, `serve`, `evolve`, `verify`, `checkpoint`, `doctor`, `lint`, `export`, `upgrade`) |
 | [`@alp/parser`](parser/) | The engine for parsing `.alp` files and managing Kahn's Topological sort |
 | [`@alp/mcp-server`](mcp-server/) | The MCP server for IDE and Agent integrations |
 | [`@alp/vscode`](vscode/) | The official VS Code extension |

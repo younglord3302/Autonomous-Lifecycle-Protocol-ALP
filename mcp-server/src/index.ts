@@ -26,6 +26,15 @@ import { AlpParser, AlpObject, AlpGraph } from '@alp/parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** Convert an arbitrary title into a kebab-case ALP object id. */
+function toKebab(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
 // ─── Workspace Loader ─────────────────────────────────────────────────────
 function loadWorkspace(rootDir: string): AlpObject[] {
   const alpDir = path.join(rootDir, '.alp');
@@ -57,7 +66,7 @@ function loadDirectory(dir: string, parser: AlpParser, results: AlpObject[]) {
 
 // ─── MCP Server ───────────────────────────────────────────────────────────
 const server = new Server(
-  { name: 'alp-mcp-server', version: '2.0.0' },
+  { name: 'alp-mcp-server', version: '3.1.0' },
   { capabilities: { tools: {}, resources: {} } }
 );
 
@@ -152,6 +161,34 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           cwd: { type: 'string' }
         },
         required: ['query']
+      }
+    },
+    {
+      name: 'alp_delegate',
+      description: 'Create a new task assigned to a specific role/agent (sub-agent delegation).',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          title: { type: 'string', description: 'Task title (used to derive the task id)' },
+          agent: { type: 'string', description: 'Agent/role to assign (e.g. agent-qa)' },
+          description: { type: 'string', description: 'Optional task description' },
+          parent: { type: 'string', description: 'Optional parent task id this delegates from' },
+          cwd: { type: 'string' }
+        },
+        required: ['title']
+      }
+    },
+    {
+      name: 'alp_decompose',
+      description: 'Split a large task into sub-tasks, each blocked by the parent.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          taskId: { type: 'string', description: 'Parent task id to decompose' },
+          subtasks: { type: 'array', items: { type: 'string' }, description: 'Sub-task titles' },
+          cwd: { type: 'string' }
+        },
+        required: ['taskId', 'subtasks']
       }
     },
   ],
@@ -326,6 +363,79 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       );
       return {
         content: [{ type: 'text', text: JSON.stringify(results.map(r => ({ id: r.id, type: r._type, description: r.description })), null, 2) }]
+      };
+    }
+
+    case 'alp_decompose': {
+      // Split a large task into N sub-tasks, each blocked by the parent.
+      const parentId = args?.taskId as string;
+      const subtasks = (args?.subtasks as string[] | undefined) || [];
+      if (!parentId) {
+        return { content: [{ type: 'text', text: 'Error: taskId is required.' }], isError: true };
+      }
+      if (subtasks.length === 0) {
+        return { content: [{ type: 'text', text: 'Error: at least one subtask title is required.' }], isError: true };
+      }
+      const alpDir = path.join(cwd, '.alp');
+      const tasksDir = path.join(alpDir, 'tasks');
+      fs.mkdirSync(tasksDir, { recursive: true });
+
+      const created: string[] = [];
+      for (const title of subtasks) {
+        const id = toKebab(`${parentId}-${title}`);
+        const file = path.join(tasksDir, `${id}.alp`);
+        if (fs.existsSync(file)) continue;
+        const body =
+          `!alp-version: 2.0.0\n\n` +
+          `@task\n` +
+          `  id: ${id}\n` +
+          `  status: [ ]\n` +
+          `  description: "${title.replace(/"/g, "'")}"\n` +
+          `  depends_on:\n    - -> ${parentId}\n`;
+        fs.writeFileSync(file, body, 'utf8');
+        created.push(id);
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: created.length
+            ? `Decomposed ${parentId} into ${created.length} sub-task(s): ${created.join(', ')}`
+            : `No new sub-tasks created (already exist).`,
+        }],
+      };
+    }
+
+    case 'alp_delegate': {
+      // Create a new task assigned to a specific role/agent.
+      const title = args?.title as string;
+      const agent = (args?.agent as string) || 'agent-developer';
+      const description = (args?.description as string) || title || '';
+      const parent = args?.parent as string | undefined;
+      if (!title) {
+        return { content: [{ type: 'text', text: 'Error: title is required.' }], isError: true };
+      }
+      const alpDir = path.join(cwd, '.alp');
+      const tasksDir = path.join(alpDir, 'tasks');
+      fs.mkdirSync(tasksDir, { recursive: true });
+
+      const id = toKebab(title);
+      const file = path.join(tasksDir, `${id}.alp`);
+      if (fs.existsSync(file)) {
+        return { content: [{ type: 'text', text: `Task ${id} already exists.` }], isError: true };
+      }
+      const ownerLine = `  owner: -> ${agent.replace(/^->\s*/, '')}\n`;
+      const parentLine = parent ? `  depends_on:\n    - -> ${parent.replace(/^->\s*/, '')}\n` : '';
+      const body =
+        `!alp-version: 2.0.0\n\n` +
+        `@task\n` +
+        `  id: ${id}\n` +
+        `  status: [ ]\n` +
+        `  description: "${description.replace(/"/g, "'")}"\n` +
+        ownerLine +
+        parentLine;
+      fs.writeFileSync(file, body, 'utf8');
+      return {
+        content: [{ type: 'text', text: `Delegated task ${id} to ${agent}.` }],
       };
     }
 

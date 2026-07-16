@@ -15,13 +15,15 @@ import { doctorCommand } from './commands/doctor';
 import { upgradeCommand } from './commands/upgrade';
 import { importCommand } from './commands/import';
 import { checkpointCommand } from './commands/checkpoint';
+import { serveCommand } from './commands/serve';
+import { evolveCommand } from './commands/evolve';
 
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('3.0.0');
+  .version('3.1.0');
 
 program
   .command('init')
@@ -91,6 +93,20 @@ program
   .argument('[message]', 'Optional message to log to the runtime log')
   .option('--ask-human', 'Pause for human review: mark the task [ ?] and stop the loop')
   .action(checkpointCommand);
+
+program
+  .command('serve')
+  .description('Run the ALP State Server: a live dashboard for the swarm (v3 Pillar 4)')
+  .option('--port <n>', 'Port to listen on (default 4000)', (v) => parseInt(v, 10))
+  .option('--host <host>', 'Host to bind to (default 127.0.0.1)')
+  .action((opts) => serveCommand(opts));
+
+program
+  .command('evolve')
+  .description('Analyze runtime telemetry and propose self-improvements (v3 Pillar 5)')
+  .option('--apply', 'Write proposed rules to .alp/evolved.alp')
+  .option('--from-pr <n>', 'Extract rules from a GitHub PR (requires provider)')
+  .action((opts) => evolveCommand(opts));
 
 program
   .command('install')

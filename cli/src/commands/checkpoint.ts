@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { logEvent } from '../runtime';
 
 const VALID_STATUSES: Record<string, string> = {
   'done': '[x]',
@@ -78,19 +79,15 @@ export function checkpointCommand(
           fs.writeFileSync(fullPath, newLines.join('\n'), 'utf-8');
           const relPath = path.relative(cwd, fullPath);
           console.log(`✅ Updated task '${taskId}' → status: ${newStatus}`);
+
+          // Emit a structured runtime event for the `alp serve` dashboard.
+          logEvent(alpDir, options?.askHuman ? 'human_handoff' : 'checkpoint', {
+            task_id: taskId,
+            status: newStatus,
+            message,
+          });
+
           if (message) {
-            // Append checkpoint message to .alp/.runtime/log.jsonl
-            const logPath = path.join(alpDir, '.runtime', 'log.jsonl');
-            const runtimeDir = path.join(alpDir, '.runtime');
-            if (!fs.existsSync(runtimeDir)) fs.mkdirSync(runtimeDir, { recursive: true });
-            const logEntry = JSON.stringify({
-              timestamp: new Date().toISOString(),
-              task_id: taskId,
-              status: newStatus,
-              message,
-              pid: process.pid
-            });
-            fs.appendFileSync(logPath, logEntry + '\n', 'utf-8');
             console.log(`📝 Logged message: ${message}`);
           }
           console.log(`📄 Modified: ${relPath}`);

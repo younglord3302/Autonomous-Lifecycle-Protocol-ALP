@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AlpParser, AlpObject, LockManager, LoopEngine, LoopStage } from '@alp/parser';
 import { createProvider } from '../llm-provider';
+import { logEvent } from '../runtime';
 
 interface RunOptions {
   task?: string;
@@ -73,6 +74,9 @@ export function runCommand(taskId?: string, options?: RunOptions) {
 
     // Load lock manager to skip tasks claimed by concurrent runners
     const lockManager = new LockManager(process.cwd());
+    // Purge locks held by dead processes so a crashed/previous run can't
+    // deadlock task selection.
+    lockManager.cleanup();
     const lockedIds = lockManager.getLockedTaskIds();
 
     for (const task of tasks) {
@@ -86,6 +90,9 @@ export function runCommand(taskId?: string, options?: RunOptions) {
           const agentId = options?.agent || 'default-agent';
           const claimed = lockManager.claim(task.id as string, agentId);
           if (!claimed) continue; // Another process sniped it — try next
+          // Release the claim when this single-run process exits so we
+          // never leak a lock (single run is synchronous / short-lived).
+          releaseOnExit(lockManager, task.id as string);
           break;
         }
       }
@@ -191,6 +198,32 @@ export function runCommand(taskId?: string, options?: RunOptions) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Ensure a single-run claim is released on process exit so we never leak a
+ * lock into `.alp/.runtime/locks.json`. Registered once per claimed task.
+ */
+function releaseOnExit(lockManager: LockManager, taskId: string): void {
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    try {
+      lockManager.release(taskId);
+    } catch {
+      /* best-effort */
+    }
+  };
+  process.once('exit', release);
+  process.once('SIGINT', () => {
+    release();
+    process.exit(130);
+  });
+  process.once('SIGTERM', () => {
+    release();
+    process.exit(143);
+  });
+}
 
 function loadAlpDirectory(
   dir: string,
@@ -357,8 +390,15 @@ function updateTaskStatusOnFile(taskId: string, newStatus: string, alpDir: strin
 async function runSwarmMode(options: RunOptions, alpDir: string) {
   const numWorkers = options.concurrent || 1;
   console.log(`\n🐝 Starting ALP Swarm Orchestrator with ${numWorkers} concurrent workers...\n`);
-  
+
+  logEvent(alpDir, 'run_start', { message: `Swarm started with ${numWorkers} workers` });
+
   const lockManager = new LockManager(process.cwd());
+  // Purge locks from dead processes so a crashed run can't deadlock the swarm.
+  const purged = lockManager.cleanup();
+  if (purged > 0) {
+    console.log(`🧹 Cleared ${purged} stale lock(s) from previous runs.`);
+  }
   const parser = new AlpParser();
   
   const workers = Array.from({ length: numWorkers }).map(async (_, workerId) => {
@@ -422,6 +462,11 @@ async function runSwarmMode(options: RunOptions, alpDir: string) {
       
       idleCount = 0;
       console.log(`\n[Worker ${id}] 🚀 Claimed task: ${targetTask.id}`);
+      logEvent(alpDir, 'task_claim', {
+        task_id: targetTask.id as string,
+        worker: id,
+        agent: options.agent || `worker-${id}`,
+      });
       
       const project = allObjects.find((obj) => obj._type === 'project');
       const agent = allObjects.find((obj) => obj._type === 'agent' && obj.id === (targetTask as any).owner?.replace('-> ', '')) 
@@ -437,7 +482,9 @@ async function runSwarmMode(options: RunOptions, alpDir: string) {
         await new Promise(resolve => setTimeout(resolve, 3000)); // Simulate LLM latency
         console.log(`[Worker ${id}] ✅ Simulated completion of ${targetTask.id}.`);
         updateTaskStatusOnFile(targetTask.id as string, '[x]', alpDir);
+        logEvent(alpDir, 'task_status', { task_id: targetTask.id as string, status: '[x]', worker: id, message: 'dry-run complete' });
         lockManager.release(targetTask.id as string);
+        logEvent(alpDir, 'task_release', { task_id: targetTask.id as string, worker: id });
         continue;
       }
       
@@ -472,11 +519,14 @@ async function runSwarmMode(options: RunOptions, alpDir: string) {
         if (success) {
            console.log(`[Worker ${id}] ✅ Task ${targetTask.id} completed successfully.`);
            updateTaskStatusOnFile(targetTask.id as string, '[x]', alpDir);
+           logEvent(alpDir, 'task_status', { task_id: targetTask.id as string, status: '[x]', worker: id });
         } else {
            console.log(`[Worker ${id}] ❌ Task ${targetTask.id} failed verification.`);
            updateTaskStatusOnFile(targetTask.id as string, '[!]', alpDir);
+           logEvent(alpDir, 'task_status', { task_id: targetTask.id as string, status: '[!]', worker: id, message: 'failed verification' });
         }
         lockManager.release(targetTask.id as string);
+        logEvent(alpDir, 'task_release', { task_id: targetTask.id as string, worker: id });
       } else {
         console.log(`[Worker ${id}] No provider specified. Outputting context and exiting worker.`);
         console.log(contextBundle);
@@ -487,5 +537,6 @@ async function runSwarmMode(options: RunOptions, alpDir: string) {
   });
   
   await Promise.all(workers);
+  logEvent(alpDir, 'run_end', { message: 'Swarm execution complete' });
   console.log(`\n🎉 Swarm Execution Complete!`);
 }

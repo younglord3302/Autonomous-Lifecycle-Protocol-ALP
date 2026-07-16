@@ -40,6 +40,49 @@ A task isn't done until its quality gates pass. The `alp verify` command execute
 
 Running `alp verify task-auth` will execute those commands. If they succeed, ALP automatically updates the task status to `[x]` (Done). If they fail, it marks the task as `[!]` (Blocked), preventing the Execution Engine from moving forward.
 
+## Live State Server (`alp serve`)
+
+*New in `3.1.0`.* `alp serve` runs a local, zero-dependency dashboard that
+visualizes your swarm in real time. It tails the structured runtime event log
+(`.alp/.runtime/log.jsonl`) and streams updates to the browser over
+Server-Sent Events.
+
+```bash
+alp serve --port 4000
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--port <n>` | Port to listen on (default `4000`) |
+| `--host <host>` | Host to bind to (default `127.0.0.1`) |
+
+Endpoints:
+
+| Route | Description |
+| :--- | :--- |
+| `/` | Self-contained HTML dashboard |
+| `/api/state` | Task status counts, agents, active locks, recent events |
+| `/api/graph` | The dependency graph (nodes + edges) |
+| `/api/events` | The full runtime event history |
+| `/api/stream` | Live SSE stream of new events |
+
+## Self-Evolving Protocol (`alp evolve`)
+
+*New in `3.1.0`.* `alp evolve` analyzes the runtime event log to detect tasks
+that repeatedly fail (`[!]`) or repeatedly escalate to a human (`[?]`). It
+proposes new `@rule` safety checks so the swarm stops making the same mistake.
+
+```bash
+# Print a self-evolution report
+alp evolve
+
+# Write proposed rules to .alp/evolved.alp for review
+alp evolve --apply
+```
+
+By design this is a human-in-the-loop *proposal* engine: nothing is committed to
+your workspace until you review `.alp/evolved.alp`.
+
 ## Style Enforcement (`alp lint`)
 
 While `alp validate` checks raw JSON schema compliance, `alp lint` enforces community best practices:

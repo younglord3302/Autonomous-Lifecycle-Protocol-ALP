@@ -79,6 +79,13 @@ class AlpReader:
             if indent == 4 and current_obj is not None and (current_nested or current_list):
                 if trimmed.startswith('- '):
                     val = trimmed[2:].strip()
+                    # Strip surrounding quotes so list values (e.g. `verify`
+                    # commands) match the unquoting applied to scalar props.
+                    if len(val) >= 2 and (
+                        (val.startswith('"') and val.endswith('"'))
+                        or (val.startswith("'") and val.endswith("'"))
+                    ):
+                        val = val[1:-1]
                     if current_nested and isinstance(current_obj[current_nested], list):
                         current_obj[current_nested].append(val)
                     elif current_list and isinstance(current_obj[current_list], list):

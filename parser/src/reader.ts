@@ -130,7 +130,14 @@ export class AlpReader {
       if (indent === 4 && currentObject && (currentNestedBlock || currentListProp)) {
         // List items
         if (trimmed.startsWith('- ')) {
-          const val = trimmed.substring(2).trim();
+          let val = trimmed.substring(2).trim();
+          // Strip surrounding quotes so list values (e.g. `verify` shell
+          // commands) match the unquoting applied to scalar properties.
+          if (val.length >= 2 &&
+              ((val.startsWith('"') && val.endsWith('"')) ||
+               (val.startsWith("'") && val.endsWith("'")))) {
+            val = val.substring(1, val.length - 1);
+          }
           if (currentNestedBlock) {
              if (Array.isArray(currentObject[currentNestedBlock])) {
                 currentObject[currentNestedBlock].push(val);
