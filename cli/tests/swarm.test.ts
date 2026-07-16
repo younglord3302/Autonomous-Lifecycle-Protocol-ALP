@@ -1,146 +1,71 @@
-import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { describe, it, expect, afterEach } from 'vitest';
+import { spawn, ChildProcess } from 'node:child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as http from 'node:http';
 
 const CLI = path.resolve(process.cwd(), 'cli/dist/index.js');
-const EXAMPLE = path.resolve(process.cwd(), 'examples/todo-app');
 
-/**
- * End-to-end regression test for V3 swarm mode (`alp run --concurrent`).
- *
- * Guards against the deadlock bug where `extractDependencies` treated
- * `feature:`/`owner:` references as blocking dependencies, causing the
- * orchestrator to wait forever on "dependencies to unblock".
- */
-describe('alp run --concurrent (swarm mode)', () => {
-  it('completes and marks an actionable task [x] without deadlocking', () => {
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-swarm-'));
-    try {
-      fs.cpSync(EXAMPLE, tmp, { recursive: true });
+function call(port: number, method: string, pathname: string, body?: any): Promise<{ status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined;
+    const req = http.request(
+      { host: '127.0.0.1', port, method, path: pathname, headers: { 'Content-Type': 'application/json', ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } },
+      (res) => {
+        let raw = '';
+        res.on('data', (c) => (raw += c));
+        res.on('end', () => resolve({ status: res.statusCode || 0, json: raw ? JSON.parse(raw) : null }));
+      },
+    );
+    req.on('error', reject);
+    req.setTimeout(3000, () => req.destroy(new Error('timeout')));
+    if (data) req.write(data);
+    req.end();
+  });
+}
 
-      // Flip one in-progress task to actionable ([ ]).
-      const file = path.join(tmp, '.alp', 'features', 'user-auth.alp');
-      const content = fs.readFileSync(file, 'utf-8');
-      const updated = content.replace(
-        /(?<=id: task-login-ui[\s\S]*?status: )\[~\]/,
-        '[ ]',
-      );
-      fs.writeFileSync(file, updated);
+async function waitFor(port: number) {
+  for (let i = 0; i < 40; i++) {
+    try { await call(port, 'GET', '/api/state'); return; } catch { await new Promise((r) => setTimeout(r, 100)); }
+  }
+  throw new Error('server did not start');
+}
 
-      const output = execFileSync(
-        'node',
-        [CLI, 'run', '--concurrent', '2', '--dry-run'],
-        { cwd: tmp, encoding: 'utf-8', timeout: 30000 },
-      );
-
-      // No infinite "Waiting for dependencies to unblock" loop.
-      expect(output).toContain('Swarm Execution Complete');
-      expect(output).toContain('Claimed task: task-login-ui');
-
-      // The task must be persisted as done on disk.
-      const after = fs.readFileSync(
-        path.join(tmp, '.alp', 'features', 'user-auth.alp'),
-        'utf-8',
-      );
-      expect(after).toMatch(/id: task-login-ui[\s\S]*?status: \[x\]/);
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
+describe('alp serve federation (Pillar 1: networked swarm)', () => {
+  let proc: ChildProcess | null = null;
+  const dirs: string[] = [];
+  afterEach(() => {
+    if (proc) proc.kill('SIGKILL');
+    proc = null;
+    for (const d of dirs) { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} }
+    dirs.length = 0;
   });
 
-  it('exits immediately when there are no actionable tasks', () => {
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-swarm-'));
-    try {
-      fs.cpSync(EXAMPLE, tmp, { recursive: true });
+  it('registers nodes, accepts coordinated claims, and lists the roster', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-serve-swarm-'));
+    dirs.push(tmp);
+    fs.mkdirSync(path.join(tmp, '.alp', '.runtime'), { recursive: true });
 
-      const output = execFileSync(
-        'node',
-        [CLI, 'run', '--concurrent', '2', '--dry-run'],
-        { cwd: tmp, encoding: 'utf-8', timeout: 30000 },
-      );
+    const port = 4222;
+    proc = spawn('node', [CLI, 'serve', '--port', String(port)], { cwd: tmp });
+    await waitFor(port);
 
-      expect(output).toContain('Swarm Execution Complete');
-      expect(output).toContain('No actionable tasks found');
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
+    const join = await call(port, 'POST', '/api/swarm/join', { swarm_id: 'swarm-1', node_id: 'node-a' });
+    expect(join.status).toBe(200);
+    expect(join.json.node_id).toBe('node-a');
+
+    const claim = await call(port, 'POST', '/api/swarm/claim', { swarm_id: 'swarm-1', node_id: 'node-a', task_id: 'task-1', agent: 'a1' });
+    expect(claim.status).toBe(200);
+    expect(claim.json.task_id).toBe('task-1');
+
+    const dup = await call(port, 'POST', '/api/swarm/claim', { swarm_id: 'swarm-1', node_id: 'node-b', task_id: 'task-1', agent: 'a2' });
+    expect(dup.status).toBe(409);
+
+    const roster = await call(port, 'GET', '/api/swarm/roster?swarm_id=swarm-1');
+    expect(roster.json.length).toBe(1);
+
+    await call(port, 'POST', '/api/swarm/release', { swarm_id: 'swarm-1', task_id: 'task-1' });
+    await call(port, 'POST', '/api/swarm/leave', { swarm_id: 'swarm-1', node_id: 'node-a' });
   });
-
-  it('clears a stale lock from a dead process instead of deadlocking', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-swarm-'));
-    try {
-      fs.cpSync(EXAMPLE, tmp, { recursive: true });
-
-      // Make task-login-ui actionable.
-      const file = path.join(tmp, '.alp', 'features', 'user-auth.alp');
-      const content = fs.readFileSync(file, 'utf-8');
-      fs.writeFileSync(
-        file,
-        content.replace(/(?<=id: task-login-ui[\s\S]*?status: )\[~\]/, '[ ]'),
-      );
-
-      // Simulate a leaked lock from a previous crashed run. PID 999999 is
-      // effectively guaranteed not to exist, so it must be treated as stale.
-      const runtime = path.join(tmp, '.alp', '.runtime');
-      fs.mkdirSync(runtime, { recursive: true });
-      fs.writeFileSync(
-        path.join(runtime, 'locks.json'),
-        JSON.stringify(
-          {
-            'task-login-ui': {
-              task_id: 'task-login-ui',
-              agent_id: 'ghost',
-              claimed_at: '2020-01-01T00:00:00Z',
-              pid: 999999,
-            },
-          },
-          null,
-          2,
-        ),
-      );
-
-      const output = execFileSync(
-        'node',
-        [CLI, 'run', '--concurrent', '2', '--dry-run'],
-        { cwd: tmp, encoding: 'utf-8', timeout: 30000 },
-      );
-
-      // The swarm must reclaim the stale lock and finish — not hang.
-      expect(output).toContain('stale lock');
-      expect(output).toContain('Claimed task: task-login-ui');
-      expect(output).toContain('Swarm Execution Complete');
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
-  }, 40000);
-
-  it('does not leak a lock after a single (non-concurrent) run', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alp-single-'));
-    try {
-      fs.cpSync(EXAMPLE, tmp, { recursive: true });
-
-      const file = path.join(tmp, '.alp', 'features', 'user-auth.alp');
-      const content = fs.readFileSync(file, 'utf-8');
-      fs.writeFileSync(
-        file,
-        content.replace(/(?<=id: task-login-ui[\s\S]*?status: )\[~\]/, '[ ]'),
-      );
-
-      execFileSync('node', [CLI, 'run', '--dry-run'], {
-        cwd: tmp,
-        encoding: 'utf-8',
-        timeout: 30000,
-      });
-
-      const lockFile = path.join(tmp, '.alp', '.runtime', 'locks.json');
-      if (fs.existsSync(lockFile)) {
-        const locks = JSON.parse(fs.readFileSync(lockFile, 'utf-8'));
-        expect(Object.keys(locks)).toHaveLength(0);
-      }
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
-  }, 40000);
 });

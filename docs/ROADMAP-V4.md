@@ -10,14 +10,18 @@ grows from one `.alp/` folder to many, working together under shared policy.
 
 ---
 
-## Pillar 1: Remote & Networked Swarms
+## Pillar 1: Remote & Networked Swarms ✅ (landed on main, toward 4.0.0)
 **Target:** Run the swarm across more than one machine.
-- **`alp serve --cluster`:** Promote the State Server from a read-only dashboard
-  into a coordination hub that remote workers connect to over WebSocket.
-- **Distributed `LockManager`:** Replace file-based locks with a server-brokered
-  lock so agents on different machines never claim the same task.
-- **Worker registration:** `alp run --connect <url>` joins an existing cluster
-  instead of spawning a local-only swarm.
+- **`@swarm` object:** Declares a networked swarm (coordinator URL, token, node id,
+  heartbeat, peers). Validated by the same JSON-schema machinery as other objects.
+- **`alp serve` coordinator:** The State Server gains `/api/swarm/*` endpoints
+  (join, heartbeat, claim, release, roster). Dead nodes are reaped by timeout so
+  their claims are freed — a server-brokered lock across machines.
+- **`alp swarm` command:** `join` (register + heartbeat loop), `leave`, and
+  `roster` (list live nodes and their current claims).
+- **`alp run --swarm <id>`:** Runs the ordinary execution loop but negotiates
+  task claims through the coordinator instead of the local `LockManager`, so
+  multiple machines/CI runners work the same DAG without double-claiming.
 
 ## Pillar 2: Cross-Repository Orchestration
 **Target:** One DAG spanning many repos.
@@ -70,8 +74,8 @@ grows from one `.alp/` folder to many, working together under shared policy.
 |---|---|---|
 | Pillar 4 | Policy & Permission Governance | ✅ Complete (toward 4.0.0) |
 | Pillar 5 | Persistent State Store | ✅ Complete (toward 4.0.0) |
-| Pillar 1 | Remote & Networked Swarms | 🔜 Next |
-| Pillar 2 | Cross-Repository Orchestration | 🔜 |
+| Pillar 1 | Remote & Networked Swarms | ✅ Complete (toward 4.0.0) |
+| Pillar 2 | Cross-Repository Orchestration | 🔜 Next |
 | Pillar 3 | Hosted Registry & Marketplace | 🔜 |
 
 > V4 is a **major** version: `@policy` and cross-repo references may introduce

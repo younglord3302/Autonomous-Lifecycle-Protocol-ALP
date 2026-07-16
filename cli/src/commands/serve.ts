@@ -10,6 +10,12 @@ interface ServeOptions {
   db?: boolean;
 }
 
+interface SwarmNodeState {
+  node_id: string;
+  last_seen: string;
+  claim: string | null;
+}
+
 /**
  * `alp serve` — Pillar 4 of V3: the Centralized State Server.
  *
@@ -42,6 +48,29 @@ export function serveCommand(options?: ServeOptions) {
     store.save();
     console.log(`💾 State store enabled (${store.size} events, +${added} new).`);
   }
+
+  // ─── Networked swarm registry (Pillar 1) ────────────────────────────
+  // In-memory coordinator state: nodes per swarm and remote task claims.
+  const swarms = new Map<string, Map<string, SwarmNodeState>>();
+  const swarmClaims = new Map<string, Map<string, { task_id: string; node_id: string; agent: string }>>();
+  const SWARM_TIMEOUT_MS = 15000;
+
+  function reapSwarms() {
+    const now = Date.now();
+    for (const [sid, nodes] of swarms) {
+      for (const [nid, n] of nodes) {
+        if (now - Date.parse(n.last_seen) > SWARM_TIMEOUT_MS) {
+          nodes.delete(nid);
+          if (swarmClaims.has(sid)) {
+            for (const [tid, c] of swarmClaims.get(sid)!) {
+              if (c.node_id === nid) swarmClaims.get(sid)!.delete(tid);
+            }
+          }
+        }
+      }
+    }
+  }
+  const swarmTimer = setInterval(reapSwarms, 5000);
 
   // Live SSE clients.
   const clients = new Set<http.ServerResponse>();
@@ -177,6 +206,13 @@ export function serveCommand(options?: ServeOptions) {
       return;
     }
 
+    // ─── Networked swarm coordination (Pillar 1) ───────────────────────
+    if (url.startsWith('/api/swarm')) {
+      handleSwarm(req, res, url, swarms, swarmClaims, broadcast);
+      return;
+    }
+
+
     if (url === '/api/stream') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -204,6 +240,7 @@ export function serveCommand(options?: ServeOptions) {
 
   const shutdown = () => {
     clearInterval(pollTimer);
+    clearInterval(swarmTimer);
     for (const res of clients) res.end();
     server.close(() => process.exit(0));
     // Force-exit if close hangs.
@@ -214,9 +251,124 @@ export function serveCommand(options?: ServeOptions) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
-function sendJson(res: http.ServerResponse, data: unknown) {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
+function sendJson(res: http.ServerResponse, data: unknown, status = 200) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
+}
+
+function readBody(req: http.IncomingMessage): Promise<any> {
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      if (!raw) return resolve({});
+      try { resolve(JSON.parse(raw)); } catch { resolve({}); }
+    });
+  });
+}
+
+function handleSwarm(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  swarms: Map<string, Map<string, SwarmNodeState>>,
+  swarmClaims: Map<string, Map<string, { task_id: string; node_id: string; agent: string }>>,
+  broadcast: (raw: string) => void,
+) {
+  const ensureSwarm = (sid: string) => {
+    let s = swarms.get(sid);
+    if (!s) { s = new Map(); swarms.set(sid, s); }
+    return s;
+  };
+
+  if (url.startsWith('/api/swarm/join') && req.method === 'POST') {
+    readBody(req).then((b) => {
+      const sid = String(b.swarm_id ?? '');
+      const nid = String(b.node_id ?? '');
+      if (!sid || !nid) return sendJson(res, { error: 'swarm_id and node_id required' }, 400);
+      const nodes = ensureSwarm(sid);
+      const now = new Date().toISOString();
+      nodes.set(nid, { node_id: nid, last_seen: now, claim: nodes.get(nid)?.claim ?? null });
+      broadcast(JSON.stringify({ timestamp: now, type: 'swarm_join', swarm_id: sid, node_id: nid, source: 'coordinator' }));
+      sendJson(res, { node_id: nid, last_seen: now, claim: nodes.get(nid)!.claim });
+    });
+    return;
+  }
+
+  if (url.startsWith('/api/swarm/heartbeat') && req.method === 'POST') {
+    readBody(req).then((b) => {
+      const sid = String(b.swarm_id ?? '');
+      const nid = String(b.node_id ?? '');
+      const nodes = swarms.get(sid);
+      if (!nodes || !nodes.has(nid)) return sendJson(res, { error: 'unknown node' }, 404);
+      const now = new Date().toISOString();
+      const node = nodes.get(nid)!;
+      node.last_seen = now;
+      if (b.claim !== undefined) node.claim = b.claim;
+      sendJson(res, { ok: true, last_seen: now });
+    });
+    return;
+  }
+
+  if (url.startsWith('/api/swarm/leave') && req.method === 'POST') {
+    readBody(req).then((b) => {
+      const sid = String(b.swarm_id ?? '');
+      const nid = String(b.node_id ?? '');
+      swarms.get(sid)?.delete(nid);
+      if (swarmClaims.has(sid)) {
+        for (const [tid, c] of swarmClaims.get(sid)!) if (c.node_id === nid) swarmClaims.get(sid)!.delete(tid);
+      }
+      sendJson(res, { ok: true });
+    });
+    return;
+  }
+
+  if (url.startsWith('/api/swarm/claim') && req.method === 'POST') {
+    readBody(req).then((b) => {
+      const sid = String(b.swarm_id ?? '');
+      const nid = String(b.node_id ?? '');
+      const tid = String(b.task_id ?? '');
+      const agent = String(b.agent ?? nid);
+      const claims = swarmClaims.get(sid);
+      if (claims && claims.has(tid)) {
+        // Already claimed by someone (who may be dead). Reap first.
+        const holder = claims.get(tid)!;
+        const holderAlive = swarms.get(sid)?.has(holder.node_id);
+        if (holderAlive) return sendJson(res, { error: 'already claimed', by: holder.node_id }, 409);
+        claims.delete(tid);
+      }
+      ensureSwarm(sid);
+      if (!swarmClaims.has(sid)) swarmClaims.set(sid, new Map());
+      const claim = { task_id: tid, node_id: nid, agent };
+      swarmClaims.get(sid)!.set(tid, claim);
+      swarms.get(sid)!.get(nid)!.claim = tid;
+      sendJson(res, claim);
+    });
+    return;
+  }
+
+  if (url.startsWith('/api/swarm/release') && req.method === 'POST') {
+    readBody(req).then((b) => {
+      const sid = String(b.swarm_id ?? '');
+      const tid = String(b.task_id ?? '');
+      swarmClaims.get(sid)?.delete(tid);
+      sendJson(res, { ok: true });
+    });
+    return;
+  }
+
+  if (url.startsWith('/api/swarm/roster')) {
+    const sid = new URL('http://x' + url).searchParams.get('swarm_id') ?? '';
+    const nodes = [...(swarms.get(sid)?.values() ?? [])].map((n) => ({
+      node_id: n.node_id,
+      last_seen: n.last_seen,
+      claim: n.claim,
+    }));
+    sendJson(res, nodes);
+    return;
+  }
+
+  sendJson(res, { error: 'unknown swarm endpoint' }, 404);
 }
 
 function loadAll(dir: string, parser: AlpParser, out: AlpObject[]) {

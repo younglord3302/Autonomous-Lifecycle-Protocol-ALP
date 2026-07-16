@@ -7,6 +7,7 @@ export * from './memory';
 export * from './lock-manager';
 export * from './policy';
 export * from './state-store';
+export * from './swarm-client';
 export { AlpObject };
 
 export class AlpParser {

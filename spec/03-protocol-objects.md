@@ -1052,3 +1052,41 @@ explicitly denied.
 
 Enforced by `alp policy` (check an action) and by `alp verify` (verify
 commands must comply before execution).
+
+## 26. Swarm — `@swarm` (v4.0.0+)
+
+Declares a **networked swarm**: a set of ALP nodes that coordinate through a
+shared coordinator (an `alp serve` instance) instead of running in a single
+process. Introduced in ALP v4 (The Federation Era, Pillar 1) so swarms can span
+machines, containers, and CI runners while still respecting `@policy` and
+`@lock`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Swarm identifier (unique per network) |
+| `coordinator` | URL | No | Base URL of the `alp serve` coordinator (default `http://127.0.0.1:4000`) |
+| `token` | String | No | Shared bearer token for the coordinator (if it requires one) |
+| `node_id` | String | No | This node's name (auto-generated if omitted) |
+| `heartbeat_seconds` | Number | No | How often to report liveness (default 5) |
+| `pull_state` | Boolean | No | Pull merged task state from the coordinator before each claim (default true) |
+| `peers` | List (URL) | No | Known peer coordinators for gossip/roster |
+
+**Coordination model:** every node runs an ordinary `alp run` loop, but claims
+are negotiated through the coordinator's `/api/swarm` endpoint rather than the
+local `LockManager`. A node `join`s (registers + starts heartbeating), `sync`s
+(pulls the merged graph), runs tasks, and `leave`s on shutdown. Locks acquired
+remotely carry the `node_id` so dead nodes can be reaped by the coordinator.
+
+**Example:**
+```
+@swarm
+  id: swarm-ci-fleet
+  coordinator: "http://coordinator.local:4000"
+  token: "${SWARM_TOKEN}"
+  node_id: "ci-runner-3"
+  heartbeat_seconds: 5
+  pull_state: true
+```
+
+Join a networked swarm with `alp run --swarm <id>` or inspect it with
+`alp swarm roster <id>`.

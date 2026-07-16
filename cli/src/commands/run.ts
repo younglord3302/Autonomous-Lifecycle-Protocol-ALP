@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { AlpParser, AlpObject, LockManager, LoopEngine, LoopStage } from '@alp/parser';
+import { AlpParser, AlpObject, LockManager, LoopEngine, LoopStage, SwarmClient, SwarmConfig } from '@alp/parser';
 import { createProvider } from '../llm-provider';
 import { logEvent } from '../runtime';
 
@@ -11,6 +11,7 @@ interface RunOptions {
   concurrent?: number;
   provider?: string;
   model?: string;
+  swarm?: string;
 }
 
 /**
@@ -26,6 +27,14 @@ export function runCommand(taskId?: string, options?: RunOptions) {
   if (!fs.existsSync(alpDir)) {
     console.error('Error: .alp directory not found. Run `alp init` first.');
     process.exit(1);
+  }
+
+  if (options?.swarm) {
+    runNetworkedSwarm(options, alpDir).catch(err => {
+       console.error("Networked Swarm Error:", err);
+       process.exit(1);
+    });
+    return;
   }
 
   if (options?.concurrent && options.concurrent > 1) {
@@ -385,6 +394,125 @@ function updateTaskStatusOnFile(taskId: string, newStatus: string, alpDir: strin
      walk(alpDir);
   }
   return updated;
+}
+
+function resolveSwarmConfig(alpDir: string, swarmId: string, coordinator?: string, token?: string, node?: string): SwarmConfig {
+  const parser = new AlpParser();
+  const objects: AlpObject[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === '.runtime' || entry.name === '.cache') continue;
+        walk(full);
+      } else if (entry.name.endsWith('.alp')) {
+        try { objects.push(...parser.parse(fs.readFileSync(full, 'utf-8'))); } catch {}
+      }
+    }
+  };
+  walk(alpDir);
+  const swarm = objects.find((o) => o._type === 'swarm' && o.id === swarmId);
+  if (!swarm) {
+    console.error(`Error: @swarm "${swarmId}" not found in workspace.`);
+    process.exit(1);
+  }
+  const rawToken = token || (swarm as any).token;
+  let resolvedToken: string | undefined;
+  if (rawToken) {
+    const m = /\$\{([^}]+)\}/.exec(rawToken);
+    resolvedToken = m ? process.env[m[1]] : rawToken;
+  }
+  const rawHb = (swarm as any).heartbeat_seconds;
+  const rawPull = (swarm as any).pull_state;
+  return {
+    id: swarmId,
+    coordinator: coordinator || (swarm as any).coordinator || 'http://127.0.0.1:4000',
+    token: resolvedToken,
+    node_id: node || (swarm as any).node_id,
+    heartbeat_seconds: rawHb === undefined ? undefined : Number(rawHb),
+    pull_state: rawPull === undefined ? undefined : (rawPull === true || rawPull === 'true'),
+    peers: (swarm as any).peers,
+  };
+}
+
+async function runNetworkedSwarm(options: RunOptions, alpDir: string) {
+  const swarmId = options.swarm as string;
+  const cfg = resolveSwarmConfig(alpDir, swarmId, process.env.ALP_SWARM_COORDINATOR, process.env.ALP_SWARM_TOKEN);
+  const client = new SwarmClient(cfg);
+  const node = await client.join();
+  console.log(`\n🌐 Joined networked swarm "${swarmId}" as node "${node.node_id}".`);
+
+  let currentClaim: string | null = null;
+  const stop = client.startHeartbeat(() => currentClaim);
+  const cleanup = () => { stop(); client.leave().catch(() => {}); };
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+
+  const parser = new AlpParser();
+  const lockManager = new LockManager(process.cwd());
+  lockManager.cleanup();
+
+  while (true) {
+    const allObjects: AlpObject[] = [];
+    loadAlpDirectory(alpDir, parser, allObjects);
+    const tasks = allObjects.filter((obj) => obj._type === 'task');
+    const doneIds = new Set(
+      allObjects.filter((obj) => obj.status === '[x]' || obj.status === 'done').map((obj) => obj.id)
+    );
+    if (tasks.every((t) => doneIds.has(t.id))) {
+      console.log(`[${node.node_id}] 🏁 All tasks completed. Leaving swarm.`);
+      break;
+    }
+    let target: AlpObject | null = null;
+    for (const task of tasks) {
+      if (task.status === '[ ]' || task.status === 'todo') {
+        const deps = extractDependencies(task);
+        if (deps.every((d) => doneIds.has(d))) { target = task; break; }
+      }
+    }
+    if (!target) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+
+    const agentId = options.agent || `${node.node_id}-agent`;
+    const claim = await client.claim(target.id as string, agentId);
+    if (!claim) { await new Promise((r) => setTimeout(r, 1000)); continue; }
+    currentClaim = target.id as string;
+    console.log(`[${node.node_id}] 🚀 Claimed task: ${target.id} (via coordinator)`);
+    logEvent(alpDir, 'task_claim', { task_id: target.id as string, agent: agentId, source: 'swarm' });
+
+    if (options.provider) {
+      const project = allObjects.find((obj) => obj._type === 'project');
+      const agent = allObjects.find((obj) => obj._type === 'agent' && obj.id === (target as any).owner?.replace('-> ', ''))
+        || allObjects.find((obj) => obj._type === 'agent');
+      const memories = allObjects.filter((obj) => obj._type === 'memory');
+      const rules = allObjects.filter((obj) => obj._type === 'rule');
+      const decisions = allObjects.filter((obj) => obj._type === 'decision' && obj.status === '[x]');
+      const contextBundle = buildContextBundle(target, project || null, agent || null, memories, rules, decisions, allObjects);
+      const llm = createProvider(options.provider, options.model);
+      const loop = new LoopEngine({ maxIterations: 3, completionConditions: ['Task verified successfully'] });
+      let success = false;
+      try {
+        const result = await loop.run(async (stage: LoopStage, iteration: number) => {
+          await llm.chat([
+            { role: 'system' as const, content: 'You are an autonomous AI agent following the ALP protocol.' },
+            { role: 'user' as const, content: `Context:\n${contextBundle}\n\nCurrent Stage: ${stage}\nExecute this stage.` },
+          ]);
+          return stage === 'test';
+        });
+        success = result.status === 'completed';
+      } catch (e) {
+        console.error(`[${node.node_id} | ${target!.id}] Execution error:`, e);
+      }
+      updateTaskStatusOnFile(target.id as string, success ? '[x]' : '[!]', alpDir);
+      logEvent(alpDir, 'task_status', { task_id: target.id as string, status: success ? '[x]' : '[!]', agent: agentId, source: 'swarm' });
+    } else {
+      console.log(`[${node.node_id}] No provider. Leaving task ${target.id} claimed; status unchanged.`);
+    }
+    await client.release(target.id as string);
+    currentClaim = null;
+    lockManager.release(target.id as string);
+    logEvent(alpDir, 'task_release', { task_id: target.id as string, agent: agentId, source: 'swarm' });
+  }
+  cleanup();
 }
 
 async function runSwarmMode(options: RunOptions, alpDir: string) {

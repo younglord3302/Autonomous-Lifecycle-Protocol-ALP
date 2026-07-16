@@ -18,6 +18,7 @@ module.exports = {
   "resource": require("./resource.schema.json"),
   "rule": require("./rule.schema.json"),
   "state": require("./state.schema.json"),
+  "swarm": require("./swarm.schema.json"),
   "task": require("./task.schema.json"),
   "type_definition": require("./type_definition.schema.json"),
   "verification": require("./verification.schema.json"),

@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/swarm.schema.json",
+  "title": "ALP Swarm Object",
+  "description": "Declares a networked swarm: a set of ALP nodes coordinating through a shared coordinator (an `alp serve` instance). Introduced in ALP v4 (The Federation Era, Pillar 1).",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "coordinator": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL of the `alp serve` coordinator. Defaults to http://127.0.0.1:4000."
+    },
+    "token": {
+      "type": "string",
+      "description": "Shared bearer token for the coordinator (if it requires one). May reference an env var via ${NAME}."
+    },
+    "node_id": {
+      "type": "string",
+      "description": "This node's name. Auto-generated if omitted."
+    },
+    "heartbeat_seconds": {
+      "type": ["number", "string"],
+      "description": "How often to report liveness to the coordinator. Default 5."
+    },
+    "pull_state": {
+      "type": ["boolean", "string"],
+      "description": "Pull merged task state from the coordinator before each claim. Default true."
+    },
+    "peers": {
+      "type": "array",
+      "items": { "type": "string", "format": "uri" },
+      "description": "Known peer coordinator URLs for gossip/roster."
+    }
+  }
+}

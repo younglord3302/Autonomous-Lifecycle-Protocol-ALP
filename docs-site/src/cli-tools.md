@@ -68,6 +68,23 @@ Endpoints:
 | `/api/events` | The full runtime event history |
 | `/api/analytics` | *V4 Pillar 5.* Cycle time per task, agent utilization, failure hotspots, event throughput |
 | `/api/stream` | Live SSE stream of new events |
+| `/api/swarm/join` | *V4 Pillar 1.* Register a node with a swarm coordinator |
+| `/api/swarm/heartbeat` | *V4 Pillar 1.* Report node liveness |
+| `/api/swarm/claim` | *V4 Pillar 1.* Negotiate a task claim (server-brokered lock) |
+| `/api/swarm/release` | *V4 Pillar 1.* Release a task claim |
+| `/api/swarm/roster` | *V4 Pillar 1.* List live nodes and their claims |
+
+## Networked Swarms (`alp swarm`)
+
+*New in V4 (Pillar 1).* A swarm can span multiple machines by coordinating
+through an `alp serve` instance. Declare it with a `@swarm` object, then:
+
+```bash
+alp swarm join <id>            # register this node + start heartbeating
+alp swarm roster <id>          # list live nodes and their current claims
+alp swarm leave <id>           # deregister
+alp run --swarm <id>           # execute tasks, negotiating claims via the coordinator
+```
 
 ## Self-Evolving Protocol (`alp evolve`)
 

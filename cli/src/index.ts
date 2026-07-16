@@ -18,6 +18,7 @@ import { checkpointCommand } from './commands/checkpoint';
 import { serveCommand } from './commands/serve';
 import { evolveCommand } from './commands/evolve';
 import { policyCommand } from './commands/policy';
+import { swarmCommand } from './commands/swarm';
 const program = new Command();
 
 program
@@ -83,6 +84,7 @@ program
   .option('--concurrent <n>', 'Number of parallel agent loops (v3 swarm mode)', parseInt)
   .option('--provider <provider>', 'LLM provider to use for native execution (openai, anthropic, ollama)')
   .option('--model <model>', 'LLM model to use with the selected provider')
+  .option('--swarm <id>', 'Join the named networked swarm (v4 Pillar 1) and coordinate claims via a coordinator')
   .action((task, opts) => runCommand(task, opts));
 
 program
@@ -116,6 +118,16 @@ program
   .option('--command <cmd>', 'Check whether a shell command may be run')
   .option('--agent <agent>', 'Scope the check to a specific agent')
   .action((opts) => policyCommand(opts));
+
+program
+  .command('swarm')
+  .description('Manage membership in a networked swarm (v4 Pillar 1)')
+  .argument('[subcommand]', 'join | leave | roster (default roster)')
+  .argument('[swarm]', 'Swarm id (first @swarm in the workspace if omitted)')
+  .option('--coordinator <url>', 'Coordinator base URL (overrides @swarm coordinator)')
+  .option('--token <token>', 'Bearer token for the coordinator')
+  .option('--node <id>', 'This node id')
+  .action((sub, swarm, opts) => swarmCommand(sub, swarm, opts));
 
 program
   .command('install')
