@@ -79,3 +79,38 @@ Since `alp run` outputs standard Markdown to `stdout`, it is designed to be pipe
 alp run | claude-code
 alp run | cursor-agent
 ```
+
+## Human-in-the-Loop (HITL) handoffs
+
+ALP supports seamless escalation from AI back to a human. An agent
+can submit its work for review without blocking the whole swarm.
+
+### The `[?]` review status
+
+A new status marker where an agent finishes its work but waits
+on a human:
+
+```bash
+# Agent submits for review -> task marked [?]
+alp checkpoint task-login-ui --ask-human "please review the login UI"
+```
+
+`[?]` means **awaiting human code review**. It is **not** counted
+as done by the swarm, so dependent tasks stay blocked until a human
+approves (or the agent is told to proceed).
+
+### Interactive checkpointing
+
+`alp checkpoint` writes an entry to `.alp/.runtime/log.jsonl`
+and can pause the execution loop. Combined with `--ask-human`, it
+hands control back to the developer (in VS Code or GitHub) for a
+clarification, then resumes once the decision is recorded.
+
+| Status | Meaning |
+| :--- | :--- |
+| `[ ]` | Todo |
+| `[~]` | In Progress |
+| `[x]` | Done |
+| `[!]` | Blocked |
+| `[?]` | Awaiting human review |
+| `[-]` | Cancelled |

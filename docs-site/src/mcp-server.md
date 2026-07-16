@@ -14,11 +14,16 @@ npm install -g @alp/mcp-server
 
 Once connected, your IDE gains access to the following tools:
 
-- `alp_get_graph`: Get the full dependency graph of the ALP workspace as a sorted execution order.
-- `alp_get_status`: Get the current project status (task counts by state: `[x]`, `[~]`, `[ ]`).
+- `alp_list_objects`: List all objects, optionally filtered by type (e.g., `task`, `agent`, `memory`).
 - `alp_read_object`: Read a specific ALP object by its ID to get detailed instructions, rules, or memory.
-- `alp_list_objects`: List all objects, optionally filtered by type (e.g., `task`, `rule`).
+- `alp_get_graph`: Get the full dependency graph of the ALP workspace as a sorted execution order.
+- `alp_get_status`: Get the current project status (task counts by state: `[x]`, `[~]`, `[ ]`, `[!]`, `[?]`).
 - `alp_validate`: Validate the ALP workspace to ensure the agent hasn't introduced syntax errors.
+- `alp_update_status`: Update the status of a task (supports the `[?]` review marker for HITL handoffs).
+- `alp_get_impact`: Get all downstream nodes affected by a change to a given node.
+- `alp_search`: Fuzzy search across all object IDs and descriptions.
+
+In addition, the server exposes the workspace `.alp` files as MCP **resources** (`file://` URIs) so a client can read raw object files directly.
 
 ## Usage with Claude Desktop
 

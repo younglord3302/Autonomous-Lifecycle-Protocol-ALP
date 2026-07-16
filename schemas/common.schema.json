@@ -6,8 +6,8 @@
   "definitions": {
     "status": {
       "type": "string",
-      "enum": ["[ ]", "[~]", "[x]", "[!]", "[-]"],
-      "description": "Lifecycle status marker: [ ] Todo, [~] In Progress, [x] Done, [!] Blocked, [-] Canceled"
+      "enum": ["[ ]", "[~]", "[x]", "[!]", "[?]", "[-]"],
+      "description": "Lifecycle status marker: [ ] Todo, [~] In Progress, [x] Done, [!] Blocked, [?] Awaiting human review, [-] Canceled"
     },
     "ref": {
       "type": "string",

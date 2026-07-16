@@ -5,10 +5,16 @@ const VALID_STATUSES: Record<string, string> = {
   'done': '[x]',
   'blocked': '[!]',
   'in-progress': '[~]',
+  'review': '[?]',
   'todo': '[ ]',
 };
 
-export function checkpointCommand(taskId: string, status: string, message?: string) {
+export function checkpointCommand(
+  taskId: string,
+  status?: string,
+  message?: string,
+  options?: { askHuman?: boolean },
+) {
   const cwd = process.cwd();
   const alpDir = path.join(cwd, '.alp');
 
@@ -17,9 +23,13 @@ export function checkpointCommand(taskId: string, status: string, message?: stri
     process.exit(1);
   }
 
-  const newStatus = VALID_STATUSES[status.toLowerCase()];
+  // `--ask-human` marks the task as awaiting review ([ ?]) and is the
+  // Human-in-the-Loop handoff: the agent pauses for a human decision.
+  const effectiveStatus = options?.askHuman ? 'review' : status;
+
+  const newStatus = VALID_STATUSES[(effectiveStatus ?? '').toLowerCase()];
   if (!newStatus) {
-    console.error(`Error: Invalid status "${status}". Use: done, blocked, in-progress, todo`);
+    console.error(`Error: Invalid status "${effectiveStatus}". Use: done, blocked, in-progress, review, todo`);
     process.exit(1);
   }
 

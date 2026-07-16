@@ -1,6 +1,30 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in V2.
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in V3.
+
+## Execution Engine (`alp run`)
+
+`alp run` compiles a context bundle for the next available task and
+(orchestrates agents in V3) executes it:
+
+```bash
+# Auto-select the next available task (or pipe the bundle to an agent)
+alp run
+
+# Run up to 3 agents concurrently (V3 swarm mode)
+alp run --concurrent 3
+
+# Submit a task for human review (HITL handoff)
+alp checkpoint task-login-ui --ask-human "please review the login UI"
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--concurrent <n>` | Number of parallel agent loops (V3 swarm mode) |
+| `--provider <p>` | LLM provider for native execution (`openai`, `anthropic`, `ollama`) |
+| `--model <m>` | LLM model to use with the selected provider |
+| `--agent <a>` | Override the assigned agent for the task |
+| `--dry-run` | Preview the context bundle without executing |
 
 ## Verification Engine (`alp verify`)
 

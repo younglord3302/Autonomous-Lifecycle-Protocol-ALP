@@ -87,8 +87,9 @@ program
   .command('checkpoint')
   .description('Report a task status update from an agent (used in swarm mode)')
   .argument('<taskId>', 'The ID of the task to update')
-  .argument('<status>', 'New status: done, blocked, in-progress, todo')
+  .argument('[status]', 'New status: done, blocked, in-progress, review, todo')
   .argument('[message]', 'Optional message to log to the runtime log')
+  .option('--ask-human', 'Pause for human review: mark the task [ ?] and stop the loop')
   .action(checkpointCommand);
 
 program
