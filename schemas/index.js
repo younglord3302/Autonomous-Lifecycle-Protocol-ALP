@@ -13,6 +13,7 @@ module.exports = {
   "macro": require("./macro.schema.json"),
   "memory": require("./memory.schema.json"),
   "plugin": require("./plugin.schema.json"),
+  "policy": require("./policy.schema.json"),
   "project": require("./project.schema.json"),
   "resource": require("./resource.schema.json"),
   "rule": require("./rule.schema.json"),

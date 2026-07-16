@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { AlpParser, AlpObject } from '@alp/parser';
+import { AlpParser, AlpObject, PolicyEngine } from '@alp/parser';
 
 export function verifyCommand(taskId: string) {
   const alpDir = path.resolve(process.cwd(), '.alp');
@@ -13,6 +13,7 @@ export function verifyCommand(taskId: string) {
   const parser = new AlpParser();
   let targetObj: any = null;
   let targetFile = '';
+  const allObjects: AlpObject[] = [];
 
   const readDir = (dir: string) => {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -25,6 +26,7 @@ export function verifyCommand(taskId: string) {
           const content = fs.readFileSync(fullPath, 'utf-8');
           const parsed = parser.parse(content);
           for (const obj of parsed) {
+            allObjects.push(obj);
             if (obj.id === taskId) {
               targetObj = obj;
               targetFile = fullPath;
@@ -58,11 +60,33 @@ export function verifyCommand(taskId: string) {
   console.log(`\n🔍 Verifying Task: ${taskId}`);
   console.log(`   Running ${targetObj.verify.length} quality gate(s)...\n`);
 
+  // Policy governance: verify commands run shell code, so they must comply
+  // with any @policy guardrails before execution.
+  const policyEngine = new PolicyEngine(allObjects);
+  const owner = typeof targetObj.owner === 'string'
+    ? targetObj.owner.replace(/^->\s*/, '').trim()
+    : undefined;
+
   let allPassed = true;
 
   for (let i = 0; i < targetObj.verify.length; i++) {
     const cmd = targetObj.verify[i];
     console.log(`▶️  Gate ${i + 1}/${targetObj.verify.length}: \`${cmd}\``);
+
+    if (policyEngine.count > 0) {
+      const decision = policyEngine.evaluate({ kind: 'command', value: String(cmd), agent: owner });
+      if (!decision.allowed) {
+        for (const reason of decision.reasons) {
+          console.error(`   ${decision.blocked ? '⛔' : '⚠️ '} ${reason}`);
+        }
+        if (decision.blocked) {
+          console.error(`   ❌ Blocked by policy — not executed.\n`);
+          allPassed = false;
+          break;
+        }
+      }
+    }
+
     try {
       execSync(cmd, { stdio: 'inherit', cwd: process.cwd() });
       console.log(`   ✅ Passed\n`);

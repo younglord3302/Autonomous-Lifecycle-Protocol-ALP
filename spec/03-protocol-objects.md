@@ -1001,3 +1001,54 @@ Verification rules nested within a `@task` block. Not a standalone object.
 ```
 
 All `required: true` verifications must pass for the task to be marked `[x]`.
+
+---
+
+## 25. Policy — `@policy` (v4.0.0+)
+
+Declarative guardrails that govern what autonomous agents may do. Introduced
+in ALP v4 (The Federation Era) to make unattended swarms safe. Policies are
+evaluated by the Policy Engine before an agent modifies a file or runs a
+command; `deny_*` always takes precedence over `allow_*`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Policy identifier |
+| `applies_to` | String \| List | No | Agent id(s) governed. `"*"` (or omit) = all agents |
+| `allow_paths` | List (glob) | No | File paths agents may modify |
+| `deny_paths` | List (glob) | No | File paths agents may never modify (wins over allow) |
+| `allow_commands` | List (prefix) | No | Shell command prefixes agents may run |
+| `deny_commands` | List (prefix) | No | Forbidden command prefixes (wins over allow) |
+| `budgets` | Object | No | `max_iterations`, `max_tokens`, `max_seconds`, `max_cost_usd` |
+| `enforcement` | Enum | No | `strict` (block, default) or `warn` (report only) |
+
+**Precedence:** `deny_*` beats `allow_*`. If an `allow_*` list is present and
+non-empty, the action must match it. If absent, the action is permitted unless
+explicitly denied.
+
+**Example:**
+```
+@policy
+  id: policy-safe-swarm
+  description: "Baseline safety guardrails for autonomous agents."
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+    - "tests/**"
+  deny_paths:
+    - ".env"
+    - ".alp/**"
+  allow_commands:
+    - "npm test"
+    - "eslint"
+  deny_commands:
+    - "rm -rf"
+    - "git push"
+  budgets:
+    max_iterations: 5
+    max_seconds: 600
+```
+
+Enforced by `alp policy` (check an action) and by `alp verify` (verify
+commands must comply before execution).

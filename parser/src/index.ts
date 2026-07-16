@@ -5,6 +5,7 @@ export * from './graph';
 export * from './loop';
 export * from './memory';
 export * from './lock-manager';
+export * from './policy';
 export { AlpObject };
 
 export class AlpParser {

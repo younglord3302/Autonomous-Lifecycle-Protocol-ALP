@@ -124,7 +124,7 @@ alp evolve --apply   # writes proposals to .alp/evolved.alp
 
 | Package | Description |
 |---|---|
-| [`@alp/cli`](cli/) | The terminal interface (`run`, `serve`, `evolve`, `verify`, `checkpoint`, `doctor`, `lint`, `export`, `upgrade`) |
+| [`@alp/cli`](cli/) | The terminal interface (`run`, `serve`, `evolve`, `policy`, `verify`, `checkpoint`, `doctor`, `lint`, `export`, `upgrade`) |
 | [`@alp/parser`](parser/) | The engine for parsing `.alp` files and managing Kahn's Topological sort |
 | [`@alp/mcp-server`](mcp-server/) | The MCP server for IDE and Agent integrations |
 | [`@alp/vscode`](vscode/) | The official VS Code extension |

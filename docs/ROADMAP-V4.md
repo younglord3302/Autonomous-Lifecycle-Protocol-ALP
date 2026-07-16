@@ -35,13 +35,19 @@ grows from one `.alp/` folder to many, working together under shared policy.
 - **Versioned resolution:** Semver ranges and lockfiles for installed packages.
 - **Discovery:** `alp search` against the hosted index.
 
-## Pillar 4: Policy & Permission Governance
+## Pillar 4: Policy & Permission Governance ✅ (landed on main, toward 4.0.0)
 **Target:** Make autonomous agents safe to run unattended.
-- **`@policy` object:** Declarative guardrails (which agents may touch which
-  paths, which commands may run, spend/time budgets).
-- **Capability scoping:** The MCP server enforces per-agent permissions on
-  `alp_update_status`, file mutations, and shell execution.
-- **Audit trail:** Every mutation is signed into the runtime log for compliance.
+- **`@policy` object:** ✅ Declarative guardrails — `allow_paths`/`deny_paths`
+  (globs), `allow_commands`/`deny_commands` (prefixes), `budgets`, `enforcement`
+  (`strict`/`warn`), and `applies_to` agent scoping. Schema-validated in both
+  the TS and Python SDKs.
+- **Policy Engine + `alp policy`:** ✅ Evaluate a proposed path/command/agent
+  action; `deny` beats `allow`; exits non-zero on strict blocks (CI-friendly).
+- **Enforcement in `alp verify`:** ✅ Verify commands that violate a strict
+  policy are blocked and never executed.
+- **Capability scoping (MCP):** 🔜 The MCP server will enforce per-agent
+  permissions on `alp_update_status`, file mutations, and shell execution.
+- **Audit trail:** 🔜 Sign every mutation into the runtime log for compliance.
 
 ## Pillar 5: Persistent State Store
 **Target:** Durable, queryable history beyond the JSONL tail.
@@ -56,10 +62,10 @@ grows from one `.alp/` folder to many, working together under shared policy.
 
 | Phase | Goal | Status |
 |---|---|---|
+| Pillar 4 | Policy & Permission Governance | 🚧 Core landed (toward 4.0.0) |
 | Pillar 1 | Remote & Networked Swarms | 🔜 Next |
 | Pillar 2 | Cross-Repository Orchestration | 🔜 |
 | Pillar 3 | Hosted Registry & Marketplace | 🔜 |
-| Pillar 4 | Policy & Permission Governance | 🔜 |
 | Pillar 5 | Persistent State Store | 🔜 |
 
 > V4 is a **major** version: `@policy` and cross-repo references may introduce

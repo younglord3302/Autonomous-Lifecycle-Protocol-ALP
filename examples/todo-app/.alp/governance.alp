@@ -1,0 +1,26 @@
+!alp-version: 3.1.0
+
+@policy
+  id: policy-safe-swarm
+  description: "Baseline safety guardrails for autonomous agents in this repo."
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+    - "tests/**"
+  deny_paths:
+    - ".env"
+    - ".env.*"
+    - ".alp/**"
+  allow_commands:
+    - "npm test"
+    - "npm run"
+    - "eslint"
+    - "echo"
+  deny_commands:
+    - "rm -rf"
+    - "git push"
+    - "curl"
+  budgets:
+    max_iterations: 5
+    max_seconds: 600

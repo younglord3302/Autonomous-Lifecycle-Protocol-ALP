@@ -83,6 +83,27 @@ alp evolve --apply
 By design this is a human-in-the-loop *proposal* engine: nothing is committed to
 your workspace until you review `.alp/evolved.alp`.
 
+## Policy Governance (`alp policy`)
+
+*New in `4.0.0` (The Federation Era).* `@policy` objects declare guardrails for
+autonomous agents — which file paths they may modify, which shell commands they
+may run, and resource budgets. `alp policy` lists them or evaluates a proposed
+action, exiting non-zero when a strict policy blocks it (usable as a CI gate).
+
+```bash
+# List policies in the workspace
+alp policy
+
+# Check whether an action is permitted
+alp policy --path "src/auth/login.ts"
+alp policy --command "rm -rf /"
+alp policy --command "git push" --agent agent-developer
+```
+
+Policies are also enforced automatically by `alp verify`: a verification command
+that violates a strict policy is blocked and never executed. `deny_*` rules
+always take precedence over `allow_*`.
+
 ## Style Enforcement (`alp lint`)
 
 While `alp validate` checks raw JSON schema compliance, `alp lint` enforces community best practices:

@@ -17,7 +17,7 @@ import { importCommand } from './commands/import';
 import { checkpointCommand } from './commands/checkpoint';
 import { serveCommand } from './commands/serve';
 import { evolveCommand } from './commands/evolve';
-
+import { policyCommand } from './commands/policy';
 const program = new Command();
 
 program
@@ -107,6 +107,14 @@ program
   .option('--apply', 'Write proposed rules to .alp/evolved.alp')
   .option('--from-pr <n>', 'Extract rules from a GitHub PR (requires provider)')
   .action((opts) => evolveCommand(opts));
+
+program
+  .command('policy')
+  .description('List or evaluate policy guardrails governing agent actions (v4)')
+  .option('--path <path>', 'Check whether a file path may be modified')
+  .option('--command <cmd>', 'Check whether a shell command may be run')
+  .option('--agent <agent>', 'Scope the check to a specific agent')
+  .action((opts) => policyCommand(opts));
 
 program
   .command('install')
