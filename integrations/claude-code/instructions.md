@@ -6,7 +6,7 @@ This repository is managed by the Autonomous Lifecycle Protocol (ALP). As an aut
 
 1. **Orientation:** Before modifying source code, read `.alp/project.alp`. It contains the central goal and architecture rules of the codebase.
 2. **Task Graph:** Work is tracked via `@task` blocks. Run `npx alp graph` to view the topological execution order of tasks.
-3. **Status Sync:** When you pick up a task, you MUST modify the corresponding `.alp` file to change its status from `[ ]` (Todo) to `[~]` (In Progress). 
+3. **Status Sync:** When you pick up a task, you MUST modify the corresponding `.alp` file to change its status from `[ ]` (Todo) to `[~]` (In Progress). If a task needs a human decision, set it to `[?]` (Awaiting review) to hand off via the Human-in-the-Loop loop instead of marking it `[x]`.
 4. **Validation:** After making ANY changes to `.alp` files, you MUST run `npx alp validate` to ensure the schema and dependency graph remain valid. Do not leave the workspace in a broken protocol state.
 
 ## Syntax Rules for Modifying .alp Files

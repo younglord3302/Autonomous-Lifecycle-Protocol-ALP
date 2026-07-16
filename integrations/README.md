@@ -20,4 +20,4 @@ Contains `alp-validate.yml` and `alp-sync.yml`.
 
 ### 4. Model Context Protocol (`mcp-server/`)
 ALP provides a native MCP server (`@alp/mcp-server`) that enables any modern AI IDE (Claude Desktop, Cursor, Windsurf) to securely query the ALP workspace.
-**Usage:** Start the server using `alp-mcp` or configure your IDE's MCP settings to point to the `@alp/mcp-server` executable. Agents can then use tools like `alp_get_graph` and `alp_get_status` natively.
+**Usage:** Start the server using `alp-mcp` or configure your IDE's MCP settings to point to the `@alp/mcp-server` executable. Agents can then use tools like `alp_get_graph`, `alp_get_status`, `alp_read_object`, `alp_list_objects`, `alp_validate`, `alp_update_status`, `alp_get_impact`, and `alp_search` natively.

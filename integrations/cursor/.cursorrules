@@ -9,7 +9,7 @@ You are an AI Agent operating within an ALP-managed workspace.
 
 ## 2. Working on Tasks
 - Tasks are represented as `@task` blocks in `.alp` files.
-- Tasks have statuses: `[ ]` (Todo), `[~]` (In Progress), `[x]` (Done), `[!]` (Blocked).
+- Tasks have statuses: `[ ]` (Todo), `[~]` (In Progress), `[x]` (Done), `[!]` (Blocked), `[?]` (Awaiting human review).
 - When you begin work on a task, update its status from `[ ]` to `[~]`.
 - DO NOT begin work on a task if its blocking dependencies are not `[x]`.
 

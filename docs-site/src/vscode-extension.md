@@ -15,7 +15,7 @@ ALP provides a dedicated **Language Server Protocol (LSP)** implementation for V
 
 The extension is bundled as a standard `.vsix` file.
 
-1. Download the latest `alp-vscode-2.0.0.vsix` release from the repository.
+1. Download the latest `alp-vscode-3.0.0.vsix` release from the repository.
 2. Open VS Code.
 3. Open the Extensions View (`Ctrl+Shift+X` or `Cmd+Shift+X`).
 4. Click the `...` menu in the top right of the extensions view.
@@ -24,7 +24,7 @@ The extension is bundled as a standard `.vsix` file.
 
 Alternatively, you can install it via the CLI:
 ```bash
-code --install-extension alp-vscode-2.0.0.vsix
+code --install-extension alp-vscode-3.0.0.vsix
 ```
 
 ## How it works
