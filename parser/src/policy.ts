@@ -71,6 +71,19 @@ export class PolicyEngine {
    * governing policy (deny/strict wins).
    */
   evaluate(query: PolicyQuery): PolicyDecision {
+    return this.evaluateInternal(query, false);
+  }
+
+  /**
+   * Like {@link evaluate}, but only considers `deny_*` rules and ignores
+   * `allow_*` lists. Used for ALP protocol-coordination files that should be
+   * permitted unless explicitly denied.
+   */
+  evaluateDenyOnly(query: PolicyQuery): PolicyDecision {
+    return this.evaluateInternal(query, true);
+  }
+
+  private evaluateInternal(query: PolicyQuery, denyOnly: boolean): PolicyDecision {
     const reasons: string[] = [];
     const violatingPolicies: string[] = [];
     let blocked = false;
@@ -92,8 +105,8 @@ export class PolicyEngine {
         continue;
       }
 
-      // 2. If an allow-list exists, the action must match it.
-      if (allow && allow.length > 0) {
+      // 2. If an allow-list exists, the action must match it (skipped in deny-only mode).
+      if (!denyOnly && allow && allow.length > 0) {
         const ok = allow.some((p) => this.matches(query.kind, p, query.value));
         if (!ok) {
           reasons.push(

@@ -22,7 +22,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { AlpParser, AlpObject, AlpGraph } from '@alp/parser';
+import { AlpParser, AlpObject, AlpGraph, PolicyEngine } from '@alp/parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -61,6 +61,99 @@ function loadDirectory(dir: string, parser: AlpParser, results: AlpObject[]) {
         // Skip unparseable files
       }
     }
+  }
+}
+
+/**
+ * Policy gate for MCP mutation tools (v4 Pillar 4 — Capability Scoping).
+ *
+ * Evaluates a proposed workspace file write against any @policy objects.
+ * Returns an MCP error result when a strict policy blocks it, or null when
+ * the action is permitted. The path is made workspace-relative (POSIX) so it
+ * matches policy globs like "src/**" or ".alp/**".
+ */
+function enforcePolicy(
+  rootDir: string,
+  targetFile: string,
+  agent?: string,
+): { content: { type: 'text'; text: string }[]; isError: true } | null {
+  const objects = loadWorkspace(rootDir);
+  const engine = new PolicyEngine(objects);
+  if (engine.count === 0) return null;
+
+  const relative = path
+    .relative(rootDir, targetFile)
+    .replace(/\\/g, '/');
+
+  // ALP protocol-coordination files under `.alp/` (task creation via
+  // delegate/decompose, status updates) are governed by explicit deny rules
+  // only — they are not "source code" subject to the allow-list. This lets a
+  // policy like allow_paths: [src/**] coexist with normal swarm coordination
+  // while still honoring deny_paths (e.g. ".alp/.runtime/**").
+  const isProtocolFile = relative === '.alp' || relative.startsWith('.alp/');
+  if (isProtocolFile) {
+    const denyOnly = engine.evaluateDenyOnly({ kind: 'path', value: relative, agent });
+    if (denyOnly.blocked) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `⛔ Policy denied: cannot modify '${relative}'.\n` +
+              denyOnly.reasons.join('\n'),
+          },
+        ],
+        isError: true,
+      };
+    }
+    return null;
+  }
+
+  const decision = engine.evaluate({ kind: 'path', value: relative, agent });
+
+  if (decision.blocked) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text:
+            `⛔ Policy denied: cannot modify '${relative}'.\n` +
+            decision.reasons.join('\n'),
+        },
+      ],
+      isError: true,
+    };
+  }
+  return null;
+}
+
+/**
+ * Append an audit event to `.alp/.runtime/log.jsonl` (v4 Pillar 4 — Audit
+ * Trail). Mirrors the CLI runtime event format so `alp serve` shows MCP
+ * mutations alongside swarm activity. Best-effort; never throws.
+ */
+function audit(
+  rootDir: string,
+  type: string,
+  fields: Record<string, unknown> = {},
+): void {
+  try {
+    const runtimeDir = path.join(rootDir, '.alp', '.runtime');
+    if (!fs.existsSync(runtimeDir)) fs.mkdirSync(runtimeDir, { recursive: true });
+    const entry = {
+      timestamp: new Date().toISOString(),
+      type,
+      source: 'mcp-server',
+      pid: process.pid,
+      ...fields,
+    };
+    fs.appendFileSync(
+      path.join(runtimeDir, 'log.jsonl'),
+      JSON.stringify(entry) + '\n',
+      'utf-8',
+    );
+  } catch {
+    /* audit is best-effort */
   }
 }
 
@@ -134,6 +227,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           id: { type: 'string', description: 'Task ID' },
           status: { type: 'string', description: 'New status (e.g. [ ], [~], [x], [!])' },
+          agent: { type: 'string', description: 'Optional acting agent (for @policy scoping)' },
           cwd: { type: 'string' }
         },
         required: ['id', 'status']
@@ -186,6 +280,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           taskId: { type: 'string', description: 'Parent task id to decompose' },
           subtasks: { type: 'array', items: { type: 'string' }, description: 'Sub-task titles' },
+          agent: { type: 'string', description: 'Optional acting agent (for @policy scoping)' },
           cwd: { type: 'string' }
         },
         required: ['taskId', 'subtasks']
@@ -316,18 +411,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Very basic implementation: search files for id: X and change status above/below it
       const targetId = args?.id as string;
       const newStatus = args?.status as string;
+      const agent = args?.agent as string | undefined;
       const alpDir = path.join(cwd, '.alp');
       let updated = false;
+      let policyError: ReturnType<typeof enforcePolicy> = null;
       const walk = (dir: string) => {
-        if (updated) return;
+        if (updated || policyError) return;
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
-          if (updated) return;
+          if (updated || policyError) return;
           const fullPath = path.join(dir, entry.name);
           if (entry.isDirectory()) walk(fullPath);
           else if (fullPath.endsWith('.alp')) {
             let content = fs.readFileSync(fullPath, 'utf8');
             if (content.includes(`id: ${targetId}`)) {
+              // Capability scoping: the file about to be written must comply.
+              policyError = enforcePolicy(cwd, fullPath, agent);
+              if (policyError) return;
               // naive replace of status
               content = content.replace(/(id:\s*.*?\n\s*status:\s*).*?(\n)/, `$1${newStatus}$2`);
               fs.writeFileSync(fullPath, content, 'utf8');
@@ -337,7 +437,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       };
       if (fs.existsSync(alpDir)) walk(alpDir);
-      
+
+      if (policyError) return policyError;
+
+      if (updated) {
+        audit(cwd, 'task_status', { task_id: targetId, status: newStatus, agent });
+      }
       return {
         content: [{ type: 'text', text: updated ? `Status of ${targetId} updated to ${newStatus}` : `Task ${targetId} not found` }]
       };
@@ -385,6 +490,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const id = toKebab(`${parentId}-${title}`);
         const file = path.join(tasksDir, `${id}.alp`);
         if (fs.existsSync(file)) continue;
+        // Capability scoping: the new file path must comply with policy.
+        const denied = enforcePolicy(cwd, file, args?.agent as string | undefined);
+        if (denied) return denied;
         const body =
           `!alp-version: 2.0.0\n\n` +
           `@task\n` +
@@ -394,6 +502,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           `  depends_on:\n    - -> ${parentId}\n`;
         fs.writeFileSync(file, body, 'utf8');
         created.push(id);
+      }
+      if (created.length) {
+        audit(cwd, 'file_mutation', { action: 'decompose', parent: parentId, created });
       }
       return {
         content: [{
@@ -423,6 +534,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (fs.existsSync(file)) {
         return { content: [{ type: 'text', text: `Task ${id} already exists.` }], isError: true };
       }
+      // Capability scoping: the new file path must comply with policy.
+      const delegateDenied = enforcePolicy(cwd, file, agent);
+      if (delegateDenied) return delegateDenied;
       const ownerLine = `  owner: -> ${agent.replace(/^->\s*/, '')}\n`;
       const parentLine = parent ? `  depends_on:\n    - -> ${parent.replace(/^->\s*/, '')}\n` : '';
       const body =
@@ -434,6 +548,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ownerLine +
         parentLine;
       fs.writeFileSync(file, body, 'utf8');
+      audit(cwd, 'file_mutation', { action: 'delegate', task_id: id, agent });
       return {
         content: [{ type: 'text', text: `Delegated task ${id} to ${agent}.` }],
       };

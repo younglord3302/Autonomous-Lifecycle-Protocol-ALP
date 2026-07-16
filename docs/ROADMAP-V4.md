@@ -45,9 +45,12 @@ grows from one `.alp/` folder to many, working together under shared policy.
   action; `deny` beats `allow`; exits non-zero on strict blocks (CI-friendly).
 - **Enforcement in `alp verify`:** ✅ Verify commands that violate a strict
   policy are blocked and never executed.
-- **Capability scoping (MCP):** 🔜 The MCP server will enforce per-agent
-  permissions on `alp_update_status`, file mutations, and shell execution.
-- **Audit trail:** 🔜 Sign every mutation into the runtime log for compliance.
+- **Capability scoping (MCP):** ✅ The MCP server enforces policy on mutating
+  tools (`alp_update_status`, `alp_delegate`, `alp_decompose`); denied path
+  writes are rejected. Protocol-coordination files under `.alp/` are governed
+  by deny rules only, so allow-lists like `src/**` don't block task creation.
+- **Audit trail:** ✅ Every MCP mutation is appended to
+  `.alp/.runtime/log.jsonl` (`source: mcp-server`), visible live in `alp serve`.
 
 ## Pillar 5: Persistent State Store
 **Target:** Durable, queryable history beyond the JSONL tail.
@@ -62,7 +65,7 @@ grows from one `.alp/` folder to many, working together under shared policy.
 
 | Phase | Goal | Status |
 |---|---|---|
-| Pillar 4 | Policy & Permission Governance | 🚧 Core landed (toward 4.0.0) |
+| Pillar 4 | Policy & Permission Governance | ✅ Complete (toward 4.0.0) |
 | Pillar 1 | Remote & Networked Swarms | 🔜 Next |
 | Pillar 2 | Cross-Repository Orchestration | 🔜 |
 | Pillar 3 | Hosted Registry & Marketplace | 🔜 |

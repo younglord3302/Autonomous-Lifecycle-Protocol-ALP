@@ -11,7 +11,7 @@
   deny_paths:
     - ".env"
     - ".env.*"
-    - ".alp/**"
+    - ".alp/.runtime/**"
   allow_commands:
     - "npm test"
     - "npm run"
