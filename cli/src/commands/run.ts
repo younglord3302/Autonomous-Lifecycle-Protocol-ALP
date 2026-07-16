@@ -216,8 +216,11 @@ function loadAlpDirectory(
 
 function extractDependencies(obj: AlpObject): string[] {
   const deps: string[] = [];
-  // Look through all properties for `-> id` references
+  // Only real blocking edges count as dependencies for execution ordering.
+  // Reference links like `feature:` or `owner:` must NOT block a task.
+  const blockingKeys = new Set(['depends_on', 'blocked_by', 'requires']);
   for (const [key, value] of Object.entries(obj)) {
+    if (!blockingKeys.has(key)) continue;
     if (typeof value === 'string' && value.startsWith('-> ')) {
       deps.push(value.replace('-> ', ''));
     }
