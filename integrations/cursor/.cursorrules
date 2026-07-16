@@ -19,6 +19,11 @@ You are an AI Agent operating within an ALP-managed workspace.
 - Only if verification passes, update the task's status to `[x]`.
 - Run `npx alp validate` in the terminal to ensure your modifications to `.alp` files did not break the schema or create cyclic dependencies.
 
+## 5. Execution (V3)
+- Use `npx alp run` to compile the context bundle for the next available task and pipe it into your loop. In swarm mode, `npx alp run --concurrent N` spins up N parallel agents.
+- Report progress with `npx alp checkpoint <taskId> <status>` (e.g. `npx alp checkpoint task-login-ui in-progress`). To hand off for human review, use `npx alp checkpoint <taskId> --ask-human "<message>"`, which marks the task `[?]`.
+- Never claim a task whose blocking dependencies (`depends_on`, `blocked_by`, `requires`) are not `[x]`. Reference links such as `feature:` or `owner:` do NOT block a task.
+
 ## 4. Syntax Strictness
 - `.alp` files use indentation to represent nesting.
 - Block markers like `@project` or `@task` must be at 0 indentation.

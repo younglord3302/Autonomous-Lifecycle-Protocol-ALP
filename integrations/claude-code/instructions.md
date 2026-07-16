@@ -17,3 +17,8 @@ This repository is managed by the Autonomous Lifecycle Protocol (ALP). As an aut
 
 ## Sub-Agents & Handoff
 If a task specifies `owner: -> agent-reviewer`, and you are `agent-developer`, you must NOT mark the task as `[x]`. You may mark it `[~]` and leave a comment for the reviewer.
+
+## Execution (V3)
+- Use `npx alp run` to compile the context bundle for the next available task and pipe it into your loop. In swarm mode, `npx alp run --concurrent N` spins up N parallel agents.
+- When reporting progress, use `npx alp checkpoint <taskId> <status>` (e.g. `npx alp checkpoint task-login-ui in-progress`). To hand off for review, use `npx alp checkpoint <taskId> --ask-human "<message>"`, which marks the task `[?]`.
+- Never claim a task whose blocking dependencies (`depends_on`, `blocked_by`, `requires`) are not `[x]`. Reference links such as `feature:` or `owner:` do NOT block a task.

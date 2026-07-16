@@ -10,7 +10,7 @@ Contains a `.cursorrules` file.
 
 ### 2. Claude Code & Cline (`claude-code/`)
 Contains `instructions.md`.
-**Usage:** Copy these instructions into your agent's system prompt or custom instructions file (e.g., `.claudecode.md`). It teaches CLI-based agents how to use the `@alp/cli` to validate the workspace and view the dependency graph before writing code.
+**Usage:** Copy these instructions into your agent's system prompt or custom instructions file (e.g., `.claudecode.md`). It teaches CLI-based agents how to use the `@alp/cli` to validate the workspace and view the dependency graph before writing code. In V3, agents drive execution via `alp run` (and `alp run --concurrent N` for swarm mode) and report status with `alp checkpoint` (including `--ask-human` for Human-in-the-Loop review handoffs).
 
 ### 3. GitHub Actions (`github/`)
 Contains `alp-validate.yml` and `alp-sync.yml`.
