@@ -27,6 +27,14 @@ export function runCommand(taskId?: string, options?: RunOptions) {
     process.exit(1);
   }
 
+  if (options?.concurrent && options.concurrent > 1) {
+    runSwarmMode(options, alpDir).catch(err => {
+       console.error("Swarm Mode Error:", err);
+       process.exit(1);
+    });
+    return;
+  }
+
   // ─── 1. Load & Parse Workspace ──────────────────────────────────────
   const parser = new AlpParser();
   const allObjects: AlpObject[] = [];
@@ -313,4 +321,168 @@ function buildContextBundle(
   }
 
   return sections.join('\n');
+}
+
+function updateTaskStatusOnFile(taskId: string, newStatus: string, alpDir: string): boolean {
+  let updated = false;
+  const walk = (dir: string) => {
+    if (updated) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (updated) return;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (fullPath.endsWith('.alp')) {
+        let content = fs.readFileSync(fullPath, 'utf8');
+        // Simple regex to replace status within the same block
+        const regex = new RegExp(`(id:\\s*${taskId}\\b[^@]*?status:\\s*)([^\\n]+)`);
+        if (regex.test(content)) {
+           content = content.replace(regex, `$1${newStatus}`);
+           fs.writeFileSync(fullPath, content, 'utf8');
+           updated = true;
+        }
+      }
+    }
+  };
+  if (fs.existsSync(alpDir)) {
+     walk(alpDir);
+  }
+  return updated;
+}
+
+async function runSwarmMode(options: RunOptions, alpDir: string) {
+  const numWorkers = options.concurrent || 1;
+  console.log(`\n🐝 Starting ALP Swarm Orchestrator with ${numWorkers} concurrent workers...\n`);
+  
+  const lockManager = new LockManager(process.cwd());
+  const parser = new AlpParser();
+  
+  const workers = Array.from({ length: numWorkers }).map(async (_, workerId) => {
+    const id = workerId + 1;
+    let idleCount = 0;
+    
+    while (true) {
+      const allObjects: AlpObject[] = [];
+      loadAlpDirectory(alpDir, parser, allObjects);
+      
+      const tasks = allObjects.filter((obj) => obj._type === 'task');
+      const doneIds = new Set(
+        allObjects
+          .filter((obj) => obj.status === '[x]' || obj.status === 'done')
+          .map((obj) => obj.id)
+      );
+      
+      const allTasksDone = tasks.every(t => doneIds.has(t.id));
+      if (allTasksDone) {
+        console.log(`[Worker ${id}] 🏁 All tasks completed! Shutting down.`);
+        break;
+      }
+      
+      const lockedIds = lockManager.getLockedTaskIds();
+      
+      let targetTask: AlpObject | null = null;
+      for (const task of tasks) {
+        if (task.status === '[ ]' || task.status === 'todo') {
+          if (lockedIds.has(task.id as string)) continue;
+          
+          const deps = extractDependencies(task);
+          const allDepsMet = deps.every((d) => doneIds.has(d));
+          
+          if (allDepsMet) {
+            targetTask = task;
+            const agentId = options.agent || `worker-${id}`;
+            const claimed = lockManager.claim(task.id as string, agentId);
+            if (claimed) {
+               break;
+            } else {
+               targetTask = null;
+            }
+          }
+        }
+      }
+      
+      if (!targetTask) {
+        const pendingTasks = tasks.some(t => t.status === '[ ]' || t.status === 'todo');
+        if (pendingTasks) {
+           idleCount++;
+           if (idleCount % 10 === 0) {
+             console.log(`[Worker ${id}] ⏳ Waiting for dependencies to unblock...`);
+           }
+           await new Promise(resolve => setTimeout(resolve, 2000));
+           continue;
+        } else {
+           console.log(`[Worker ${id}] 🛑 No actionable tasks found and none pending. Exiting.`);
+           break;
+        }
+      }
+      
+      idleCount = 0;
+      console.log(`\n[Worker ${id}] 🚀 Claimed task: ${targetTask.id}`);
+      
+      const project = allObjects.find((obj) => obj._type === 'project');
+      const agent = allObjects.find((obj) => obj._type === 'agent' && obj.id === (targetTask as any).owner?.replace('-> ', '')) 
+                    || allObjects.find((obj) => obj._type === 'agent');
+      const memories = allObjects.filter((obj) => obj._type === 'memory');
+      const rules = allObjects.filter((obj) => obj._type === 'rule');
+      const decisions = allObjects.filter((obj) => obj._type === 'decision' && obj.status === '[x]');
+      
+      const contextBundle = buildContextBundle(targetTask, project || null, agent || null, memories, rules, decisions, allObjects);
+      
+      if (options.dryRun) {
+        console.log(`[Worker ${id}] 🔍 DRY RUN: Simulating execution of ${targetTask.id}...`);
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Simulate LLM latency
+        console.log(`[Worker ${id}] ✅ Simulated completion of ${targetTask.id}.`);
+        updateTaskStatusOnFile(targetTask.id as string, '[x]', alpDir);
+        lockManager.release(targetTask.id as string);
+        continue;
+      }
+      
+      if (options.provider) {
+        const llm = createProvider(options.provider, options.model);
+        const loop = new LoopEngine({
+          maxIterations: 3,
+          completionConditions: ['Task verified successfully'],
+        });
+        
+        loop.on((event) => {
+          if (event.type === 'stage_enter') {
+            console.log(`[Worker ${id} | ${targetTask!.id}] Iteration ${event.iteration} — ${event.stage}`);
+          }
+        });
+        
+        let success = false;
+        try {
+          const result = await loop.run(async (stage: LoopStage, iteration: number) => {
+             const messages = [
+               { role: 'system' as const, content: 'You are an autonomous AI agent following the ALP protocol.' },
+               { role: 'user' as const, content: `Context:\n${contextBundle}\n\nCurrent Stage: ${stage}\nExecute this stage.` }
+             ];
+             await llm.chat(messages);
+             return stage === 'test';
+          });
+          success = result.status === 'completed';
+        } catch (e) {
+          console.error(`[Worker ${id} | ${targetTask!.id}] Execution error:`, e);
+        }
+        
+        if (success) {
+           console.log(`[Worker ${id}] ✅ Task ${targetTask.id} completed successfully.`);
+           updateTaskStatusOnFile(targetTask.id as string, '[x]', alpDir);
+        } else {
+           console.log(`[Worker ${id}] ❌ Task ${targetTask.id} failed verification.`);
+           updateTaskStatusOnFile(targetTask.id as string, '[!]', alpDir);
+        }
+        lockManager.release(targetTask.id as string);
+      } else {
+        console.log(`[Worker ${id}] No provider specified. Outputting context and exiting worker.`);
+        console.log(contextBundle);
+        lockManager.release(targetTask.id as string);
+        break;
+      }
+    }
+  });
+  
+  await Promise.all(workers);
+  console.log(`\n🎉 Swarm Execution Complete!`);
 }
