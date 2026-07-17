@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in V3.
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.0.0` (The Federation Era).
 
 ## Execution Engine (`alp run`)
 
@@ -73,6 +73,9 @@ Endpoints:
 | `/api/swarm/claim` | *V4 Pillar 1.* Negotiate a task claim (server-brokered lock) |
 | `/api/swarm/release` | *V4 Pillar 1.* Release a task claim |
 | `/api/swarm/roster` | *V4 Pillar 1.* List live nodes and their claims |
+| `/api/registry` | *V4 Pillar 3.* Marketplace listing (`?q=` for search) |
+| `/api/registry/-/<ns>/<name>/meta.json` | *V4 Pillar 3.* Package metadata (all versions) |
+| `/api/registry/-/<ns>/<name>/<version>/<file>` | *V4 Pillar 3.* Package file download |
 
 ## Networked Swarms (`alp swarm`)
 
@@ -139,6 +142,40 @@ alp policy --command "git push" --agent agent-developer
 Policies are also enforced automatically by `alp verify`: a verification command
 that violates a strict policy is blocked and never executed. `deny_*` rules
 always take precedence over `allow_*`.
+
+## Hosted Registry & Marketplace (`alp registry`)
+
+*New in `4.0.0` (Pillar 3).* Packages are publishable, discoverable units of
+autonomous knowledge (community templates, role packs, workflow packs). The
+registry is a zero-dependency, filesystem-backed store that can also be hosted
+over HTTP by `alp serve --registry`. Every published version carries a sha256
+integrity hash, verified on download.
+
+```bash
+# Publish the package in ./my-pack into the local store (.alp/registry)
+alp registry publish ./my-pack
+
+# Host a registry so other machines can install from it
+alp serve --registry --port 4000
+
+# Discover and install
+alp registry list --url http://127.0.0.1:4000
+alp registry search scrum --url http://127.0.0.1:4000
+alp registry install @community/scrum-master@^1.0.0 --url http://127.0.0.1:4000
+```
+
+Version resolution supports semver ranges (`^1.0.0`, `~2.1.0`, `1.x`,
+`>=1.2.0 <2.0.0`); the resolved version is pinned to `.alp/registry.lock.json`
+on install so repeatable installs are reproducible. The legacy `alp install`
+command is a thin wrapper around the same client.
+
+| Subcommand | Description |
+| :--- | :--- |
+| `publish <dir>` | Add a package (with `alp-package.json`) to the local store |
+| `list` | List packages in the local store (or `--url` for a hosted registry) |
+| `search <q>` | Substring search over name + description |
+| `install <name>[@range]` | Download, verify integrity, and pin to the lockfile |
+| `serve` | Hint to start `alp serve --registry` |
 
 ## Style Enforcement (`alp lint`)
 
