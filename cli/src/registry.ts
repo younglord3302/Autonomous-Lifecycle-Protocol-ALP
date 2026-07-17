@@ -67,7 +67,7 @@ export function loadAlprc(cwd: string = process.cwd()): AlprcConfig {
   return {};
 }
 
-function request(url: string, headers: Record<string, string> = {}): Promise<{ status: number; body: Buffer }> {
+function request(url: string, headers: Record<string, string> = {}, method = 'GET', body?: string): Promise<{ status: number; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     // §5.1: registry communication MUST be over HTTPS. Allow plain HTTP only
@@ -76,12 +76,14 @@ function request(url: string, headers: Record<string, string> = {}): Promise<{ s
       return reject(new Error(`Refusing to use insecure registry over plain HTTP: ${url} (use https://)`));
     }
     const lib = u.protocol === 'https:' ? https : http;
-    const req = lib.get(u, { headers }, (res) => {
+    const req = lib.request(u, { method, headers }, (res) => {
       const chunks: Buffer[] = [];
       res.on('data', (c) => chunks.push(c as Buffer));
       res.on('end', () => resolve({ status: res.statusCode || 0, body: Buffer.concat(chunks) }));
     });
     req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
   });
 }
 
@@ -89,6 +91,7 @@ export class RegistryClient {
   constructor(
     private baseUrl: string = process.env.ALP_REGISTRY_URL || 'http://127.0.0.1:4000',
     private config: AlprcConfig = loadAlprc(),
+    private inlineToken?: string,
   ) {}
 
   /** Resolve the registry base URL for a package, honoring `.alprc` namespace routing (§4.1). */
@@ -100,7 +103,7 @@ export class RegistryClient {
 
   /** Bearer token for the base URL, if configured (§4.2). */
   private authHeader(baseUrl: string): Record<string, string> {
-    const token = this.config.auth?.[baseUrl]?.token;
+    const token = this.inlineToken || this.config.auth?.[baseUrl]?.token;
     const expanded = token ? expandEnv(token) : '';
     return expanded ? { Authorization: `Bearer ${expanded}` } : {};
   }
@@ -161,6 +164,45 @@ export class RegistryClient {
     }
     lock[pkgName] = { version, integrity };
     fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2));
+  }
+
+  /** Bearer token for a given namespace, if configured (§4.2, per-namespace). */
+  private authHeaderForNs(pkgName: string): Record<string, string> {
+    const ns = pkgName.replace(/^@/, '').split('/')[0];
+    const base = this.resolveBaseUrl(pkgName);
+    const cfg = this.config.auth || {};
+    const token = this.inlineToken || cfg['@' + ns]?.token || cfg[ns]?.token || cfg[base]?.token;
+    const expanded = token ? expandEnv(token) : '';
+    return expanded ? { Authorization: `Bearer ${expanded}` } : {};
+  }
+
+  /** Publish a package to a remote registry host (registry hardening, PUT). */
+  async publish(pkgDir: string, versionRange?: string): Promise<any> {
+    const manifestPath = path.join(pkgDir, 'alp-package.json');
+    if (!fs.existsSync(manifestPath)) throw new Error(`Cannot publish: no alp-package.json in ${pkgDir}`);
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string' || !Array.isArray(manifest.files)) {
+      throw new Error('alp-package.json must declare name, version, and files[]');
+    }
+    const [ns] = manifest.name.replace(/^@/, '').split('/');
+    const [, ...rest] = manifest.name.replace(/^@/, '').split('/');
+    const name = rest.join('/') || ns;
+    const files = manifest.files.map((f: string) => ({
+      path: f,
+      content: fs.readFileSync(path.join(pkgDir, f), 'utf-8'),
+    }));
+    const base = this.resolveBaseUrl(manifest.name);
+    const payload = JSON.stringify({ ...manifest, files });
+    const r = await request(`${base}/api/registry/-/${encodeURIComponent(ns)}/${encodeURIComponent(name)}`, {
+      ...this.authHeaderForNs(manifest.name),
+      'Content-Type': 'application/json',
+    }, 'PUT', payload);
+    if (r.status !== 201 && r.status !== 200) {
+      let msg = `publish failed (${r.status})`;
+      try { msg = JSON.parse(r.body.toString('utf-8'))?.error || msg; } catch {}
+      throw new Error(msg);
+    }
+    return JSON.parse(r.body.toString('utf-8'));
   }
 
   /** The registry used for unscoped calls (list/search): `.alprc` default or constructor base. */

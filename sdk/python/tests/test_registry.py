@@ -133,5 +133,82 @@ class TestRegistryServer(unittest.TestCase):
         self.assertEqual(lock["@demo/scrum-master"]["version"], "1.0.0")
 
 
+class TestRegistryHardening(unittest.TestCase):
+    """Per-namespace tokens + publish-time auth (registry hardening)."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.pkg = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.pkg, ignore_errors=True)
+
+        os.makedirs(os.path.join(self.root, ".alp"), exist_ok=True)
+        with open(os.path.join(self.root, ".alp", "project.alp"), "w", encoding="utf-8") as f:
+            f.write('@project\n  id: demo-ws\n  name: "Demo"\n')
+        with open(os.path.join(self.pkg, "alp-package.json"), "w", encoding="utf-8") as f:
+            json.dump({"name": "@demo/scrum-master", "version": "1.0.0",
+                       "description": "Scrum", "files": ["plugin.alp"]}, f)
+        with open(os.path.join(self.pkg, "plugin.alp"), "w", encoding="utf-8") as f:
+            f.write('@agent\n  id: agent-scrum\n')
+
+        self.port = 4401
+        self.proc = self._spawn(["node", CLI, "serve", "--registry",
+                                 "--registry-token", "@demo=demo-secret",
+                                 "--port", str(self.port)], cwd=self.root)
+        self._wait_for(self.port)
+
+    def tearDown(self):
+        self._kill(self.proc)
+
+    def _spawn(self, cmd, cwd=None):
+        import subprocess
+        return subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def _kill(self, proc):
+        if proc and proc.poll() is None:
+            proc.kill()
+
+    def _wait_for(self, port, tries=50):
+        import time
+        for _ in range(tries):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state", timeout=1):
+                    return
+            except Exception:
+                time.sleep(0.1)
+        raise RuntimeError("registry server did not start")
+
+    def _get_status(self, path, token=None):
+        headers = {"Authorization": "Bearer " + token} if token else {}
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", headers=headers)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return resp.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    def test_private_namespace_read_requires_token(self):
+        # @demo is private (token configured) -> read without token is 401.
+        self.assertEqual(self._get_status("/api/registry/-/demo/scrum-master/meta.json"), 401)
+        # After publishing with the token, the same token reads it (200), and a
+        # wrong token is still 401.
+        auth = RegistryClient(f"http://127.0.0.1:{self.port}", token="demo-secret")
+        auth.publish(self.pkg)
+        self.assertEqual(self._get_status("/api/registry/-/demo/scrum-master/meta.json", "demo-secret"), 200)
+        self.assertEqual(self._get_status("/api/registry/-/demo/scrum-master/meta.json", "wrong"), 401)
+
+    def test_publish_requires_namespace_token(self):
+        # Publish into @demo without the token is rejected.
+        anon = RegistryClient(f"http://127.0.0.1:{self.port}")
+        with self.assertRaises(RuntimeError):
+            anon.publish(self.pkg)
+
+        # With the namespace token it succeeds and the package is readable.
+        auth = RegistryClient(f"http://127.0.0.1:{self.port}", token="demo-secret")
+        meta = auth.publish(self.pkg)
+        self.assertEqual(meta["name"], "@demo/scrum-master")
+        self.assertEqual(self._get_status("/api/registry/-/demo/scrum-master/meta.json"), 401)
+
+
 if __name__ == "__main__":
     unittest.main()

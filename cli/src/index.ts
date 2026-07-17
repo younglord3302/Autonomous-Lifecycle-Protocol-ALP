@@ -26,7 +26,7 @@ const program = new Command();
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('4.0.0');
+  .version('4.1.0');
 
 program
   .command('init')
@@ -147,6 +147,7 @@ program
   .argument('[target]', 'Package dir (publish) or name[version] (install/search)')
   .option('--url <url>', 'Registry base URL (overrides ALP_REGISTRY_URL)')
   .option('--version <v>', 'Version for install')
+  .option('--token <token>', 'Bearer token for the registry (overrides .alprc / ALP_REGISTRY_TOKEN)')
   .action((sub, target, opts) => registryCommand(sub, target, opts));
 
 program
@@ -167,7 +168,9 @@ program
   .command('publish')
   .description('Publish a local package to the ALP Registry (v4 Pillar 3)')
   .argument('<directory>', 'Directory containing the package (must have alp-package.json)')
-  .action(publishCommand);
+  .option('--url <url>', 'Publish to a remote registry host (alp serve --registry) instead of the local store')
+  .option('--token <token>', 'Bearer token for the registry (overrides .alprc / ALP_REGISTRY_TOKEN)')
+  .action((dir, opts) => publishCommand(dir, opts));
 
 program
   .command('export')

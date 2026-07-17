@@ -54,11 +54,18 @@ export function serveCommand(options?: ServeOptions) {
 
   // ─── Hosted registry (Pillar 3) ────────────────────────────────────
   const registryStore = options?.registry ? new RegistryStore(cwd) : null;
-  // An optional bearer token gates the registry API (spec/14 §4.2). When set,
-  // every /api/registry request must present `Authorization: Bearer <token>`.
-  const registryToken = options?.registryToken || process.env.ALP_REGISTRY_TOKEN || '';
+  // Per-namespace bearer tokens (registry hardening, spec/14 §4.2). A single
+  // token (global) gates every namespace; a `ns:token,ns2:token2` map gates
+  // each namespace independently. Publish requires the namespace token; reads
+  // require it only when that namespace is configured with one (private).
+  const registryTokens = parseRegistryTokens(
+    options?.registryToken || process.env.ALP_REGISTRY_TOKENS || '',
+    process.env.ALP_REGISTRY_TOKEN || '',
+  );
   if (registryStore) {
-    console.log(`📦 Registry enabled at /.alp/registry${registryToken ? ' (token-protected)' : ''}`);
+    const protectedNs = Object.keys(registryTokens).filter((k) => k !== '*').length;
+    const note = protectedNs ? ` (${protectedNs} private namespace(s))` : (registryTokens['*'] ? ' (token-protected)' : '');
+    console.log(`📦 Registry enabled at /.alp/registry${note}`);
   }
 
   // ─── Networked swarm registry (Pillar 1) ────────────────────────────
@@ -226,7 +233,7 @@ export function serveCommand(options?: ServeOptions) {
 
     // ─── Hosted registry (Pillar 3) ──────────────────────────────────
     if (url.startsWith('/api/registry')) {
-      handleRegistry(req, res, url, registryStore, registryToken);
+      handleRegistry(req, res, url, registryStore, registryTokens, req.method || 'GET');
       return;
     }
 
@@ -389,17 +396,81 @@ function handleSwarm(
   sendJson(res, { error: 'unknown swarm endpoint' }, 404);
 }
 
-function handleRegistry(req: http.IncomingMessage, res: http.ServerResponse, url: string, store: RegistryStore | null, token = '') {
-  if (!store) { sendJson(res, { error: 'registry not enabled; start `alp serve --registry`' }, 404); return; }
-  // §4.2: when a token is configured, require a matching Bearer Authorization header.
-  if (token) {
-    const auth = req.headers['authorization'] || '';
-    if (auth !== `Bearer ${token}`) { sendJson(res, { error: 'unauthorized' }, 401); return; }
+/**
+ * Parse registry token configuration. A single bare token (global) gates all
+ * namespaces via the `*` key. A comma-separated `ns=token` map gates each
+ * namespace independently (e.g. `@demo=secret,@other=key`). Returns a map of
+ * namespace -> token ('' = public).
+ */
+function parseRegistryTokens(tokenArg: string, globalEnv: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  // Explicit global token (no '=' or matches `ns=token` only when namespaced).
+  if (globalEnv && !globalEnv.includes('=')) out['*'] = globalEnv;
+  const raw = tokenArg || globalEnv;
+  if (!raw) return out;
+  // Single global token form: no namespace separator.
+  if (!raw.includes('=') || !/^[^\s,=]+=[^\s,]/.test(raw)) {
+    out['*'] = raw.trim();
+    return out;
   }
+  for (const part of raw.split(',')) {
+    const idx = part.indexOf('=');
+    const ns = part.slice(0, idx).trim();
+    const tok = part.slice(idx + 1).trim();
+    if (ns) out[ns] = tok;
+  }
+  return out;
+}
+
+/** Resolve the effective token required for a namespace ('' means public). */
+function tokenForNamespace(tokens: Record<string, string>, ns: string): string {
+  return tokens['@' + ns] || tokens[ns] || tokens['*'] || '';
+}
+
+/** §4.2: when the namespace is configured with a token, require Bearer auth. */
+function authorize(req: http.IncomingMessage, tokens: Record<string, string>, ns: string): boolean {
+  const required = tokenForNamespace(tokens, ns);
+  if (!required) return true;
+  const auth = req.headers['authorization'] || '';
+  return auth === `Bearer ${required}`;
+}
+
+function handleRegistry(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  store: RegistryStore | null,
+  tokens: Record<string, string>,
+  method: string,
+) {
+  if (!store) { sendJson(res, { error: 'registry not enabled; start `alp serve --registry`' }, 404); return; }
   const u = new URL('http://x' + url);
 
-  // Marketplace listing + search.
+  // Publish (registry hardening): PUT /api/registry/-/<ns>/<name> with a
+  // multipart-free JSON body carrying the manifest + file contents, gated by
+  // the namespace token. Read access stays public unless namespaced private.
+  if (method === 'PUT' || method === 'POST') {
+    const pub = /^\/api\/registry\/-\/([^/]+)\/([^/]+)$/.exec(url);
+    if (pub) {
+      const ns = decodeURIComponent(pub[1]);
+      if (!authorize(req, tokens, ns)) { sendJson(res, { error: 'unauthorized' }, 401); return; }
+      readBody(req).then((body) => {
+        try {
+          const meta = store.publishFromRequest(body, ns);
+          sendJson(res, meta, 201);
+        } catch (e: any) {
+          sendJson(res, { error: e.message }, 400);
+        }
+      }).catch(() => sendJson(res, { error: 'bad request body' }, 400));
+      return;
+    }
+  }
+
+  // Marketplace listing + search. Global endpoint: gate it when a global
+  // (`*`) token is configured; per-namespace tokens only affect reads of
+  // that namespace's metadata/file endpoints above.
   if (url === '/api/registry' || url === '/api/registry/') {
+    if (!authorize(req, tokens, '*')) { sendJson(res, { error: 'unauthorized' }, 401); return; }
     const q = u.searchParams.get('q');
     sendJson(res, q ? store.search(q) : store.list());
     return;
@@ -408,7 +479,9 @@ function handleRegistry(req: http.IncomingMessage, res: http.ServerResponse, url
   // Metadata: /api/registry/-/<ns>/<name>/meta.json
   const meta = /^\/api\/registry\/-\/([^/]+)\/([^/]+)\/meta\.json$/.exec(url);
   if (meta) {
-    const full = `@${decodeURIComponent(meta[1])}/${decodeURIComponent(meta[2])}`;
+    const ns = decodeURIComponent(meta[1]);
+    if (!authorize(req, tokens, ns)) { sendJson(res, { error: 'unauthorized' }, 401); return; }
+    const full = `@${ns}/${decodeURIComponent(meta[2])}`;
     const m = store.getMeta(full);
     if (!m) return sendJson(res, { error: 'not found' }, 404);
     return sendJson(res, m);
@@ -417,7 +490,9 @@ function handleRegistry(req: http.IncomingMessage, res: http.ServerResponse, url
   // File download: /api/registry/-/<ns>/<name>/<version>/<file>
   const dl = /^\/api\/registry\/-\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/.exec(url);
   if (dl) {
-    const full = `@${decodeURIComponent(dl[1])}/${decodeURIComponent(dl[2])}`;
+    const ns = decodeURIComponent(dl[1]);
+    if (!authorize(req, tokens, ns)) { sendJson(res, { error: 'unauthorized' }, 401); return; }
+    const full = `@${ns}/${decodeURIComponent(dl[2])}`;
     const buf = store.readFile(full, decodeURIComponent(dl[3]), decodeURIComponent(dl[4]));
     if (!buf) return sendJson(res, { error: 'not found' }, 404);
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });

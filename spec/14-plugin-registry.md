@@ -127,12 +127,24 @@ If a mapping exists, the parser uses that registry. Otherwise, it falls back to 
 
 ### 4.2 Authentication
 
-Private registries require authentication. The `.alprc` file can provide a `token` (which may reference an environment variable).
-
-When communicating with an authenticated registry, the parser MUST include the token in the `Authorization` header:
+Private registries require authentication. The `.alprc` file can provide a `token` (which may reference an environment variable). When communicating with an authenticated registry, the parser MUST include the token in the `Authorization` header:
 ```
 Authorization: Bearer <token>
 ```
+
+**Per-namespace tokens (registry hardening).** A registry host MAY gate
+individual namespaces. A single global token protects every namespace; a
+`namespace=token` map protects only the listed namespaces (their reads and
+downloads require the matching bearer token), while unlisted namespaces remain
+public. A global token additionally protects the marketplace listing/search
+endpoint.
+
+**Publish-time auth.** Publishing is a `PUT /-/<namespace>/<plugin-name>`
+request carrying the manifest and file contents inline. It MUST be gated by the
+target namespace's token; the server MUST reject publish requests that omit the
+token, present a wrong token, attempt path traversal outside the version
+directory, or declare a namespace that differs from the URL namespace. This
+prevents unauthenticated clients from injecting packages into any namespace.
 
 ---
 

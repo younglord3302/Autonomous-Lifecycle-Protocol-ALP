@@ -99,4 +99,75 @@ describe('alp registry (Pillar 3: hosted registry & marketplace)', () => {
       proc.kill('SIGKILL');
     }
   });
+
+  it('enforces per-namespace tokens and publish-time auth', async () => {
+    const { root, pkgDir } = makeWorkspaceWithPackage();
+    fs.mkdirSync(path.join(root, '.alp'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.alp', 'project.alp'), '@project\n  id demo-ws\n  name: "Demo"\n');
+    execFileSync('node', [CLI, 'registry', 'publish', pkgDir], { cwd: root, encoding: 'utf-8', timeout: 20000 });
+
+    // Host with a per-namespace token for @demo only (private namespace).
+    const port = 4323;
+    const proc = spawn('node', [CLI, 'serve', '--registry', '--registry-token', '@demo=demo-secret', '--port', String(port)], { cwd: root });
+    await waitFor(port);
+
+    const getStatus = (pathname: string, headers: Record<string, string> = {}) =>
+      new Promise<number>((resolve) => {
+        const req = http.get({ host: '127.0.0.1', port, path: pathname, headers }, (r) => { r.resume(); resolve(r.statusCode || 0); });
+        req.on('error', () => resolve(0));
+      });
+
+    const putStatus = (headers: Record<string, string> = {}) =>
+      new Promise<number>((resolve) => {
+        const body = JSON.stringify({
+          name: '@demo/scrum-master', version: '1.0.0', description: 'Scrum', files: [{ path: 'plugin.alp', content: '@agent\n  id: a\n' }],
+        });
+        const req = http.request({ host: '127.0.0.1', port, path: '/api/registry/-/demo/scrum-master', method: 'PUT', headers: { 'Content-Type': 'application/json', ...headers } }, (r) => { r.resume(); resolve(r.statusCode || 0); });
+        req.on('error', () => resolve(0));
+        req.write(body);
+        req.end();
+      });
+
+    try {
+      // Private namespace @demo read requires its token.
+      expect(await getStatus('/api/registry/-/demo/scrum-master/meta.json')).toBe(401);
+      expect(await getStatus('/api/registry/-/demo/scrum-master/meta.json', { Authorization: 'Bearer demo-secret' })).toBe(200);
+      // Publish into @demo requires the namespace token; wrong token rejected.
+      expect(await putStatus({ Authorization: 'Bearer wrong' })).toBe(401);
+      expect(await putStatus({ Authorization: 'Bearer demo-secret' })).toBe(201);
+      // A different namespace stays public (no token configured).
+      expect(await getStatus('/api/registry/-/public/pkg/meta.json')).toBe(404);
+    } finally {
+      proc.kill('SIGKILL');
+    }
+  });
+
+  it('publish over HTTP via alp publish --url with namespace token', async () => {
+    const { root, pkgDir } = makeWorkspaceWithPackage();
+    fs.mkdirSync(path.join(root, '.alp'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.alp', 'project.alp'), '@project\n  id demo-ws\n  name: "Demo"\n');
+
+    const port = 4324;
+    const proc = spawn('node', [CLI, 'serve', '--registry', '--registry-token', '@demo=demo-secret', '--port', String(port)], { cwd: root });
+    await waitFor(port);
+
+    const publish = (token?: string) => {
+      const args = [CLI, 'registry', 'publish', pkgDir, '--url', `http://127.0.0.1:${port}`];
+      if (token) args.push('--token', token);
+      try {
+        return { code: 0, out: execFileSync('node', args, { cwd: root, encoding: 'utf-8', timeout: 20000 }) };
+      } catch {
+        return { code: 1, out: '' };
+      }
+    };
+
+    try {
+      // No token -> rejected (non-zero exit, not "Published").
+      expect(publish().out.toLowerCase()).not.toContain('published');
+      // With token -> succeeds.
+      expect(publish('demo-secret').out).toContain('Published');
+    } finally {
+      proc.kill('SIGKILL');
+    }
+  });
 });

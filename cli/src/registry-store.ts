@@ -46,6 +46,58 @@ export class RegistryStore {
     return path.join(this.root, 'packages', ns, name, version);
   }
 
+  /**
+   * Publish a package from a remote publish request (registry hardening).
+   * `body` carries the manifest plus the file contents inline so the server
+   * needs no shared filesystem with the publisher:
+   *   { name, version, description?, author?, dependencies?, entry?, files: [{ path, content }] }
+   * `routeNs` is the namespace from the PUT URL; it MUST match the manifest's.
+   */
+  publishFromRequest(body: any, routeNs: string): PackageMeta {
+    if (!body || typeof body !== 'object') throw new Error('publish body must be a JSON object');
+    const name = body.name;
+    const version = body.version;
+    const files = body.files;
+    if (!name || !version || !Array.isArray(files) || !files.length) {
+      throw new Error('publish requires name, version, and a non-empty files[]');
+    }
+    const [ns, ...rest] = String(name).replace(/^@/, '').split('/');
+    const manifestName = rest.join('/') || ns;
+    if (ns !== routeNs) {
+      throw new Error(`namespace mismatch: route is @${routeNs} but manifest declares @${ns}/${manifestName}`);
+    }
+    const dir = this.pkgRoot(ns, manifestName, version);
+    fs.mkdirSync(dir, { recursive: true });
+
+    const written: string[] = [];
+    for (const f of files) {
+      if (!f || typeof f.path !== 'string' || typeof f.content !== 'string') {
+        throw new Error('each file must be { path, content }');
+      }
+      // Reject path traversal outside the version directory.
+      const dest = path.resolve(dir, f.path);
+      if (!dest.startsWith(path.resolve(dir))) throw new Error(`invalid file path: ${f.path}`);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, f.content);
+      written.push(f.path);
+    }
+
+    const manifest = {
+      name,
+      version,
+      description: body.description || '',
+      author: body.author,
+      dependencies: body.dependencies || {},
+      files: written,
+      entry: body.entry || written[0],
+    };
+    fs.writeFileSync(path.join(dir, 'alp-package.json'), JSON.stringify(manifest, null, 2));
+
+    // Reuse local publish to compute integrity + meta.json (reads the
+    // manifest we just wrote from the version directory).
+    return this.publish(dir);
+  }
+
   /** Publish a package from a directory containing alp-package.json. */
   publish(pkgDir: string): PackageMeta {
     const manifestPath = path.join(pkgDir, 'alp-package.json');

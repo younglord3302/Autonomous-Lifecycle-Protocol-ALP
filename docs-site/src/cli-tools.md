@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.0.0` (The Federation Era).
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.1.0` (The Federation Era).
 
 ## Execution Engine (`alp run`)
 
@@ -58,7 +58,7 @@ alp serve --db          # persist a durable state store + analytics
 | `--host <host>` | Host to bind to (default `127.0.0.1`) |
 | `--db` | *New in V4 (Pillar 5).* Persist a durable state store of runtime events to `.alp/.runtime/state.db.json` and expose `/api/analytics` |
 | `--registry` | *V4 Pillar 3.* Host the package registry over HTTP (`/api/registry/*`) |
-| `--registry-token <t>` | *V4 Pillar 3.* Require `Authorization: Bearer <t>` on all `/api/registry` requests (private registry) |
+| `--registry-token <t>` | *V4.1.0.* Require `Authorization: Bearer <t>` on registry requests. A bare token protects every namespace; a `ns=token` map protects only those namespaces (read + publish) |
 
 Endpoints:
 
@@ -75,9 +75,10 @@ Endpoints:
 | `/api/swarm/claim` | *V4 Pillar 1.* Negotiate a task claim (server-brokered lock) |
 | `/api/swarm/release` | *V4 Pillar 1.* Release a task claim |
 | `/api/swarm/roster` | *V4 Pillar 1.* List live nodes and their claims |
-| `/api/registry` | *V4 Pillar 3.* Marketplace listing (`?q=` for search) |
-| `/api/registry/-/<ns>/<name>/meta.json` | *V4 Pillar 3.* Package metadata (all versions) |
-| `/api/registry/-/<ns>/<name>/<version>/<file>` | *V4 Pillar 3.* Package file download |
+| `/api/registry` | *V4 Pillar 3.* Marketplace listing (`?q=` for search); gated by a global token |
+| `/api/registry/-/<ns>/<name>/meta.json` | *V4 Pillar 3.* Package metadata (all versions); gated per namespace |
+| `/api/registry/-/<ns>/<name>/<version>/<file>` | *V4 Pillar 3.* Package file download; gated per namespace |
+| `PUT /api/registry/-/<ns>/<name>` | *V4.1.0.* Publish a package (manifest + file contents); gated by the namespace token |
 
 ## Networked Swarms (`alp swarm`)
 
@@ -147,11 +148,11 @@ always take precedence over `allow_*`.
 
 ## Hosted Registry & Marketplace (`alp registry`)
 
-*New in `4.0.0` (Pillar 3).* Packages are publishable, discoverable units of
-autonomous knowledge (community templates, role packs, workflow packs). The
-registry is a zero-dependency, filesystem-backed store that can also be hosted
-over HTTP by `alp serve --registry`. Every published version carries a sha256
-integrity hash, verified on download.
+*New in `4.0.0` (Pillar 3), hardened in `4.1.0`.* Packages are publishable,
+discoverable units of autonomous knowledge (community templates, role packs,
+workflow packs). The registry is a zero-dependency, filesystem-backed store that
+can also be hosted over HTTP by `alp serve --registry`. Every published version
+carries a sha256 integrity hash, verified on download.
 
 ```bash
 # Publish the package in ./my-pack into the local store (.alp/registry)
@@ -160,9 +161,15 @@ alp registry publish ./my-pack
 # Host a registry so other machines can install from it
 alp serve --registry --port 4000
 
-# Gate a private registry with a bearer token (spec/14 §4.2). Clients must
-# present the token via `.alprc` auth, or `--url` + the matching token.
+# Gate a private registry with a bearer token (spec/14 §4.2). A bare token
+# protects every namespace; a `ns=token` map protects only those namespaces
+# (read + publish). Clients present the token via `.alprc` auth, or
+# `--url` + `--token`.
 alp serve --registry --registry-token "$ALP_REGISTRY_TOKEN" --port 4000
+alp serve --registry --registry-token "@demo=dsecret,@internal=isecret" --port 4000
+
+# Publish over HTTP (requires the namespace token on the host)
+alp registry publish ./my-pack --url http://127.0.0.1:4000 --token "$ALP_REGISTRY_TOKEN"
 
 # Discover and install
 alp registry list --url http://127.0.0.1:4000
@@ -174,6 +181,22 @@ Version resolution supports semver ranges (`^1.0.0`, `~2.1.0`, `1.x`,
 `>=1.2.0 <2.0.0`); the resolved version is pinned to `.alp/registry.lock.json`
 on install so repeatable installs are reproducible. The legacy `alp install`
 command is a thin wrapper around the same client.
+
+### Registry hardening (4.1.0): per-namespace tokens & publish-time auth
+
+- **Per-namespace tokens.** `--registry-token` accepts either one global token
+  or a comma-separated map of `namespace=token` pairs (e.g.
+  `@demo=demo-secret`). A namespace with a configured token is *private*: its
+  reads and downloads require `Authorization: Bearer <token>`, while
+  unconfigured namespaces stay public. A global token protects the marketplace
+  listing/search endpoint too.
+- **Publish-time auth.** Publishing is a `PUT /api/registry/-/<ns>/<name>` that
+  carries the manifest and file contents inline. It is always gated by the
+  target namespace's token, so unauthenticated clients cannot inject packages
+  into any namespace — closing the publish hole that existed in `4.0.0`.
+- **Path safety.** Server-side publish rejects path traversal outside the
+  version directory and rejects a manifest whose namespace differs from the
+  URL namespace.
 
 ### Registry configuration (`.alprc`)
 
@@ -199,7 +222,7 @@ local `alp serve --registry`); the client refuses plain HTTP for any other host.
 
 | Subcommand | Description |
 | :--- | :--- |
-| `publish <dir>` | Add a package (with `alp-package.json`) to the local store |
+| `publish <dir>` | Add a package to the local store, or `--url <host>` to publish remotely (token-gated) |
 | `list` | List packages in the local store (or `--url` for a hosted registry) |
 | `search <q>` | Substring search over name + description |
 | `install <name>[@range]` | Download, verify integrity, and pin to the lockfile |

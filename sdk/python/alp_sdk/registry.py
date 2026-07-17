@@ -142,9 +142,10 @@ def satisfies(v: str, rng: str) -> bool:
 
 
 class RegistryClient:
-    def __init__(self, base_url: str = "", config: Optional[Dict[str, Any]] = None):
+    def __init__(self, base_url: str = "", config: Optional[Dict[str, Any]] = None, token: Optional[str] = None):
         self.base_url = base_url or os.environ.get("ALP_REGISTRY_URL") or "http://127.0.0.1:4000"
         self.config = config if config is not None else load_alprc()
+        self.token = token or os.environ.get("ALP_REGISTRY_TOKEN")
 
     # ── .alprc routing (§4.1) ───────────────────────────────────────────
     def resolve_base_url(self, pkg_name: str) -> str:
@@ -154,16 +155,22 @@ class RegistryClient:
         return mapped or registries.get("default") or self.base_url
 
     def _auth_header(self, base_url: str) -> Dict[str, str]:
-        token = (self.config.get("auth") or {}).get(base_url, {}).get("token")
+        token = self.token or (self.config.get("auth") or {}).get(base_url, {}).get("token")
+        return {"Authorization": "Bearer " + token} if token else {}
+
+    def _auth_header_for_ns(self, pkg_name: str) -> Dict[str, str]:
+        ns = pkg_name.replace("@", "", 1).split("/")[0]
+        auth = self.config.get("auth") or {}
+        token = self.token or auth.get("@" + ns, {}).get("token") or auth.get(ns, {}).get("token") or auth.get(self.resolve_base_url(pkg_name), {}).get("token")
         return {"Authorization": "Bearer " + token} if token else {}
 
     # ── HTTP ────────────────────────────────────────────────────────────
-    def _request(self, url: str, headers: Optional[Dict[str, str]] = None) -> Tuple[int, bytes]:
+    def _request(self, url: str, headers: Optional[Dict[str, str]] = None, method: str = "GET", data: Optional[bytes] = None) -> Tuple[int, bytes]:
         parsed = urllib.parse.urlparse(url)
         # §5.1: registry communication MUST be over HTTPS, except loopback.
         if parsed.scheme != "https" and not _LOCALHOST.match(parsed.hostname or ""):
             raise RuntimeError(f"Refusing to use insecure registry over plain HTTP: {url} (use https://)")
-        req = urllib.request.Request(url, headers=headers or {})
+        req = urllib.request.Request(url, data=data, headers=headers or {}, method=method)
         try:
             with urllib.request.urlopen(req) as resp:  # nosec - loopback/https only
                 return resp.status, resp.read()
@@ -253,6 +260,42 @@ class RegistryClient:
         )
         if status != 200:
             raise RuntimeError(f"Registry search failed ({status})")
+        return json.loads(body.decode("utf-8"))
+
+    def publish(self, pkg_dir: str) -> Dict[str, Any]:
+        """Publish ``pkg_dir`` (must contain ``alp-package.json``) to the host.
+
+        Sends a PUT to ``/api/registry/-/<ns>/<name>`` with the manifest and
+        file contents inline; the host is gated by the namespace token
+        (spec/14 §4.2, registry hardening).
+        """
+        manifest_path = os.path.join(pkg_dir, "alp-package.json")
+        if not os.path.exists(manifest_path):
+            raise RuntimeError(f"Cannot publish: no alp-package.json in {pkg_dir}")
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        if not manifest.get("name") or not manifest.get("version") or not isinstance(manifest.get("files"), list):
+            raise RuntimeError("alp-package.json must declare name, version, and files[]")
+        ns, _, name = manifest["name"].replace("@", "", 1).partition("/")
+        name = name or ns
+        files = []
+        for rel in manifest["files"]:
+            with open(os.path.join(pkg_dir, rel), "r", encoding="utf-8") as f:
+                files.append({"path": rel, "content": f.read()})
+        base = self.resolve_base_url(manifest["name"])
+        payload = json.dumps({**manifest, "files": files}).encode("utf-8")
+        status, body = self._request(
+            f"{base}/api/registry/-/{urllib.parse.quote(ns)}/{urllib.parse.quote(name)}",
+            {**self._auth_header_for_ns(manifest["name"]), "Content-Type": "application/json"},
+            method="PUT",
+            data=payload,
+        )
+        if status not in (200, 201):
+            try:
+                msg = json.loads(body.decode("utf-8")).get("error", f"publish failed ({status})")
+            except (json.JSONDecodeError, OSError):
+                msg = f"publish failed ({status})"
+            raise RuntimeError(msg)
         return json.loads(body.decode("utf-8"))
 
 
