@@ -13,7 +13,7 @@ function resolveSignerKey(signKey?: string): string | undefined {
   if (!raw) return undefined;
   if (raw.includes('-----BEGIN')) return raw;
   if (fs.existsSync(raw)) return fs.readFileSync(path.resolve(raw), 'utf-8');
-  return raw;
+  throw new Error(`Signing key not found: ${raw} (pass --sign-key <file> or set ALP_REGISTRY_SIGN_KEY to a PEM or existing file)`);
 }
 
 export async function registryCommand(sub: string | undefined, target: string | undefined, options?: { url?: string; version?: string; token?: string; key?: string; signKey?: string }) {

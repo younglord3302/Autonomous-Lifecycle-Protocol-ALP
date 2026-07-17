@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.2.0` (The Federation Era).
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.3.0` (The Federation Era).
 
 ## Execution Engine (`alp run`)
 
@@ -229,6 +229,31 @@ alp install @ns/my-plugin --key registry.pub
   `alp serve --registry --registry-sign-key <file>`.
 - The Python SDK exposes the same primitives (`alp_sdk.signing`) behind the
   optional `cryptography` dependency (`pip install alp-sdk[signing]`).
+
+#### Persistent trust roots (4.3.0): `.alprc` `trustedKeys`
+
+Passing `--key` on every install is tedious. Instead, pin a maintainer's
+fingerprint (or public key) as a **trust root** in `.alprc`; `alp install`
+then verifies signed packages automatically and rejects unsigned or
+wrong-key packages for that namespace.
+
+```bash
+# Pin a maintainer fingerprint to a namespace (or '*' for global trust).
+# Omit the leading '@' on the namespace — commander treats '@' as a file arg.
+alp keys trust add demo alp1c0593b2f97ec8a92fa05e5bb
+alp keys trust add '*' ./registry.pub        # trust every signed package
+
+alp keys trust list                           # show configured roots
+
+# Now installs are verified against the trust root with no --key needed.
+alp install @demo/myplugin
+```
+
+`trustedKeys` maps a namespace (`@ns`) or `*` (global) to either an inline PEM
+public key or a fingerprint (`alp1...`). A fingerprint is matched against the
+signer key embedded in the package signature, so you never ship the public key
+in cleartext. Unsigned installs stay allowed unless a trust root is configured
+for that namespace (spec/14 §4.3).
 
 ### Registry configuration (`.alprc`)
 

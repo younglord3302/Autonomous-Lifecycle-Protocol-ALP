@@ -30,10 +30,16 @@ export interface PackageManifest {
  * `.alprc` configuration (spec/14-plugin-registry.md §4). Maps namespaces to
  * registry base URLs and supplies bearer tokens for private registries. Token
  * values of the form `${ENV_VAR}` are expanded from the environment.
+ *
+ * `trustedKeys` (§4.3) is the signature trust root for package signing: a map
+ * of namespace (`@ns` or `*` for global) to either an inline PEM public key or
+ * a public-key fingerprint (`alp1...`). When configured, signed installs for
+ * that namespace are verified against it (v4.3).
  */
 export interface AlprcConfig {
   registries?: Record<string, string>;
   auth?: Record<string, { token?: string }>;
+  trustedKeys?: Record<string, string>;
 }
 
 const LOCALHOST = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i;
@@ -133,8 +139,9 @@ export class RegistryClient {
   }
 
   /** Download a package version into `<alpDir>/packages/<name>/`.
-   *  When `trustedKey` (PEM public key) is provided, a signed version whose
-   *  signature does not verify against it is rejected (v4.1 registry trust). */
+   *  When a trust root is configured (explicit `trustedKey` PEM, or a
+   *  `.alprc` `trustedKeys` entry for the namespace), a signed version whose
+   *  signature does not verify against it is rejected (v4.2/v4.3 trust). */
   async install(pkgName: string, targetAlpDir: string, versionRange = 'latest', trustedKey?: string): Promise<string> {
     const meta = await this.getMeta(pkgName);
     const version = this.resolveVersion(meta, versionRange);
@@ -150,13 +157,23 @@ export class RegistryClient {
     const r = await request(fileUrl, this.authHeader(pkgBase));
     if (r.status !== 200) throw new Error(`Failed to download ${entryName} (${r.status})`);
 
-    // v4.1: signature verification against a configured trust root.
-    if (trustedKey && info.signature) {
+    // v4.2/v4.3: signature verification against a configured trust root. An
+    // explicit --key PEM wins; otherwise fall back to the .alprc trustedKeys
+    // entry (matched by namespace, then global `*`).
+    const explicitTrust = trustedKey ? resolvePublicKey(trustedKey) : undefined;
+    const signature = info.signature as Signature | undefined;
+    if (explicitTrust && signature) {
       const entrySha = info.integrity ? info.integrity.slice('sha256:'.length) : '';
       const payload = signingPayload({ name: pkgName, version, entry: entryName, entryHash: entrySha, dependencies: info.dependencies });
-      const ok = verify(resolvePublicKey(trustedKey), payload, info.signature as Signature);
-      if (!ok) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
-    } else if (trustedKey && !info.signature) {
+      if (!verify(explicitTrust, payload, signature)) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
+    } else if (!trustedKey && signature && this.isTrusted(pkgName, signature)) {
+      const entrySha = info.integrity ? info.integrity.slice('sha256:'.length) : '';
+      const payload = signingPayload({ name: pkgName, version, entry: entryName, entryHash: entrySha, dependencies: info.dependencies });
+      if (!verify(resolvePublicKey(signature.key), payload, signature)) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
+    } else if (!trustedKey && signature && this.resolveTrustEntry(pkgName)) {
+      // A trust root is configured but this signature's signer is not covered.
+      throw new Error(`Signature for ${pkgName}@${version} is not from a trusted key`);
+    } else if (!trustedKey && !signature && this.resolveTrustEntry(pkgName)) {
       throw new Error(`Package ${pkgName}@${version} is not signed; trust root requires signatures`);
     }
 
@@ -189,6 +206,29 @@ export class RegistryClient {
     const token = this.inlineToken || cfg['@' + ns]?.token || cfg[ns]?.token || cfg[base]?.token;
     const expanded = token ? expandEnv(token) : '';
     return expanded ? { Authorization: `Bearer ${expanded}` } : {};
+  }
+
+  /**
+   * Resolve the configured trust root for a package namespace from `.alprc`
+   * `trustedKeys` (§4.3): an `@ns` entry wins, then the global `*`. The value
+   * is either an inline PEM public key or a fingerprint (`alp1...`); either is
+   * accepted by `isTrusted`. Returns undefined when no trust root is set.
+   */
+  resolveTrustEntry(pkgName: string): string | undefined {
+    const ns = pkgName.replace(/^@/, '').split('/')[0];
+    const tk = this.config.trustedKeys || {};
+    const raw = tk['@' + ns] || tk[ns] || tk['*'];
+    return raw ? expandEnv(raw) : undefined;
+  }
+
+  /** True when `sig` is covered by the namespace's configured trust root. */
+  isTrusted(pkgName: string, sig: Signature): boolean {
+    const entry = this.resolveTrustEntry(pkgName);
+    if (!entry) return false;
+    // Fingerprint form: the signer's key fingerprint must match the trust root.
+    if (entry.startsWith('alp1')) return fingerprint(sig.key) === entry;
+    // Inline PEM form: the signature's signer key must equal the trust root.
+    return entry.trim() === sig.key.trim();
   }
 
   /** Publish a package to a remote registry host (registry hardening, PUT).

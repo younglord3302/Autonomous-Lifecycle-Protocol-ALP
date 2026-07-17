@@ -146,6 +146,38 @@ token, present a wrong token, attempt path traversal outside the version
 directory, or declare a namespace that differs from the URL namespace. This
 prevents unauthenticated clients from injecting packages into any namespace.
 
+### 4.3 Signature Trust Roots (`.alprc` `trustedKeys`)
+
+Tokens prove *who may publish*; signatures (§4.2, v4.2) prove *what was
+published was not tampered with*. A consumer configures a **trust root** so
+installs are verified automatically without passing a key each time.
+
+The `.alprc` `trustedKeys` field maps a namespace (`@ns`) or `*` (global) to a
+trust anchor, which is either:
+
+- an **inline PEM public key** — the package signature's signer key MUST equal it exactly; or
+- a **fingerprint** (`alp1…`, the SHA-256 of the PEM public key) — the package signature's embedded signer key MUST hash to it.
+
+```json
+{
+  "trustedKeys": {
+    "@demo": "alp1c0593b2f97ec8a92fa05e5bb",
+    "*": "-----BEGIN PUBLIC KEY-----\nMCow…\n-----END PUBLIC KEY-----"
+  }
+}
+```
+
+> **Note:** on the command line, omit the leading `@` when naming a namespace
+> (`alp keys trust add demo <fp>`); commander interprets a leading `@` as a
+> file-argument and would drop it. The config key is still written as `@demo`.
+
+Rules:
+- An `@ns` entry takes precedence over `*`.
+- When a trust root is configured for a namespace, an install of a **signed** package MUST verify its signature against that root; a signature from an untrusted key MUST be rejected.
+- When a trust root is configured for a namespace, an **unsigned** package for that namespace MUST be rejected.
+- Packages in namespaces with **no** trust root install as before (signing remains optional and backward compatible).
+- The CLI manages trust roots via `alp keys trust add <ns|*> <fingerprint|file>` and `alp keys trust list`; the Python SDK resolves them through `RegistryClient.resolve_trust_entry` / `is_trusted`.
+
 ---
 
 ## 5. Security & Verification

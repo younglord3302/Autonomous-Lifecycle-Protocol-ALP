@@ -27,7 +27,7 @@ const program = new Command();
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('4.2.0');
+  .version('4.3.0');
 
 program
   .command('init')
@@ -180,10 +180,9 @@ program
 
 program
   .command('keys')
-  .description('Manage registry package-signing keypairs (v4.1 registry trust)')
-  .argument('[subcommand]', 'generate | fingerprint')
-  .argument('[target]', 'Public key file for fingerprint')
-  .action((sub, target) => keysCommand(sub, target));
+  .description('Manage registry package-signing keypairs & trust roots (v4.2/4.3)')
+  .argument('[args...]', 'generate | fingerprint <file> | trust add <ns|*> <fingerprint|file> | trust list')
+  .action((args: string[]) => keysCommand(args[0], args.slice(1)));
 
 program
   .command('export')

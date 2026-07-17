@@ -24,7 +24,7 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
-from .signing import sign, verify, signing_payload, resolve_public_key, Signature
+from .signing import sign, verify, signing_payload, resolve_public_key, fingerprint, Signature
 
 __all__ = ["RegistryClient", "load_alprc", "semver_cmp", "satisfies"]
 
@@ -156,6 +156,26 @@ class RegistryClient:
         mapped = registries.get("@" + ns) or registries.get(ns)
         return mapped or registries.get("default") or self.base_url
 
+    # ── .alprc trust roots (§4.3) ───────────────────────────────────────
+    def resolve_trust_entry(self, pkg_name: str) -> Optional[str]:
+        """Return the `.alprc` `trustedKeys` entry for ``pkg_name``.
+
+        An ``@ns`` entry wins, then the global ``*``. The value is either an
+        inline PEM public key or a fingerprint (``alp1...``).
+        """
+        ns = pkg_name.replace("@", "", 1).split("/")[0]
+        trusted = self.config.get("trustedKeys") or {}
+        return trusted.get("@" + ns) or trusted.get(ns) or trusted.get("*")
+
+    def is_trusted(self, pkg_name: str, signature: Dict[str, str]) -> bool:
+        """True when ``signature`` is covered by the namespace's trust root."""
+        entry = self.resolve_trust_entry(pkg_name)
+        if not entry:
+            return False
+        if entry.startswith("alp1"):
+            return fingerprint(signature.get("key", "")) == entry
+        return entry.strip() == signature.get("key", "").strip()
+
     def _auth_header(self, base_url: str) -> Dict[str, str]:
         token = self.token or (self.config.get("auth") or {}).get(base_url, {}).get("token")
         return {"Authorization": "Bearer " + token} if token else {}
@@ -221,15 +241,27 @@ class RegistryClient:
         if status != 200:
             raise RuntimeError(f"Failed to download {entry} ({status})")
 
-        # v4.2: signature verification against a configured trust root.
-        if trust_key and info.get("signature"):
+        # v4.2/v4.3: signature verification against a configured trust root.
+        # An explicit trust_key PEM wins; otherwise fall back to the .alprc
+        # trustedKeys entry (matched by namespace, then global `*`).
+        signature = info.get("signature")
+        if trust_key and signature:
             entry_sha = info["integrity"][len("sha256:") :] if info.get("integrity") else ""
             payload = signing_payload(
                 name=pkg_name, version=version, entry=entry, entry_hash=entry_sha, dependencies=info.get("dependencies", {})
             )
-            if not verify(resolve_public_key(trust_key), payload, info["signature"]):
+            if not verify(resolve_public_key(trust_key), payload, signature):
                 raise RuntimeError(f"Signature verification failed for {pkg_name}@{version}")
-        elif trust_key and not info.get("signature"):
+        elif not trust_key and signature and self.is_trusted(pkg_name, signature):
+            entry_sha = info["integrity"][len("sha256:") :] if info.get("integrity") else ""
+            payload = signing_payload(
+                name=pkg_name, version=version, entry=entry, entry_hash=entry_sha, dependencies=info.get("dependencies", {})
+            )
+            if not verify(resolve_public_key(signature["key"]), payload, signature):
+                raise RuntimeError(f"Signature verification failed for {pkg_name}@{version}")
+        elif not trust_key and signature and self.resolve_trust_entry(pkg_name):
+            raise RuntimeError(f"Signature for {pkg_name}@{version} is not from a trusted key")
+        elif not trust_key and not signature and self.resolve_trust_entry(pkg_name):
             raise RuntimeError(f"Package {pkg_name}@{version} is not signed; trust root requires signatures")
 
         if info.get("integrity"):
