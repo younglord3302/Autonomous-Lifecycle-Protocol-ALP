@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as crypto from 'node:crypto';
 import * as http from 'node:http';
@@ -23,26 +24,93 @@ export interface PackageManifest {
   entry?: string;
 }
 
-function request(url: string): Promise<{ status: number; body: Buffer }> {
+/**
+ * `.alprc` configuration (spec/14-plugin-registry.md §4). Maps namespaces to
+ * registry base URLs and supplies bearer tokens for private registries. Token
+ * values of the form `${ENV_VAR}` are expanded from the environment.
+ */
+export interface AlprcConfig {
+  registries?: Record<string, string>;
+  auth?: Record<string, { token?: string }>;
+}
+
+const LOCALHOST = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i;
+
+function expandEnv(v: string): string {
+  return v.replace(/\$\{([^}]+)\}/g, (_, name) => process.env[name] ?? '');
+}
+
+/** Load `.alprc` / `.alprc.json` from the cwd or the user's home directory. */
+export function loadAlprc(cwd: string = process.cwd()): AlprcConfig {
+  const candidates = [
+    path.join(cwd, '.alprc'),
+    path.join(cwd, '.alprc.json'),
+    path.join(os.homedir(), '.alprc'),
+    path.join(os.homedir(), '.alprc.json'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(p, 'utf-8')) as AlprcConfig;
+        // Expand ${ENV} references in auth tokens (spec/14 §4.2) at load time.
+        if (raw.auth) {
+          for (const entry of Object.values(raw.auth)) {
+            if (entry?.token) entry.token = expandEnv(entry.token);
+          }
+        }
+        return raw;
+      } catch {
+        /* fall through to empty config */
+      }
+    }
+  }
+  return {};
+}
+
+function request(url: string, headers: Record<string, string> = {}): Promise<{ status: number; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
+    // §5.1: registry communication MUST be over HTTPS. Allow plain HTTP only
+    // for loopback addresses so local `alp serve --registry` works in dev.
+    if (u.protocol !== 'https:' && !LOCALHOST.test(u.hostname)) {
+      return reject(new Error(`Refusing to use insecure registry over plain HTTP: ${url} (use https://)`));
+    }
     const lib = u.protocol === 'https:' ? https : http;
-    lib.get(u, (res) => {
+    const req = lib.get(u, { headers }, (res) => {
       const chunks: Buffer[] = [];
       res.on('data', (c) => chunks.push(c as Buffer));
       res.on('end', () => resolve({ status: res.statusCode || 0, body: Buffer.concat(chunks) }));
-    }).on('error', reject);
+    });
+    req.on('error', reject);
   });
 }
 
 export class RegistryClient {
-  constructor(private baseUrl: string = 'http://127.0.0.1:4000') {}
+  constructor(
+    private baseUrl: string = process.env.ALP_REGISTRY_URL || 'http://127.0.0.1:4000',
+    private config: AlprcConfig = loadAlprc(),
+  ) {}
+
+  /** Resolve the registry base URL for a package, honoring `.alprc` namespace routing (§4.1). */
+  resolveBaseUrl(pkgName: string): string {
+    const ns = pkgName.replace(/^@/, '').split('/')[0];
+    const mapped = this.config.registries?.[`@${ns}`] || this.config.registries?.[ns];
+    return mapped || this.config.registries?.default || this.baseUrl;
+  }
+
+  /** Bearer token for the base URL, if configured (§4.2). */
+  private authHeader(baseUrl: string): Record<string, string> {
+    const token = this.config.auth?.[baseUrl]?.token;
+    const expanded = token ? expandEnv(token) : '';
+    return expanded ? { Authorization: `Bearer ${expanded}` } : {};
+  }
 
   /** Fetch package metadata from the registry. */
   async getMeta(pkgName: string): Promise<any> {
     const [ns, ...rest] = pkgName.replace(/^@/, '').split('/');
     const name = rest.join('/') || ns;
-    const r = await request(`${this.baseUrl}/api/registry/-/${encodeURIComponent(ns)}/${encodeURIComponent(name)}/meta.json`);
+    const base = this.resolveBaseUrl(pkgName);
+    const r = await request(`${base}/api/registry/-/${encodeURIComponent(ns)}/${encodeURIComponent(name)}/meta.json`, this.authHeader(base));
     if (r.status !== 200) throw new Error(`Package ${pkgName} not found in registry (${r.status})`);
     return JSON.parse(r.body.toString('utf-8'));
   }
@@ -66,21 +134,22 @@ export class RegistryClient {
     const info = meta.versions[version];
     if (!info) throw new Error(`Version ${version} missing from metadata`);
 
-    const base = path.join(targetAlpDir, 'packages', pkgName.replace(/[^a-zA-Z0-9-]/g, '_'));
-    fs.mkdirSync(base, { recursive: true });
+    const destBase = path.join(targetAlpDir, 'packages', pkgName.replace(/[^a-zA-Z0-9-]/g, '_'));
+    fs.mkdirSync(destBase, { recursive: true });
 
-    const fileUrl = info.url.startsWith('http') ? info.url : `${this.baseUrl}${info.url}`;
+    const pkgBase = this.resolveBaseUrl(pkgName);
+    const fileUrl = info.url.startsWith('http') ? info.url : `${pkgBase}${info.url}`;
     const entryName = decodeURIComponent(fileUrl.split('/').pop() || 'plugin.alp');
-    const r = await request(fileUrl);
+    const r = await request(fileUrl, this.authHeader(pkgBase));
     if (r.status !== 200) throw new Error(`Failed to download ${entryName} (${r.status})`);
     if (info.integrity) {
       const actual = 'sha256:' + crypto.createHash('sha256').update(r.body).digest('hex');
       if (actual !== info.integrity) throw new Error(`Integrity mismatch for ${pkgName}@${version}`);
     }
-    fs.writeFileSync(path.join(base, entryName), r.body);
-    fs.writeFileSync(path.join(base, 'alp-package.json'), JSON.stringify({ ...meta, version, _installed: new Date().toISOString() }, null, 2));
+    fs.writeFileSync(path.join(destBase, entryName), r.body);
+    fs.writeFileSync(path.join(destBase, 'alp-package.json'), JSON.stringify({ ...meta, version, _installed: new Date().toISOString() }, null, 2));
     this.writeLock(targetAlpDir, pkgName, version, info.integrity || null);
-    return path.join(base, entryName);
+    return path.join(destBase, entryName);
   }
 
   /** Append/refresh a pinned entry in `<alpDir>/registry.lock.json`. */
@@ -94,16 +163,23 @@ export class RegistryClient {
     fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2));
   }
 
+  /** The registry used for unscoped calls (list/search): `.alprc` default or constructor base. */
+  private defaultBase(): string {
+    return this.config.registries?.default || this.baseUrl;
+  }
+
   /** List all packages in the registry (marketplace). */
   async list(): Promise<any[]> {
-    const r = await request(`${this.baseUrl}/api/registry`);
+    const base = this.defaultBase();
+    const r = await request(`${base}/api/registry`, this.authHeader(base));
     if (r.status !== 200) throw new Error(`Registry list failed (${r.status})`);
     return JSON.parse(r.body.toString('utf-8'));
   }
 
   /** Search packages in the registry by substring. */
   async search(query: string): Promise<any[]> {
-    const r = await request(`${this.baseUrl}/api/registry?q=${encodeURIComponent(query)}`);
+    const base = this.defaultBase();
+    const r = await request(`${base}/api/registry?q=${encodeURIComponent(query)}`, this.authHeader(base));
     if (r.status !== 200) throw new Error(`Registry search failed (${r.status})`);
     return JSON.parse(r.body.toString('utf-8'));
   }

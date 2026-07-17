@@ -169,6 +169,28 @@ Version resolution supports semver ranges (`^1.0.0`, `~2.1.0`, `1.x`,
 on install so repeatable installs are reproducible. The legacy `alp install`
 command is a thin wrapper around the same client.
 
+### Registry configuration (`.alprc`)
+
+Private and namespaced registries are configured with a `.alprc` (or
+`.alprc.json`) file in the workspace root or your home directory. Namespace
+routing sends each package to its mapped registry; `${ENV_VAR}` references in
+auth tokens are expanded from the environment (spec/14 §4).
+
+```json
+{
+  "registries": {
+    "default": "https://registry.alp-protocol.org",
+    "@internal": "https://alp-registry.internal.company.com"
+  },
+  "auth": {
+    "https://alp-registry.internal.company.com": { "token": "${ALP_INTERNAL_TOKEN}" }
+  }
+}
+```
+
+All registry traffic MUST use HTTPS (loopback `http://127.0.0.1` is allowed for
+local `alp serve --registry`); the client refuses plain HTTP for any other host.
+
 | Subcommand | Description |
 | :--- | :--- |
 | `publish <dir>` | Add a package (with `alp-package.json`) to the local store |
