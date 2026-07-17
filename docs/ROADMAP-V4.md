@@ -23,10 +23,15 @@ grows from one `.alp/` folder to many, working together under shared policy.
   task claims through the coordinator instead of the local `LockManager`, so
   multiple machines/CI runners work the same DAG without double-claiming.
 
-## Pillar 2: Cross-Repository Orchestration
+## Pillar 2: Cross-Repository Orchestration ✅ (landed on main, toward 4.0.0)
 **Target:** One DAG spanning many repos.
-- **Workspace federation:** Extend `@workspace` cross-project references
-  (`-> ws::proj::obj`) so a task in repo A can depend on a task in repo B.
+- **`@repo` object:** Declares an external repository (local `path`, Git `url`,
+  pinned to `commit`/`branch`). Validated by the JSON-schema machinery.
+- **`ExternalResolver`:** Discovers `@repo` declarations, fetches Git repos into
+  `.alp/.cache/repos/<id>/`, merges each repo's `.alp` graph, and resolves
+  `-> repo::object` references. Cross-repo refs are read-only.
+- **`alp repo`:** `ls`, `fetch`, `resolve [--fetch]`, and `graph` to inspect the
+  federation and surface dangling references.
 - **Federated context bundles:** `alp run` pulls decisions/rules/memory from
   linked repositories, not just the local `.alp/`.
 - **Atomic cross-repo checkpoints:** A feature that touches 3 repos is only
@@ -75,8 +80,8 @@ grows from one `.alp/` folder to many, working together under shared policy.
 | Pillar 4 | Policy & Permission Governance | ✅ Complete (toward 4.0.0) |
 | Pillar 5 | Persistent State Store | ✅ Complete (toward 4.0.0) |
 | Pillar 1 | Remote & Networked Swarms | ✅ Complete (toward 4.0.0) |
-| Pillar 2 | Cross-Repository Orchestration | 🔜 Next |
-| Pillar 3 | Hosted Registry & Marketplace | 🔜 |
+| Pillar 2 | Cross-Repository Orchestration | ✅ Complete (toward 4.0.0) |
+| Pillar 3 | Hosted Registry & Marketplace | 🔜 Next |
 
 > V4 is a **major** version: `@policy` and cross-repo references may introduce
 > breaking changes to the workspace schema, gated behind the deprecation policy

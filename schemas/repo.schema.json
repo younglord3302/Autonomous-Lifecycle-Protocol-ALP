@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/repo.schema.json",
+  "title": "ALP Repo Object",
+  "description": "Declares an external repository that participates in cross-repository orchestration (v4 Pillar 2). A repo is either a local path or a Git URL fetched into .alp/.cache/repos/<id>/.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "src": {
+      "type": "string",
+      "description": "Local filesystem path (relative to the declaring .alp root) or a Git URL (https, ssh, git+https)."
+    },
+    "commit": {
+      "type": "string",
+      "description": "Pin the fetched repo to an exact Git commit hash (recommended for reproducibility)."
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch to track when commit is not specified (e.g. main)."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the repo's role in the federation."
+    }
+  }
+}

@@ -19,6 +19,7 @@ import { serveCommand } from './commands/serve';
 import { evolveCommand } from './commands/evolve';
 import { policyCommand } from './commands/policy';
 import { swarmCommand } from './commands/swarm';
+import { repoCommand } from './commands/repo';
 const program = new Command();
 
 program
@@ -128,6 +129,13 @@ program
   .option('--token <token>', 'Bearer token for the coordinator')
   .option('--node <id>', 'This node id')
   .action((sub, swarm, opts) => swarmCommand(sub, swarm, opts));
+
+program
+  .command('repo')
+  .description('Cross-repository orchestration: discover, fetch, and resolve external repos (v4 Pillar 2)')
+  .argument('[subcommand]', 'ls | fetch | resolve | graph (default resolve)')
+  .option('--fetch', 'Fetch/update Git-backed repos before resolving')
+  .action((sub, opts) => repoCommand(sub, opts));
 
 program
   .command('install')

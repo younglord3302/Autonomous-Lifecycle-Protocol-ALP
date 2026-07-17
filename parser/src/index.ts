@@ -8,6 +8,7 @@ export * from './lock-manager';
 export * from './policy';
 export * from './state-store';
 export * from './swarm-client';
+export * from './repo-resolver';
 export { AlpObject };
 
 export class AlpParser {

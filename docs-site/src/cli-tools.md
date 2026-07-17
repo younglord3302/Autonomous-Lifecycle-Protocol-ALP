@@ -86,6 +86,22 @@ alp swarm leave <id>           # deregister
 alp run --swarm <id>           # execute tasks, negotiating claims via the coordinator
 ```
 
+## Cross-Repository Orchestration (`alp repo`)
+
+*New in V4 (Pillar 2).* A single workspace can span multiple Git repositories.
+Declare each external repo with a `@repo` object, then:
+
+```bash
+alp repo ls                   # list declared @repo objects
+alp repo fetch                # clone/update Git-backed repos into .alp/.cache/repos/<id>
+alp repo resolve [--fetch]    # merge graphs and resolve -> repo::object references
+alp repo graph                # print the merged cross-repo node/edge graph
+```
+
+Cross-repo references (`-> billing::task-stripe`) are **read-only**: an agent
+may read another repo's objects but must not modify its `.alp/`. Dangling
+references are reported so the federation fails fast.
+
 ## Self-Evolving Protocol (`alp evolve`)
 
 *New in `3.1.0`.* `alp evolve` analyzes the runtime event log to detect tasks

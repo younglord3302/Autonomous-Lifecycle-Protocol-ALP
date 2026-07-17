@@ -1090,3 +1090,40 @@ remotely carry the `node_id` so dead nodes can be reaped by the coordinator.
 
 Join a networked swarm with `alp run --swarm <id>` or inspect it with
 `alp swarm roster <id>`.
+
+## 27. Repo — `@repo` (v4.0.0+)
+
+Declares an **external repository** that participates in cross-repository
+orchestration. Introduced in ALP v4 (The Federation Era, Pillar 2) so a single
+workspace can span multiple Git repositories. A `@repo` is either a local
+path or a Git URL fetched into `.alp/.cache/repos/<id>/`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Repo identifier used in `-> repo::object` references |
+| `src` | String | No | Local path or Git URL. Omit (or `.`) for the current workspace |
+| `commit` | String | No | Pin the fetched repo to an exact commit hash (recommended) |
+| `branch` | String | No | Git branch to track when `commit` is not set |
+| `description` | String | No | Role of this repo in the federation |
+
+**Resolution:** `alp repo resolve` discovers `@repo` objects, fetches Git
+repos (pinned to `commit` when given), loads each repo's `.alp` graph, and
+resolves `-> repo::object` references. Cross-repo references are **read-only**:
+an agent may read objects in another repo but must not modify its `.alp/`.
+
+**Example:**
+```
+@repo
+  id: billing
+  src: "git+https://github.com/org/billing.git"
+  commit: "a1b2c3d"
+  description: "Shared billing service consumed by the platform."
+```
+
+A task in the local workspace can then depend on it:
+```
+@task
+  id: task-checkout-flow
+  depends_on:
+    - -> billing::task-stripe-integration | blocks
+```
