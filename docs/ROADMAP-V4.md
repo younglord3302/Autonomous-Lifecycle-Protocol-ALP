@@ -37,12 +37,16 @@ grows from one `.alp/` folder to many, working together under shared policy.
 - **Atomic cross-repo checkpoints:** A feature that touches 3 repos is only
   marked `[x]` when all 3 verify.
 
-## Pillar 3: Hosted Registry & Marketplace
+## Pillar 3: Hosted Registry & Marketplace ✅ (landed on main, toward 4.0.0)
 **Target:** Graduate `alp install`/`alp publish` from a stub to a real service.
-- **Signed packages:** Integrity + provenance for community templates
-  (`@community/scrum-master`, role packs, workflow packs).
-- **Versioned resolution:** Semver ranges and lockfiles for installed packages.
-- **Discovery:** `alp search` against the hosted index.
+- **Signed packages:** ✅ sha256 integrity on every published version, verified
+  on download by both `alp install` and `alp registry install`.
+- **Versioned resolution:** ✅ Semver ranges (`^`, `~`, `x`-ranges, `>=`/`</`
+  comparators) resolved by `RegistryClient.resolveVersion`; resolved versions
+  are pinned to `.alp/registry.lock.json` on install.
+- **Discovery:** ✅ `alp search` against both the local store and a hosted
+  `/api/registry?q=` index; `alp registry serve`/`list`/`publish`/`install`
+  round-trip through `alp serve --registry`.
 
 ## Pillar 4: Policy & Permission Governance ✅ (landed on main, toward 4.0.0)
 **Target:** Make autonomous agents safe to run unattended.
@@ -81,8 +85,12 @@ grows from one `.alp/` folder to many, working together under shared policy.
 | Pillar 5 | Persistent State Store | ✅ Complete (toward 4.0.0) |
 | Pillar 1 | Remote & Networked Swarms | ✅ Complete (toward 4.0.0) |
 | Pillar 2 | Cross-Repository Orchestration | ✅ Complete (toward 4.0.0) |
-| Pillar 3 | Hosted Registry & Marketplace | 🔜 Next |
+| Pillar 3 | Hosted Registry & Marketplace | ✅ Complete (toward 4.0.0) |
 
 > V4 is a **major** version: `@policy` and cross-repo references may introduce
 > breaking changes to the workspace schema, gated behind the deprecation policy
 > in [spec/10-versioning.md](../spec/10-versioning.md).
+
+**V4 is complete as of `4.0.0`.** All five pillars are implemented, tested, and
+released. The next cycle will track follow-ups (e.g. registry authentication,
+`.alprc` namespace routing) under a future roadmap.

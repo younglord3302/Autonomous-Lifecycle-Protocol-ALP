@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alp-protocol.com/schemas/package.schema.json",
+  "title": "ALP Package Object",
+  "description": "Declares a publishable package in the ALP registry/marketplace (v4 Pillar 3). The canonical package manifest is alp-package.json, but a @package object lets a workspace advertise the package it publishes.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/definitions/commonFields"
+    }
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Semver version of the package (e.g. 1.0.0)."
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Registry namespace (e.g. alp, internal). Defaults to the local registry."
+    },
+    "description": {
+      "type": "string",
+      "description": "What the package provides."
+    },
+    "entry": {
+      "type": "string",
+      "description": "Entry .alp file served for the package (e.g. plugin.alp)."
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Map of package name to semver range.",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

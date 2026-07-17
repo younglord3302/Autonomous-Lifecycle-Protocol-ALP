@@ -3,11 +3,13 @@ import * as path from 'path';
 import * as http from 'http';
 import { AlpParser, AlpObject, StateStore, computeAnalytics } from '@alp/parser';
 import { readEvents, runtimeLogPath } from '../runtime';
+import { RegistryStore } from '../registry-store';
 
 interface ServeOptions {
   port?: number;
   host?: string;
   db?: boolean;
+  registry?: boolean;
 }
 
 interface SwarmNodeState {
@@ -47,6 +49,12 @@ export function serveCommand(options?: ServeOptions) {
     const added = store.ingest(readEvents(alpDir) as any);
     store.save();
     console.log(`💾 State store enabled (${store.size} events, +${added} new).`);
+  }
+
+  // ─── Hosted registry (Pillar 3) ────────────────────────────────────
+  const registryStore = options?.registry ? new RegistryStore(cwd) : null;
+  if (registryStore) {
+    console.log(`📦 Registry enabled at /.alp/registry`);
   }
 
   // ─── Networked swarm registry (Pillar 1) ────────────────────────────
@@ -212,6 +220,12 @@ export function serveCommand(options?: ServeOptions) {
       return;
     }
 
+    // ─── Hosted registry (Pillar 3) ──────────────────────────────────
+    if (url.startsWith('/api/registry')) {
+      handleRegistry(req, res, url, registryStore);
+      return;
+    }
+
 
     if (url === '/api/stream') {
       res.writeHead(200, {
@@ -369,6 +383,40 @@ function handleSwarm(
   }
 
   sendJson(res, { error: 'unknown swarm endpoint' }, 404);
+}
+
+function handleRegistry(req: http.IncomingMessage, res: http.ServerResponse, url: string, store: RegistryStore | null) {
+  if (!store) { sendJson(res, { error: 'registry not enabled; start `alp serve --registry`' }, 404); return; }
+  const u = new URL('http://x' + url);
+
+  // Marketplace listing + search.
+  if (url === '/api/registry' || url === '/api/registry/') {
+    const q = u.searchParams.get('q');
+    sendJson(res, q ? store.search(q) : store.list());
+    return;
+  }
+
+  // Metadata: /api/registry/-/<ns>/<name>/meta.json
+  const meta = /^\/api\/registry\/-\/([^/]+)\/([^/]+)\/meta\.json$/.exec(url);
+  if (meta) {
+    const full = `@${decodeURIComponent(meta[1])}/${decodeURIComponent(meta[2])}`;
+    const m = store.getMeta(full);
+    if (!m) return sendJson(res, { error: 'not found' }, 404);
+    return sendJson(res, m);
+  }
+
+  // File download: /api/registry/-/<ns>/<name>/<version>/<file>
+  const dl = /^\/api\/registry\/-\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/.exec(url);
+  if (dl) {
+    const full = `@${decodeURIComponent(dl[1])}/${decodeURIComponent(dl[2])}`;
+    const buf = store.readFile(full, decodeURIComponent(dl[3]), decodeURIComponent(dl[4]));
+    if (!buf) return sendJson(res, { error: 'not found' }, 404);
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(buf);
+    return;
+  }
+
+  sendJson(res, { error: 'unknown registry endpoint' }, 404);
 }
 
 function loadAll(dir: string, parser: AlpParser, out: AlpObject[]) {

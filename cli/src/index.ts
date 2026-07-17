@@ -20,12 +20,13 @@ import { evolveCommand } from './commands/evolve';
 import { policyCommand } from './commands/policy';
 import { swarmCommand } from './commands/swarm';
 import { repoCommand } from './commands/repo';
+import { registryCommand } from './commands/registry';
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('3.1.0');
+  .version('4.0.0');
 
 program
   .command('init')
@@ -103,6 +104,7 @@ program
   .option('--port <n>', 'Port to listen on (default 4000)', (v) => parseInt(v, 10))
   .option('--host <host>', 'Host to bind to (default 127.0.0.1)')
   .option('--db', 'Persist a durable state store of runtime events for analytics (v4 Pillar 5)')
+  .option('--registry', 'Host the ALP package registry over HTTP (v4 Pillar 3)')
   .action((opts) => serveCommand(opts));
 
 program
@@ -138,10 +140,21 @@ program
   .action((sub, opts) => repoCommand(sub, opts));
 
 program
+  .command('registry')
+  .description('Hosted registry & marketplace: serve, publish, list, search, install (v4 Pillar 3)')
+  .argument('[subcommand]', 'serve | publish | list | search | install (default list)')
+  .argument('[target]', 'Package dir (publish) or name[version] (install/search)')
+  .option('--url <url>', 'Registry base URL (overrides ALP_REGISTRY_URL)')
+  .option('--version <v>', 'Version for install')
+  .action((sub, target, opts) => registryCommand(sub, target, opts));
+
+program
   .command('install')
   .description('Install a community package from the ALP Registry')
   .argument('<package>', 'Name of the package to install (e.g. @community/scrum-master)')
-  .action(installCommand);
+  .option('--url <url>', 'Registry base URL (overrides ALP_REGISTRY_URL)')
+  .option('--version <v>', 'Version to install (default latest)')
+  .action((pkg, opts) => installCommand(pkg, opts));
 
 program
   .command('uninstall')
@@ -151,7 +164,7 @@ program
 
 program
   .command('publish')
-  .description('Publish a local package to the ALP Registry')
+  .description('Publish a local package to the ALP Registry (v4 Pillar 3)')
   .argument('<directory>', 'Directory containing the package (must have alp-package.json)')
   .action(publishCommand);
 

@@ -6,7 +6,7 @@
   <br/>
 
   [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-  [![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](#)
+  [![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](#)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 
@@ -96,10 +96,15 @@ Writing `.alp` files is a first-class experience. Install the packaged VS Code e
 - **Rich Hover**: View task descriptions, status, and metadata instantly.
 - **Rename & Semantic Tokens**: Fully colored syntax and workspace-wide refactoring.
 
-### 5. Package Registry (`alp install`)
-Share and reuse autonomous knowledge. Install community templates:
+### 5. Package Registry & Marketplace (`alp registry`) — *V4 Pillar 3*
+Share and reuse autonomous knowledge. Publish your own packages, host a
+registry, and install community templates with integrity-checked, semver-pinned
+downloads:
 ```bash
-alp install @community/scrum-master
+alp install @community/scrum-master      # install (latest)
+alp registry publish ./my-pack           # publish to the local store
+alp serve --registry                     # host a registry over HTTP
+alp registry install @community/scrum-master@^1.0.0 --url http://127.0.0.1:4000
 ```
 
 ### 6. Live State Server (`alp serve`) — *new in 3.1*
