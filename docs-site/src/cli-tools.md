@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.1.0` (The Federation Era).
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.2.0` (The Federation Era).
 
 ## Execution Engine (`alp run`)
 
@@ -198,6 +198,38 @@ command is a thin wrapper around the same client.
   version directory and rejects a manifest whose namespace differs from the
   URL namespace.
 
+### Package signing (4.2.0): supply-chain trust
+
+Tokens prove *who can publish*; signatures prove *what was published was not
+tampered with* after the token holder signed it. Maintainer signing is
+**optional and backward compatible** — unsigned packages install normally, and
+a signed package is verified only when the consumer configures a trust root.
+
+```bash
+# 1. Maintainer generates an Ed25519 keypair (registry.key is chmod 600).
+alp keys generate
+alp keys fingerprint registry.pub   # -> alp1<short-hash>
+
+# 2. Publish, signing with the private key (env or --sign-key).
+ALP_REGISTRY_SIGN_KEY=registry.key alp publish ./my-plugin
+
+# 3. Consumer pins the maintainer's fingerprint in their trust root and
+#    installs with --key (or ALP_REGISTRY_TRUST_KEY). A bad or missing
+#    signature is rejected; without a trust root, installs stay unsigned.
+alp install @ns/my-plugin --key registry.pub
+```
+
+- `alp keys generate` writes `registry.key` (perms `600`) + `registry.pub` and
+  prints the trust fingerprint.
+- `alp keys fingerprint <file>` prints the fingerprint of any public key.
+- `--sign-key <file>` (publish / `alp registry publish`) signs the version;
+  `--key <file>` (install / `alp registry install`) requires + verifies a
+  signature against that trusted public key.
+- A hosted registry can also sign on the server with
+  `alp serve --registry --registry-sign-key <file>`.
+- The Python SDK exposes the same primitives (`alp_sdk.signing`) behind the
+  optional `cryptography` dependency (`pip install alp-sdk[signing]`).
+
 ### Registry configuration (`.alprc`)
 
 Private and namespaced registries are configured with a `.alprc` (or
@@ -222,11 +254,12 @@ local `alp serve --registry`); the client refuses plain HTTP for any other host.
 
 | Subcommand | Description |
 | :--- | :--- |
-| `publish <dir>` | Add a package to the local store, or `--url <host>` to publish remotely (token-gated) |
+| `publish <dir>` | Add a package to the local store, or `--url <host>` to publish remotely (token-gated). `--sign-key <file>` signs the version (4.2.0) |
 | `list` | List packages in the local store (or `--url` for a hosted registry) |
 | `search <q>` | Substring search over name + description |
-| `install <name>[@range]` | Download, verify integrity, and pin to the lockfile |
+| `install <name>[@range]` | Download, verify integrity (and signature with `--key`), and pin to the lockfile |
 | `serve` | Hint to start `alp serve --registry` |
+| `keys <generate\|fingerprint>` | Manage package-signing Ed25519 keypairs (4.2.0) |
 
 ## Style Enforcement (`alp lint`)
 

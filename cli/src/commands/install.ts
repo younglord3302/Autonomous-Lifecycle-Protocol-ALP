@@ -9,7 +9,7 @@ import { RegistryClient } from '../registry';
  * `http://127.0.0.1:4000`, overridable via `--url`/ALP_REGISTRY_URL),
  * verifies integrity, and writes it into `.alp/packages/<name>/`.
  */
-export function installCommand(pkgName: string, options?: { url?: string; version?: string }) {
+export function installCommand(pkgName: string, options?: { url?: string; version?: string; key?: string }) {
   const alpDir = path.resolve(process.cwd(), '.alp');
   if (!fs.existsSync(alpDir)) {
     console.error('Error: .alp directory not found. Run `alp init` first.');
@@ -22,7 +22,9 @@ export function installCommand(pkgName: string, options?: { url?: string; versio
   const at = body.lastIndexOf('@');
   const name = at > 0 ? `@${body.slice(0, at)}` : (at === 0 ? body : pkgName);
   const ver = at > 0 ? body.slice(at + 1) : (options?.version || 'latest');
-  client.install(name, alpDir, ver)
+  const trustedKey = options?.key ? fs.readFileSync(path.resolve(options.key), 'utf-8') : process.env.ALP_REGISTRY_TRUST_KEY;
+  client.install(name, alpDir, ver, trustedKey)
     .then((p) => console.log(`✅ Installed ${name}@${ver} -> ${p}`))
     .catch((err: any) => { console.error(`❌ ${err.message}`); process.exit(1); });
 }
+

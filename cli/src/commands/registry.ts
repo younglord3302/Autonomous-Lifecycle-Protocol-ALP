@@ -4,15 +4,19 @@ import { RegistryStore } from '../registry-store';
 import { RegistryClient } from '../registry';
 
 /**
- * `alp registry` — V4 Pillar 3: Hosted Registry & Marketplace.
- *
- * Manages packages in the ALP registry: serve a registry over HTTP, publish
- * local packages, and list/search/install from a running registry. When no
- * `--registry` URL is given, commands operate against the local store under
- * `.alp/registry`.
+ * Resolve a signing key from a `--sign-key <file>` option or the
+ * `ALP_REGISTRY_SIGN_KEY` environment variable. Both are treated as a file
+ * path; an inline PEM (containing a `-----BEGIN` header) is accepted verbatim.
  */
+function resolveSignerKey(signKey?: string): string | undefined {
+  const raw = signKey || process.env.ALP_REGISTRY_SIGN_KEY;
+  if (!raw) return undefined;
+  if (raw.includes('-----BEGIN')) return raw;
+  if (fs.existsSync(raw)) return fs.readFileSync(path.resolve(raw), 'utf-8');
+  return raw;
+}
 
-export async function registryCommand(sub: string | undefined, target: string | undefined, options?: { url?: string; version?: string; token?: string }) {
+export async function registryCommand(sub: string | undefined, target: string | undefined, options?: { url?: string; version?: string; token?: string; key?: string; signKey?: string }) {
   const cwd = process.cwd();
   const url = options?.url || process.env.ALP_REGISTRY_URL || 'http://127.0.0.1:4000';
   const token = options?.token || process.env.ALP_REGISTRY_TOKEN;
@@ -30,12 +34,14 @@ export async function registryCommand(sub: string | undefined, target: string | 
       const dir = path.resolve(cwd, target || '.');
       try {
         if (options?.url) {
-          const meta = await client.publish(dir);
+          const signerKey = resolveSignerKey(options?.signKey);
+          const meta = await client.publish(dir, signerKey);
           console.log(`📦 Published ${meta.name}@${meta.tags?.latest ?? ''} to ${url}`);
           console.log(`   (requires the namespace token on the host — see spec/14 §4.2)`);
         } else {
           const store = new RegistryStore(cwd);
-          const meta = store.publish(dir);
+          const signerKey = resolveSignerKey(options?.signKey);
+          const meta = store.publish(dir, signerKey);
           console.log(`📦 Published ${meta.name} — ${Object.keys(meta.versions).length} version(s).`);
           console.log(`   Serve it with: alp serve --registry`);
         }
@@ -80,8 +86,9 @@ export async function registryCommand(sub: string | undefined, target: string | 
       const name = at > 0 ? target.slice(0, at) : target;
       const ver = at > 0 ? target.slice(at + 1) : 'latest';
       const alpDir = path.resolve(cwd, '.alp');
+      const trustedKey = options?.key ? fs.readFileSync(path.resolve(options.key), 'utf-8') : process.env.ALP_REGISTRY_TRUST_KEY;
       try {
-        const installed = await client.install(name, alpDir, ver || 'latest');
+        const installed = await client.install(name, alpDir, ver || 'latest', trustedKey);
         console.log(`✅ Installed ${name}@${ver || 'latest'} -> ${installed}`);
       } catch (e: any) {
         console.error(`❌ ${e.message}`);

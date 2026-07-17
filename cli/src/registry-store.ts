@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'node:crypto';
+import { sign, signingPayload, Signature } from './signing';
 
 /**
  * ALP Registry Store (v4 — The Federation Era, Pillar 3: Hosted Registry)
@@ -18,6 +19,7 @@ export interface PackageVersionInfo {
   integrity: string; // sha256:...
   dependencies: Record<string, string>;
   size: number;
+  signature?: Signature; // Ed25519 signature + signer public key (v4.1)
 }
 
 export interface PackageMeta {
@@ -50,10 +52,11 @@ export class RegistryStore {
    * Publish a package from a remote publish request (registry hardening).
    * `body` carries the manifest plus the file contents inline so the server
    * needs no shared filesystem with the publisher:
-   *   { name, version, description?, author?, dependencies?, entry?, files: [{ path, content }] }
+   *   { name, version, description?, author?, dependencies?, entry?, files: [{ path, content }], signature? }
    * `routeNs` is the namespace from the PUT URL; it MUST match the manifest's.
+   * `signer` (optional PEM private key) signs the stored version on the host.
    */
-  publishFromRequest(body: any, routeNs: string): PackageMeta {
+  publishFromRequest(body: any, routeNs: string, signer?: string): PackageMeta {
     if (!body || typeof body !== 'object') throw new Error('publish body must be a JSON object');
     const name = body.name;
     const version = body.version;
@@ -93,13 +96,25 @@ export class RegistryStore {
     };
     fs.writeFileSync(path.join(dir, 'alp-package.json'), JSON.stringify(manifest, null, 2));
 
-    // Reuse local publish to compute integrity + meta.json (reads the
-    // manifest we just wrote from the version directory).
-    return this.publish(dir);
+    // Reuse local publish to compute integrity + meta.json. The publisher may
+    // supply a detached `signature` (verified by the client), or the host may
+    // sign with its own `signer` key.
+    const meta = this.publish(dir, signer);
+    if (body.signature && !signer) {
+      const vmPath = path.join(dir, 'version.json');
+      const vm = JSON.parse(fs.readFileSync(vmPath, 'utf-8'));
+      vm.signature = body.signature;
+      fs.writeFileSync(vmPath, JSON.stringify(vm, null, 2));
+    }
+    return meta;
   }
 
-  /** Publish a package from a directory containing alp-package.json. */
-  publish(pkgDir: string): PackageMeta {
+  /**
+   * Publish a package from a directory containing alp-package.json. When
+   * `signer` (a PEM Ed25519 private key) is provided, the version is signed
+   * (v4.1 — registry trust).
+   */
+  publish(pkgDir: string, signer?: string): PackageMeta {
     const manifestPath = path.join(pkgDir, 'alp-package.json');
     if (!fs.existsSync(manifestPath)) {
       throw new Error(`Cannot publish: no alp-package.json in ${pkgDir}`);
@@ -122,7 +137,6 @@ export class RegistryStore {
       const dest = path.join(dir, f);
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.copyFileSync(src, dest);
-      // integrity is per-file; for the entry we attach it to the version.
     }
 
     const entry = manifest.entry || manifest.files[0];
@@ -130,13 +144,19 @@ export class RegistryStore {
     const integrity = fs.existsSync(entryPath) ? sha256File(entryPath) : '';
     const size = fs.existsSync(entryPath) ? fs.statSync(entryPath).size : 0;
 
-    // Stored metadata json for the version.
     const versionMeta: PackageVersionInfo = {
       url: `/api/registry/-/${ns}/${name}/${manifest.version}/${encodeURIComponent(entry)}`,
       integrity,
       dependencies: manifest.dependencies || {},
       size,
     };
+    if (signer) {
+      const entrySha = integrity ? integrity.slice('sha256:'.length) : '';
+      versionMeta.signature = sign(
+        signer,
+        signingPayload({ name: manifest.name, version: manifest.version, entry, entryHash: entrySha, dependencies: manifest.dependencies || {} }),
+      );
+    }
     fs.writeFileSync(path.join(dir, 'version.json'), JSON.stringify(versionMeta, null, 2));
 
     return this.getMeta(manifest.name)!;

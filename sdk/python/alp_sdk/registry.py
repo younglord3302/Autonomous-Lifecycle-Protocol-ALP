@@ -24,6 +24,8 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
+from .signing import sign, verify, signing_payload, resolve_public_key, Signature
+
 __all__ = ["RegistryClient", "load_alprc", "semver_cmp", "satisfies"]
 
 
@@ -201,7 +203,7 @@ class RegistryClient:
             raise RuntimeError(f"No version satisfying {rng} for {meta.get('name')} (have {', '.join(versions)})")
         return matched[-1]
 
-    def install(self, pkg_name: str, target_alp_dir: str, version_range: str = "latest") -> str:
+    def install(self, pkg_name: str, target_alp_dir: str, version_range: str = "latest", trust_key: Optional[str] = None) -> str:
         import shutil
 
         meta = self.get_meta(pkg_name)
@@ -218,6 +220,18 @@ class RegistryClient:
         status, body = self._request(file_url, self._auth_header(pkg_base))
         if status != 200:
             raise RuntimeError(f"Failed to download {entry} ({status})")
+
+        # v4.2: signature verification against a configured trust root.
+        if trust_key and info.get("signature"):
+            entry_sha = info["integrity"][len("sha256:") :] if info.get("integrity") else ""
+            payload = signing_payload(
+                name=pkg_name, version=version, entry=entry, entry_hash=entry_sha, dependencies=info.get("dependencies", {})
+            )
+            if not verify(resolve_public_key(trust_key), payload, info["signature"]):
+                raise RuntimeError(f"Signature verification failed for {pkg_name}@{version}")
+        elif trust_key and not info.get("signature"):
+            raise RuntimeError(f"Package {pkg_name}@{version} is not signed; trust root requires signatures")
+
         if info.get("integrity"):
             actual = "sha256:" + hashlib.sha256(body).hexdigest()
             if actual != info["integrity"]:
@@ -262,12 +276,14 @@ class RegistryClient:
             raise RuntimeError(f"Registry search failed ({status})")
         return json.loads(body.decode("utf-8"))
 
-    def publish(self, pkg_dir: str) -> Dict[str, Any]:
+    def publish(self, pkg_dir: str, sign_key: Optional[str] = None) -> Dict[str, Any]:
         """Publish ``pkg_dir`` (must contain ``alp-package.json``) to the host.
 
         Sends a PUT to ``/api/registry/-/<ns>/<name>`` with the manifest and
         file contents inline; the host is gated by the namespace token
-        (spec/14 §4.2, registry hardening).
+        (spec/14 §4.2, registry hardening). When ``sign_key`` (a PEM Ed25519
+        private key) is supplied, the version is signed and the detached
+        signature travels with the publish body (v4.2 registry trust).
         """
         manifest_path = os.path.join(pkg_dir, "alp-package.json")
         if not os.path.exists(manifest_path):
@@ -282,8 +298,26 @@ class RegistryClient:
         for rel in manifest["files"]:
             with open(os.path.join(pkg_dir, rel), "r", encoding="utf-8") as f:
                 files.append({"path": rel, "content": f.read()})
+
+        # Sign the canonical payload (entry hash) before sending, if a key is set.
+        entry = manifest.get("entry") or manifest["files"][0]
+        with open(os.path.join(pkg_dir, entry), "rb") as f:
+            entry_hash = hashlib.sha256(f.read()).hexdigest()
+        signature = None
+        if sign_key:
+            signature = sign(
+                sign_key,
+                signing_payload(
+                    name=manifest["name"],
+                    version=manifest["version"],
+                    entry=entry,
+                    entry_hash=entry_hash,
+                    dependencies=manifest.get("dependencies", {}),
+                ),
+            )
+
         base = self.resolve_base_url(manifest["name"])
-        payload = json.dumps({**manifest, "files": files}).encode("utf-8")
+        payload = json.dumps({**manifest, "files": files, "signature": signature}).encode("utf-8")
         status, body = self._request(
             f"{base}/api/registry/-/{urllib.parse.quote(ns)}/{urllib.parse.quote(name)}",
             {**self._auth_header_for_ns(manifest["name"]), "Content-Type": "application/json"},

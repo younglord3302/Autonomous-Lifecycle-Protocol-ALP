@@ -21,12 +21,13 @@ import { policyCommand } from './commands/policy';
 import { swarmCommand } from './commands/swarm';
 import { repoCommand } from './commands/repo';
 import { registryCommand } from './commands/registry';
+import { keysCommand } from './commands/keys';
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('4.1.0');
+  .version('4.2.0');
 
 program
   .command('init')
@@ -106,6 +107,7 @@ program
   .option('--db', 'Persist a durable state store of runtime events for analytics (v4 Pillar 5)')
   .option('--registry', 'Host the ALP package registry over HTTP (v4 Pillar 3)')
   .option('--registry-token <token>', 'Require this bearer token on all /api/registry requests (spec/14 §4.2)')
+  .option('--registry-sign-key <file>', 'Ed25519 private key (PEM) to sign published versions on the host (v4.1)')
   .action((opts) => serveCommand(opts));
 
 program
@@ -148,6 +150,8 @@ program
   .option('--url <url>', 'Registry base URL (overrides ALP_REGISTRY_URL)')
   .option('--version <v>', 'Version for install')
   .option('--token <token>', 'Bearer token for the registry (overrides .alprc / ALP_REGISTRY_TOKEN)')
+  .option('--key <file>', 'Trusted public key (PEM) — require + verify signed installs (v4.1)')
+  .option('--sign-key <file>', 'Ed25519 private key (PEM) to sign published versions (v4.1)')
   .action((sub, target, opts) => registryCommand(sub, target, opts));
 
 program
@@ -156,6 +160,7 @@ program
   .argument('<package>', 'Name of the package to install (e.g. @community/scrum-master)')
   .option('--url <url>', 'Registry base URL (overrides ALP_REGISTRY_URL)')
   .option('--version <v>', 'Version to install (default latest)')
+  .option('--key <file>', 'Trusted public key (PEM) — require + verify signed installs (v4.1)')
   .action((pkg, opts) => installCommand(pkg, opts));
 
 program
@@ -170,7 +175,15 @@ program
   .argument('<directory>', 'Directory containing the package (must have alp-package.json)')
   .option('--url <url>', 'Publish to a remote registry host (alp serve --registry) instead of the local store')
   .option('--token <token>', 'Bearer token for the registry (overrides .alprc / ALP_REGISTRY_TOKEN)')
+  .option('--sign-key <file>', 'Ed25519 private key (PEM) to sign the published version (v4.1 trust)')
   .action((dir, opts) => publishCommand(dir, opts));
+
+program
+  .command('keys')
+  .description('Manage registry package-signing keypairs (v4.1 registry trust)')
+  .argument('[subcommand]', 'generate | fingerprint')
+  .argument('[target]', 'Public key file for fingerprint')
+  .action((sub, target) => keysCommand(sub, target));
 
 program
   .command('export')

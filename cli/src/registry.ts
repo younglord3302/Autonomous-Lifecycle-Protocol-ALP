@@ -4,14 +4,16 @@ import * as path from 'path';
 import * as crypto from 'node:crypto';
 import * as http from 'node:http';
 import * as https from 'node:https';
+import { sign, verify, signingPayload, resolvePublicKey, fingerprint, Signature } from './signing';
 
 /**
  * ALP Registry Client (v4 — The Federation Era, Pillar 3)
  *
  * Talks to a hosted ALP registry (an `alp serve --registry` instance) over the
  * HTTP protocol in spec/14-plugin-registry.md. Resolves `meta.json`, downloads
- * package files, and verifies integrity. Falls back to a local registry store
- * path when no remote is configured.
+ * package files, verifies integrity, and (v4.1) verifies package signatures
+ * against a trust root. Falls back to a local registry store path when no
+ * remote is configured.
  */
 
 export interface PackageManifest {
@@ -130,8 +132,10 @@ export class RegistryClient {
     return matched[matched.length - 1];
   }
 
-  /** Download a package version into `<alpDir>/packages/<name>/`. */
-  async install(pkgName: string, targetAlpDir: string, versionRange = 'latest'): Promise<string> {
+  /** Download a package version into `<alpDir>/packages/<name>/`.
+   *  When `trustedKey` (PEM public key) is provided, a signed version whose
+   *  signature does not verify against it is rejected (v4.1 registry trust). */
+  async install(pkgName: string, targetAlpDir: string, versionRange = 'latest', trustedKey?: string): Promise<string> {
     const meta = await this.getMeta(pkgName);
     const version = this.resolveVersion(meta, versionRange);
     const info = meta.versions[version];
@@ -145,6 +149,17 @@ export class RegistryClient {
     const entryName = decodeURIComponent(fileUrl.split('/').pop() || 'plugin.alp');
     const r = await request(fileUrl, this.authHeader(pkgBase));
     if (r.status !== 200) throw new Error(`Failed to download ${entryName} (${r.status})`);
+
+    // v4.1: signature verification against a configured trust root.
+    if (trustedKey && info.signature) {
+      const entrySha = info.integrity ? info.integrity.slice('sha256:'.length) : '';
+      const payload = signingPayload({ name: pkgName, version, entry: entryName, entryHash: entrySha, dependencies: info.dependencies });
+      const ok = verify(resolvePublicKey(trustedKey), payload, info.signature as Signature);
+      if (!ok) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
+    } else if (trustedKey && !info.signature) {
+      throw new Error(`Package ${pkgName}@${version} is not signed; trust root requires signatures`);
+    }
+
     if (info.integrity) {
       const actual = 'sha256:' + crypto.createHash('sha256').update(r.body).digest('hex');
       if (actual !== info.integrity) throw new Error(`Integrity mismatch for ${pkgName}@${version}`);
@@ -176,8 +191,10 @@ export class RegistryClient {
     return expanded ? { Authorization: `Bearer ${expanded}` } : {};
   }
 
-  /** Publish a package to a remote registry host (registry hardening, PUT). */
-  async publish(pkgDir: string, versionRange?: string): Promise<any> {
+  /** Publish a package to a remote registry host (registry hardening, PUT).
+   *  When `signerKey` (PEM Ed25519 private key) is provided, the version is
+   *  signed and the detached signature travels with the publish body (v4.1). */
+  async publish(pkgDir: string, signerKey?: string): Promise<any> {
     const manifestPath = path.join(pkgDir, 'alp-package.json');
     if (!fs.existsSync(manifestPath)) throw new Error(`Cannot publish: no alp-package.json in ${pkgDir}`);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
@@ -191,8 +208,16 @@ export class RegistryClient {
       path: f,
       content: fs.readFileSync(path.join(pkgDir, f), 'utf-8'),
     }));
+
+    // Sign the canonical payload (entry hash) before sending, if a key is set.
+    const entry = manifest.entry || manifest.files[0];
+    const entryHash = crypto.createHash('sha256').update(fs.readFileSync(path.join(pkgDir, entry))).digest('hex');
+    const signature = signerKey
+      ? sign(signerKey, signingPayload({ name: manifest.name, version: manifest.version, entry, entryHash, dependencies: manifest.dependencies || {} }))
+      : undefined;
+
     const base = this.resolveBaseUrl(manifest.name);
-    const payload = JSON.stringify({ ...manifest, files });
+    const payload = JSON.stringify({ ...manifest, files, signature });
     const r = await request(`${base}/api/registry/-/${encodeURIComponent(ns)}/${encodeURIComponent(name)}`, {
       ...this.authHeaderForNs(manifest.name),
       'Content-Type': 'application/json',

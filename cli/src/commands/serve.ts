@@ -11,6 +11,7 @@ interface ServeOptions {
   db?: boolean;
   registry?: boolean;
   registryToken?: string;
+  registrySignKey?: string;
 }
 
 interface SwarmNodeState {
@@ -62,6 +63,15 @@ export function serveCommand(options?: ServeOptions) {
     options?.registryToken || process.env.ALP_REGISTRY_TOKENS || '',
     process.env.ALP_REGISTRY_TOKEN || '',
   );
+  // Optional host signing key (PEM Ed25519) to sign published versions (v4.1
+  // registry trust). Sourced from --registry-sign-key or ALP_REGISTRY_SIGN_KEY.
+  let registrySigner: string | undefined;
+  const signKeyPath = options?.registrySignKey || process.env.ALP_REGISTRY_SIGN_KEY;
+  if (signKeyPath && fs.existsSync(signKeyPath)) {
+    try { registrySigner = fs.readFileSync(signKeyPath, 'utf-8'); } catch { /* ignore */ }
+  } else if (signKeyPath && signKeyPath.includes('-----BEGIN')) {
+    registrySigner = signKeyPath;
+  }
   if (registryStore) {
     const protectedNs = Object.keys(registryTokens).filter((k) => k !== '*').length;
     const note = protectedNs ? ` (${protectedNs} private namespace(s))` : (registryTokens['*'] ? ' (token-protected)' : '');
@@ -233,7 +243,7 @@ export function serveCommand(options?: ServeOptions) {
 
     // ─── Hosted registry (Pillar 3) ──────────────────────────────────
     if (url.startsWith('/api/registry')) {
-      handleRegistry(req, res, url, registryStore, registryTokens, req.method || 'GET');
+      handleRegistry(req, res, url, registryStore, registryTokens, req.method || 'GET', registrySigner);
       return;
     }
 
@@ -442,6 +452,7 @@ function handleRegistry(
   store: RegistryStore | null,
   tokens: Record<string, string>,
   method: string,
+  signer?: string,
 ) {
   if (!store) { sendJson(res, { error: 'registry not enabled; start `alp serve --registry`' }, 404); return; }
   const u = new URL('http://x' + url);
@@ -456,7 +467,7 @@ function handleRegistry(
       if (!authorize(req, tokens, ns)) { sendJson(res, { error: 'unauthorized' }, 401); return; }
       readBody(req).then((body) => {
         try {
-          const meta = store.publishFromRequest(body, ns);
+          const meta = store.publishFromRequest(body, ns, signer);
           sendJson(res, meta, 201);
         } catch (e: any) {
           sendJson(res, { error: e.message }, 400);
