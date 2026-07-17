@@ -1,0 +1,262 @@
+"""ALP Registry Client (v4 — The Federation Era, Pillar 3).
+
+Mirrors the TypeScript ``@alp/cli`` ``RegistryClient``: talks to a hosted ALP
+registry (an ``alp serve --registry`` instance) over the HTTP protocol in
+spec/14-plugin-registry.md. Resolves ``meta.json``, downloads package files,
+verifies sha256 integrity, supports semver range resolution, ``.alprc``
+namespace routing, and bearer auth. Dependency-free (stdlib only) to match the
+zero-dependency philosophy of the rest of the SDK.
+
+Typical use::
+
+    from alp_sdk import RegistryClient
+    client = RegistryClient("http://127.0.0.1:4000")
+    meta = client.get_meta("@community/scrum-master")
+    client.install("@community/scrum-master", ".alp", "^1.0.0")
+"""
+
+import os
+import re
+import json
+import hashlib
+import urllib.parse
+import urllib.request
+import urllib.error
+from typing import Any, Dict, List, Optional, Tuple
+
+__all__ = ["RegistryClient", "load_alprc", "semver_cmp", "satisfies"]
+
+
+_LOCALHOST = re.compile(r"^(localhost|127\.0\.0\.1|\[::1\]|::1)$", re.IGNORECASE)
+
+
+def _expand_env(value: str) -> str:
+    return re.sub(r"\$\{([^}]+)\}", lambda m: os.environ.get(m.group(1), ""), value)
+
+
+def load_alprc(cwd: str = os.getcwd()) -> Dict[str, Any]:
+    """Load ``.alprc`` / ``.alprc.json`` from ``cwd`` or the user's home.
+
+    Token values of the form ``${ENV_VAR}`` are expanded from the environment
+    (spec/14 §4.2).
+    """
+    candidates = [
+        os.path.join(cwd, ".alprc"),
+        os.path.join(cwd, ".alprc.json"),
+        os.path.join(os.path.expanduser("~"), ".alprc"),
+        os.path.join(os.path.expanduser("~"), ".alprc.json"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                for entry in (cfg.get("auth") or {}).values():
+                    if isinstance(entry, dict) and entry.get("token"):
+                        entry["token"] = _expand_env(entry["token"])
+                return cfg
+            except (json.JSONDecodeError, OSError):
+                continue
+    return {}
+
+
+def _parse_version(v: str) -> Tuple[int, int, int, str]:
+    core, _, pre = v.replace("^", "").replace("v", "").partition("-")
+    parts = [int(x) or 0 for x in core.split(".")]
+    while len(parts) < 3:
+        parts.append(0)
+    return (parts[0], parts[1], parts[2], pre)
+
+
+def semver_cmp(a: str, b: str) -> int:
+    """Compare two semver strings. Pre-releases rank lower than releases."""
+    pa, pb = _parse_version(a), _parse_version(b)
+    for i in range(3):
+        if pa[i] != pb[i]:
+            return pa[i] - pb[i]
+    if not pa[3] and pb[3]:
+        return 1
+    if pa[3] and not pb[3]:
+        return -1
+    return (pa[3] or "").__lt__(pb[3] or "") and -1 or (pa[3] > pb[3] and 1 or 0)
+
+
+def satisfies(v: str, rng: str) -> bool:
+    """Does concrete version ``v`` satisfy range ``rng`` (semver-style)?"""
+    rng = rng.strip()
+    if rng in ("*", "x", ""):
+        return True
+
+    caret = re.match(r"^\^(\d+)\.(\d+)\.(\d+)$", rng)
+    if caret:
+        maj, mn, pat = int(caret.group(1)), int(caret.group(2)), int(caret.group(3))
+        if semver_cmp(v, f"{maj}.{mn}.{pat}") < 0:
+            return False
+        if maj > 0:
+            return _parse_version(v)[0] == maj
+        if mn > 0:
+            return _parse_version(v)[0] == 0 and _parse_version(v)[1] == mn
+        return _parse_version(v)[0] == 0 and _parse_version(v)[1] == 0 and _parse_version(v)[2] == pat
+
+    tilde = re.match(r"^~(\d+)(?:\.(\d+))?(?:\.(\d+))?$", rng)
+    if tilde:
+        maj = int(tilde.group(1))
+        mn = int(tilde.group(2)) if tilde.group(2) is not None else None
+        if maj > 0 or mn is not None:
+            if _parse_version(v)[0] != maj:
+                return False
+            if mn is not None and _parse_version(v)[1] != mn:
+                return False
+            return semver_cmp(v, f"{maj}.{mn or 0}.0") >= 0
+        return _parse_version(v)[0] == maj
+
+    xr = re.match(r"^(\d+|x|\*)(?:\.(\d+|x|\*))?(?:\.(\d+|x|\*))?$", rng)
+    if xr and ("x" in rng or "*" in rng):
+        a, b, c = xr.group(1), xr.group(2), xr.group(3)
+        if a not in ("x", "*") and _parse_version(v)[0] != int(a):
+            return False
+        if b is not None and b not in ("x", "*") and _parse_version(v)[1] != int(b):
+            return False
+        if c is not None and c not in ("x", "*") and _parse_version(v)[2] != int(c):
+            return False
+        return True
+
+    if re.search(r">=|<=|>|<", rng):
+        for cmp in rng.split():
+            m = re.match(r"^(>=|<=|>|<)\s*(\d+\.\d+\.\d+)$", cmp)
+            if not m:
+                return False
+            op, target = m.group(1), m.group(2)
+            c = semver_cmp(v, target)
+            if op == ">=" and not c >= 0:
+                return False
+            if op == "<=" and not c <= 0:
+                return False
+            if op == ">" and not c > 0:
+                return False
+            if op == "<" and not c < 0:
+                return False
+        return True
+
+    return semver_cmp(v, rng) == 0
+
+
+class RegistryClient:
+    def __init__(self, base_url: str = "", config: Optional[Dict[str, Any]] = None):
+        self.base_url = base_url or os.environ.get("ALP_REGISTRY_URL") or "http://127.0.0.1:4000"
+        self.config = config if config is not None else load_alprc()
+
+    # ── .alprc routing (§4.1) ───────────────────────────────────────────
+    def resolve_base_url(self, pkg_name: str) -> str:
+        ns = pkg_name.replace("@", "", 1).split("/")[0]
+        registries = self.config.get("registries") or {}
+        mapped = registries.get("@" + ns) or registries.get(ns)
+        return mapped or registries.get("default") or self.base_url
+
+    def _auth_header(self, base_url: str) -> Dict[str, str]:
+        token = (self.config.get("auth") or {}).get(base_url, {}).get("token")
+        return {"Authorization": "Bearer " + token} if token else {}
+
+    # ── HTTP ────────────────────────────────────────────────────────────
+    def _request(self, url: str, headers: Optional[Dict[str, str]] = None) -> Tuple[int, bytes]:
+        parsed = urllib.parse.urlparse(url)
+        # §5.1: registry communication MUST be over HTTPS, except loopback.
+        if parsed.scheme != "https" and not _LOCALHOST.match(parsed.hostname or ""):
+            raise RuntimeError(f"Refusing to use insecure registry over plain HTTP: {url} (use https://)")
+        req = urllib.request.Request(url, headers=headers or {})
+        try:
+            with urllib.request.urlopen(req) as resp:  # nosec - loopback/https only
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    # ── API ─────────────────────────────────────────────────────────────
+    def get_meta(self, pkg_name: str) -> Dict[str, Any]:
+        ns, _, name = pkg_name.replace("@", "", 1).partition("/")
+        name = name or ns
+        base = self.resolve_base_url(pkg_name)
+        status, body = self._request(
+            f"{base}/api/registry/-/{urllib.parse.quote(ns)}/{urllib.parse.quote(name)}/meta.json",
+            self._auth_header(base),
+        )
+        if status != 200:
+            raise RuntimeError(f"Package {pkg_name} not found in registry ({status})")
+        return json.loads(body.decode("utf-8"))
+
+    def resolve_version(self, meta: Dict[str, Any], rng: str = "latest") -> str:
+        versions = list(meta.get("versions", {}).keys())
+        if rng in ("latest", "", None):
+            return meta.get("tags", {}).get("latest") or sorted(versions, key=semver_cmp)[-1]
+        if rng in meta.get("versions", {}):
+            return rng
+        matched = sorted((v for v in versions if satisfies(v, rng)), key=semver_cmp)
+        if not matched:
+            raise RuntimeError(f"No version satisfying {rng} for {meta.get('name')} (have {', '.join(versions)})")
+        return matched[-1]
+
+    def install(self, pkg_name: str, target_alp_dir: str, version_range: str = "latest") -> str:
+        import shutil
+
+        meta = self.get_meta(pkg_name)
+        version = self.resolve_version(meta, version_range)
+        info = meta["versions"][version]
+
+        safe = re.sub(r"[^a-zA-Z0-9-]", "_", pkg_name)
+        dest_base = os.path.join(target_alp_dir, "packages", safe)
+        os.makedirs(dest_base, exist_ok=True)
+
+        pkg_base = self.resolve_base_url(pkg_name)
+        file_url = info["url"] if info["url"].startswith("http") else f"{pkg_base}{info['url']}"
+        entry = urllib.parse.unquote(file_url.rstrip("/").split("/")[-1] or "plugin.alp")
+        status, body = self._request(file_url, self._auth_header(pkg_base))
+        if status != 200:
+            raise RuntimeError(f"Failed to download {entry} ({status})")
+        if info.get("integrity"):
+            actual = "sha256:" + hashlib.sha256(body).hexdigest()
+            if actual != info["integrity"]:
+                raise RuntimeError(f"Integrity mismatch for {pkg_name}@{version}")
+
+        with open(os.path.join(dest_base, entry), "wb") as f:
+            f.write(body)
+        manifest = dict(meta)
+        manifest["version"] = version
+        manifest["_installed"] = _iso_now()
+        with open(os.path.join(dest_base, "alp-package.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+        self.write_lock(target_alp_dir, pkg_name, version, info.get("integrity"))
+        return os.path.join(dest_base, entry)
+
+    def write_lock(self, alp_dir: str, pkg_name: str, version: str, integrity: Optional[str]) -> None:
+        lock_path = os.path.join(alp_dir, "registry.lock.json")
+        lock: Dict[str, Any] = {}
+        if os.path.exists(lock_path):
+            try:
+                with open(lock_path, "r", encoding="utf-8") as f:
+                    lock = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                lock = {}
+        lock[pkg_name] = {"version": version, "integrity": integrity}
+        with open(lock_path, "w", encoding="utf-8") as f:
+            json.dump(lock, f, indent=2)
+
+    def list(self) -> List[Dict[str, Any]]:
+        base = self.config.get("registries", {}).get("default") or self.base_url
+        status, body = self._request(f"{base}/api/registry", self._auth_header(base))
+        if status != 200:
+            raise RuntimeError(f"Registry list failed ({status})")
+        return json.loads(body.decode("utf-8"))
+
+    def search(self, query: str) -> List[Dict[str, Any]]:
+        base = self.config.get("registries", {}).get("default") or self.base_url
+        status, body = self._request(
+            f"{base}/api/registry?q={urllib.parse.quote(query)}", self._auth_header(base)
+        )
+        if status != 200:
+            raise RuntimeError(f"Registry search failed ({status})")
+        return json.loads(body.decode("utf-8"))
+
+
+def _iso_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
