@@ -24,6 +24,14 @@ You are an AI Agent operating within an ALP-managed workspace.
 - Report progress with `npx alp checkpoint <taskId> <status>` (e.g. `npx alp checkpoint task-login-ui in-progress`). To hand off for human review, use `npx alp checkpoint <taskId> --ask-human "<message>"`, which marks the task `[?]`.
 - Never claim a task whose blocking dependencies (`depends_on`, `blocked_by`, `requires`) are not `[x]`. Reference links such as `feature:` or `owner:` do NOT block a task.
 
+## 6. Federation (V4 — The Federation Era)
+ALP 4.0.0 adds cross-machine and cross-repository coordination:
+- **Networked swarms:** `npx alp swarm join <id>` to join a coordinator; `npx alp run --swarm <id>` executes tasks across machines without double-claiming. Inspect with `npx alp swarm roster <id>`.
+- **Cross-repo orchestration:** for `@repo` references, run `npx alp repo resolve --fetch` to merge graphs and resolve `-> repo::object` (read-only). Use `npx alp repo ls` / `npx alp repo graph` to inspect.
+- **Policy governance:** honor `@policy` guardrails — pre-check commands/paths with `npx alp policy --command "…"` / `npx alp policy --path "…"`. A strict deny means do NOT perform the action.
+- **Registry & packages:** `npx alp registry install @community/<pack>@<range>` to install; `npx alp registry publish ./my-pack` to publish; `npx alp serve --registry` to host.
+- **Live observability:** `npx alp serve` runs a dashboard (HTTP + SSE) of task status, claims, and analytics.
+
 ## 4. Syntax Strictness
 - `.alp` files use indentation to represent nesting.
 - Block markers like `@project` or `@task` must be at 0 indentation.

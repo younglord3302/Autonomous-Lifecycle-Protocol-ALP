@@ -13,10 +13,10 @@ Contains `instructions.md`.
 **Usage:** Copy these instructions into your agent's system prompt or custom instructions file (e.g., `.claudecode.md`). It teaches CLI-based agents how to use the `@alp/cli` to validate the workspace and view the dependency graph before writing code. In V3, agents drive execution via `alp run` (and `alp run --concurrent N` for swarm mode) and report status with `alp checkpoint` (including `--ask-human` for Human-in-the-Loop review handoffs).
 
 ### 3. GitHub Actions (`github/`)
-Contains `alp-validate.yml` and `alp-sync.yml`.
-**Usage:** Copy these files to `.github/workflows/` in your repository. 
-- `alp-validate.yml` will automatically run `alp validate` on every push and pull request, ensuring that your protocol files never contain syntax errors, broken references, or circular dependencies.
-- `alp-sync.yml` tracks PR events and automatically transitions your ALP `.alp` tasks from `[ ]` to `[~]` to `[x]` as PRs are opened and merged.
+The ALP repo ships an active CI workflow at `.github/workflows/ci.yml` (TypeScript + Python SDK tests and example validation). For your own repositories, copy the drop-in templates from this directory into `.github/workflows/`:
+- `alp-sync.yml` tracks PR events and transitions your ALP `.alp` tasks from `[ ]` to `[~]` to `[x]` as PRs are opened and merged.
+- `alp-pr-context.yml` posts PR context (linked tasks/decisions) as a comment when a PR is opened.
+- `alp-report.yml` publishes a weekly status report of the workspace.
 
 ### 4. Model Context Protocol (`mcp-server/`)
 ALP provides a native MCP server (`@alp/mcp-server`) that enables any modern AI IDE (Claude Desktop, Cursor, Windsurf) to securely query the ALP workspace.
