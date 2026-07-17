@@ -105,6 +105,7 @@ program
   .option('--host <host>', 'Host to bind to (default 127.0.0.1)')
   .option('--db', 'Persist a durable state store of runtime events for analytics (v4 Pillar 5)')
   .option('--registry', 'Host the ALP package registry over HTTP (v4 Pillar 3)')
+  .option('--registry-token <token>', 'Require this bearer token on all /api/registry requests (spec/14 §4.2)')
   .action((opts) => serveCommand(opts));
 
 program

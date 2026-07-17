@@ -57,6 +57,8 @@ alp serve --db          # persist a durable state store + analytics
 | `--port <n>` | Port to listen on (default `4000`) |
 | `--host <host>` | Host to bind to (default `127.0.0.1`) |
 | `--db` | *New in V4 (Pillar 5).* Persist a durable state store of runtime events to `.alp/.runtime/state.db.json` and expose `/api/analytics` |
+| `--registry` | *V4 Pillar 3.* Host the package registry over HTTP (`/api/registry/*`) |
+| `--registry-token <t>` | *V4 Pillar 3.* Require `Authorization: Bearer <t>` on all `/api/registry` requests (private registry) |
 
 Endpoints:
 
@@ -157,6 +159,10 @@ alp registry publish ./my-pack
 
 # Host a registry so other machines can install from it
 alp serve --registry --port 4000
+
+# Gate a private registry with a bearer token (spec/14 §4.2). Clients must
+# present the token via `.alprc` auth, or `--url` + the matching token.
+alp serve --registry --registry-token "$ALP_REGISTRY_TOKEN" --port 4000
 
 # Discover and install
 alp registry list --url http://127.0.0.1:4000

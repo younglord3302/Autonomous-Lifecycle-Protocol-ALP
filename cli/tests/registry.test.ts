@@ -71,4 +71,32 @@ describe('alp registry (Pillar 3: hosted registry & marketplace)', () => {
       proc.kill('SIGKILL');
     }
   });
+
+  it('gates /api/registry with a bearer token (spec/14 §4.2)', async () => {
+    const { root, pkgDir } = makeWorkspaceWithPackage();
+    fs.mkdirSync(path.join(root, '.alp'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.alp', 'project.alp'), '@project\n  id demo-ws\n  name: "Demo"\n');
+    execFileSync('node', [CLI, 'registry', 'publish', pkgDir], { cwd: root, encoding: 'utf-8', timeout: 20000 });
+
+    const port = 4322;
+    const proc = spawn('node', [CLI, 'serve', '--registry', '--registry-token', 'secret', '--port', String(port)], { cwd: root });
+    await waitFor(port);
+
+    const getStatus = (headers: Record<string, string>) =>
+      new Promise<number>((resolve) => {
+        const req = http.get({ host: '127.0.0.1', port, path: '/api/registry', headers }, (r) => {
+          r.resume();
+          resolve(r.statusCode || 0);
+        });
+        req.on('error', () => resolve(0));
+      });
+
+    try {
+      expect(await getStatus({})).toBe(401);
+      expect(await getStatus({ Authorization: 'Bearer wrong' })).toBe(401);
+      expect(await getStatus({ Authorization: 'Bearer secret' })).toBe(200);
+    } finally {
+      proc.kill('SIGKILL');
+    }
+  });
 });

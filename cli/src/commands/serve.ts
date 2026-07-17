@@ -10,6 +10,7 @@ interface ServeOptions {
   host?: string;
   db?: boolean;
   registry?: boolean;
+  registryToken?: string;
 }
 
 interface SwarmNodeState {
@@ -53,8 +54,11 @@ export function serveCommand(options?: ServeOptions) {
 
   // ─── Hosted registry (Pillar 3) ────────────────────────────────────
   const registryStore = options?.registry ? new RegistryStore(cwd) : null;
+  // An optional bearer token gates the registry API (spec/14 §4.2). When set,
+  // every /api/registry request must present `Authorization: Bearer <token>`.
+  const registryToken = options?.registryToken || process.env.ALP_REGISTRY_TOKEN || '';
   if (registryStore) {
-    console.log(`📦 Registry enabled at /.alp/registry`);
+    console.log(`📦 Registry enabled at /.alp/registry${registryToken ? ' (token-protected)' : ''}`);
   }
 
   // ─── Networked swarm registry (Pillar 1) ────────────────────────────
@@ -222,7 +226,7 @@ export function serveCommand(options?: ServeOptions) {
 
     // ─── Hosted registry (Pillar 3) ──────────────────────────────────
     if (url.startsWith('/api/registry')) {
-      handleRegistry(req, res, url, registryStore);
+      handleRegistry(req, res, url, registryStore, registryToken);
       return;
     }
 
@@ -385,8 +389,13 @@ function handleSwarm(
   sendJson(res, { error: 'unknown swarm endpoint' }, 404);
 }
 
-function handleRegistry(req: http.IncomingMessage, res: http.ServerResponse, url: string, store: RegistryStore | null) {
+function handleRegistry(req: http.IncomingMessage, res: http.ServerResponse, url: string, store: RegistryStore | null, token = '') {
   if (!store) { sendJson(res, { error: 'registry not enabled; start `alp serve --registry`' }, 404); return; }
+  // §4.2: when a token is configured, require a matching Bearer Authorization header.
+  if (token) {
+    const auth = req.headers['authorization'] || '';
+    if (auth !== `Bearer ${token}`) { sendJson(res, { error: 'unauthorized' }, 401); return; }
+  }
   const u = new URL('http://x' + url);
 
   // Marketplace listing + search.
