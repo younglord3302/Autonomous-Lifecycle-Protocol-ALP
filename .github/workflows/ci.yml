@@ -1,0 +1,76 @@
+name: "ALP CI"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  typescript:
+    name: TypeScript (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Run unit & compliance tests
+        run: npm test
+
+  python:
+    name: Python SDK (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Build the CLI first: the Python registry e2e test spawns `alp serve`.
+          npm ci
+          npm run build --workspace @alp/parser --workspace @alp/cli
+
+      - name: Run Python SDK tests
+        run: npm run test:python
+
+  validate:
+    name: Validate Example Workspace
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build --workspace @alp/cli
+
+      - name: Validate examples/todo-app
+        working-directory: examples/todo-app
+        run: node ../cli/dist/index.js validate

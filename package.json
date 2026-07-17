@@ -15,7 +15,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run build --workspace @alp/parser --workspace @alp/cli && vitest run"
+    "test": "npm run build --workspace @alp/parser --workspace @alp/cli && vitest run",
+    "test:python": "cd sdk/python && python -m unittest discover -s tests"
   },
   "repository": {
     "type": "git",
