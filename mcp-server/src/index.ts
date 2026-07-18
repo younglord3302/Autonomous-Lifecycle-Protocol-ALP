@@ -22,7 +22,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { AlpParser, AlpObject, AlpGraph, PolicyEngine } from '@alp/parser';
+import { AlpParser, AlpObject, AlpGraph, PolicyEngine, updateObjectStatus } from '@alp/parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -159,7 +159,7 @@ function audit(
 
 // ─── MCP Server ───────────────────────────────────────────────────────────
 const server = new Server(
-  { name: 'alp-mcp-server', version: '3.1.0' },
+  { name: 'alp-mcp-server', version: '6.3.0' },
   { capabilities: { tools: {}, resources: {} } }
 );
 
@@ -408,7 +408,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     
     case 'alp_update_status': {
-      // Very basic implementation: search files for id: X and change status above/below it
       const targetId = args?.id as string;
       const newStatus = args?.status as string;
       const agent = args?.agent as string | undefined;
@@ -423,15 +422,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const fullPath = path.join(dir, entry.name);
           if (entry.isDirectory()) walk(fullPath);
           else if (fullPath.endsWith('.alp')) {
-            let content = fs.readFileSync(fullPath, 'utf8');
+            const content = fs.readFileSync(fullPath, 'utf8');
             if (content.includes(`id: ${targetId}`)) {
               // Capability scoping: the file about to be written must comply.
               policyError = enforcePolicy(cwd, fullPath, agent);
               if (policyError) return;
-              // naive replace of status
-              content = content.replace(/(id:\s*.*?\n\s*status:\s*).*?(\n)/, `$1${newStatus}$2`);
-              fs.writeFileSync(fullPath, content, 'utf8');
-              updated = true;
+              // Quote-aware status rewrite (preserves [ ], [~], [x], [!], [?]).
+              const { content: next, changed } = updateObjectStatus(content, targetId, newStatus);
+              if (changed) {
+                fs.writeFileSync(fullPath, next, 'utf8');
+                updated = true;
+              }
             }
           }
         }

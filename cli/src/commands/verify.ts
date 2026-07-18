@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { AlpParser, AlpObject, PolicyEngine } from '@alp/parser';
+import { AlpParser, AlpObject, PolicyEngine, updateObjectStatus } from '@alp/parser';
 
 export function verifyCommand(taskId: string) {
   const alpDir = path.resolve(process.cwd(), '.alp');
@@ -53,7 +53,7 @@ export function verifyCommand(taskId: string) {
 
   if (!targetObj.verify || !Array.isArray(targetObj.verify) || targetObj.verify.length === 0) {
     console.log(`✅ Task '${taskId}' has no verification gates defined. Considering it verified.`);
-    updateTaskStatus(targetFile, taskId, '[x]');
+    writeTaskStatus(targetFile, taskId, '[x]');
     return;
   }
 
@@ -99,31 +99,24 @@ export function verifyCommand(taskId: string) {
 
   if (allPassed) {
     console.log(`🎉 All verification gates passed for '${taskId}'. Marking as done [x].`);
-    updateTaskStatus(targetFile, taskId, '[x]');
+    writeTaskStatus(targetFile, taskId, '[x]');
   } else {
     console.log(`🚨 Verification failed for '${taskId}'. Marking as blocked [!].`);
-    updateTaskStatus(targetFile, taskId, '[!]');
+    writeTaskStatus(targetFile, taskId, '[!]');
     process.exit(1);
   }
 }
 
-function updateTaskStatus(filePath: string, taskId: string, newStatus: string) {
-  let content = fs.readFileSync(filePath, 'utf-8');
-  // Simple regex to replace the status of the specific task
-  // Since ALP syntax is:
-  // @task
-  // id: task-id
-  // status: "[ ]"
-  
-  // This is a naive regex replacement. In a robust system, we would stringify the parsed object.
-  // But for the V2 scaffold, we can just replace the specific status line.
-  
-  const regex = new RegExp(`(id:\\s*${taskId}[\\s\\S]*?status:\\s*)["']?\\[.*?\\]["']?`, 'g');
-  if (regex.test(content)) {
-    content = content.replace(regex, `$1"${newStatus}"`);
-    fs.writeFileSync(filePath, content, 'utf-8');
+/**
+ * Update a task's `status:` line using the shared, quote-aware status writer
+ * from `@alp/parser` (preserves `[?]` and `[x]` markers correctly).
+ */
+function writeTaskStatus(filePath: string, taskId: string, newStatus: string) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const { content: next, changed } = updateObjectStatus(content, taskId, newStatus);
+  if (changed) {
+    fs.writeFileSync(filePath, next, 'utf-8');
   } else {
-    // If status didn't exist, we might have to insert it. For simplicity, we just log.
     console.log(`   (Note: Could not auto-update status in file. Please update manually to ${newStatus})`);
   }
 }
