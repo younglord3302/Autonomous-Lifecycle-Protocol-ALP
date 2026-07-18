@@ -27,7 +27,7 @@ const program = new Command();
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('4.3.0');
+  .version('4.4.0');
 
 program
   .command('init')
@@ -145,7 +145,7 @@ program
 program
   .command('registry')
   .description('Hosted registry & marketplace: serve, publish, list, search, install (v4 Pillar 3)')
-  .argument('[subcommand]', 'serve | publish | list | search | install (default list)')
+  .argument('[subcommand]', 'serve | publish | list | search | install | verify (default list)')
   .argument('[target]', 'Package dir (publish) or name[version] (install/search)')
   .option('--url <url>', 'Registry base URL (overrides ALP_REGISTRY_URL)')
   .option('--version <v>', 'Version for install')

@@ -2,7 +2,7 @@
   "name": "alp-vscode",
   "displayName": "ALP Language Support",
   "description": "Full language support for the Autonomous Lifecycle Protocol (.alp) — IntelliSense, Go to Definition, Hover, and Diagnostics",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "publisher": "younglord3302",
   "engines": {
     "vscode": "^1.80.0"

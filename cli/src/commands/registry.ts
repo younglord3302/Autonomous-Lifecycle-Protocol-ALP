@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { RegistryStore } from '../registry-store';
-import { RegistryClient } from '../registry';
+import { RegistryClient, loadAlprc } from '../registry';
 
 /**
  * Resolve a signing key from a `--sign-key <file>` option or the
@@ -96,8 +96,21 @@ export async function registryCommand(sub: string | undefined, target: string | 
       }
       return;
     }
+    case 'verify': {
+      if (!target) { console.error('Usage: alp registry verify <name>[@version]'); process.exit(1); }
+      const at = target.lastIndexOf('@');
+      const name = at > 0 ? target.slice(0, at) : target;
+      const ver = at > 0 ? target.slice(at + 1) : 'latest';
+      const store = new RegistryStore(cwd, loadAlprc(cwd).trustedKeys);
+      const res = store.verifyPackage(name, ver);
+      if (res.reason && !res.signed) { console.log(`ℹ️  ${name}@${ver}: ${res.reason}`); return; }
+      const tag = res.valid && res.trusted ? '✅' : '❌';
+      console.log(`${tag} ${name}@${ver}: signed=${res.signed} valid=${res.valid} trusted=${res.trusted} — ${res.reason}`);
+      if (!(res.valid && res.trusted)) process.exit(1);
+      return;
+    }
     default:
-      console.error(`Unknown registry subcommand: ${subcmd}. Use serve | publish | list | search | install.`);
+      console.error(`Unknown registry subcommand: ${subcmd}. Use serve | publish | list | search | install | verify.`);
       process.exit(1);
   }
 }

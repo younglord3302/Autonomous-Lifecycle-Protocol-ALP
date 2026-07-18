@@ -6,7 +6,7 @@
   <br/>
 
   [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-  [![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](#)
+  [![Version](https://img.shields.io/badge/version-4.4.0-blue.svg)](#)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 

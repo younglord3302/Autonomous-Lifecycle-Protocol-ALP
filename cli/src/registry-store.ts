@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'node:crypto';
-import { sign, signingPayload, Signature } from './signing';
+import { sign, verify, signingPayload, resolvePublicKey, fingerprint, Signature } from './signing';
 
 /**
  * ALP Registry Store (v4 — The Federation Era, Pillar 3: Hosted Registry)
@@ -19,6 +19,8 @@ export interface PackageVersionInfo {
   integrity: string; // sha256:...
   dependencies: Record<string, string>;
   size: number;
+  entry?: string; // entry file name
+  files?: string[]; // declared file names
   signature?: Signature; // Ed25519 signature + signer public key (v4.1)
 }
 
@@ -38,10 +40,29 @@ function sha256File(p: string): string {
 
 export class RegistryStore {
   readonly root: string;
+  /** Trust roots for server-side signature enforcement (§4.3). Maps a
+   *  namespace (`@ns`) or `*` to a fingerprint (`alp1…`) or inline PEM. When a
+   *  namespace has a trust root, uploads MUST carry a signature trusted by it. */
+  readonly trustRoots?: Record<string, string>;
 
-  constructor(rootDir: string) {
+  constructor(rootDir: string, trustRoots?: Record<string, string>) {
     // rootDir is the workspace; packages live in .alp/registry.
     this.root = path.join(rootDir, '.alp', 'registry');
+    this.trustRoots = trustRoots;
+  }
+
+  /** Resolve the configured trust root for a namespace (`@ns`, then `*`). */
+  private trustEntry(ns: string): string | undefined {
+    const tk = this.trustRoots || {};
+    return tk['@' + ns] || tk[ns] || tk['*'];
+  }
+
+  /** True when `sig` is covered by the namespace's configured trust root. */
+  isTrusted(ns: string, sig: Signature): boolean {
+    const entry = this.trustEntry(ns);
+    if (!entry) return false;
+    if (entry.startsWith('alp1')) return fingerprint(sig.key) === entry;
+    return entry.trim() === sig.key.trim();
   }
 
   private pkgRoot(ns: string, name: string, version: string) {
@@ -68,6 +89,16 @@ export class RegistryStore {
     const manifestName = rest.join('/') || ns;
     if (ns !== routeNs) {
       throw new Error(`namespace mismatch: route is @${routeNs} but manifest declares @${ns}/${manifestName}`);
+    }
+    // v4.4: server-side trust-root enforcement (§4.3). When the namespace has a
+    // configured trust root, the upload MUST carry a signature trusted by it.
+    const trust = this.trustEntry(ns);
+    const sig = body.signature as Signature | undefined;
+    if (trust && !sig) {
+      throw new Error(`Package @${ns}/${manifestName}@${version} is not signed; namespace trust root requires signatures`);
+    }
+    if (trust && sig && !this.isTrusted(ns, sig)) {
+      throw new Error(`Signature for @${ns}/${manifestName}@${version} is not from a trusted key`);
     }
     const dir = this.pkgRoot(ns, manifestName, version);
     fs.mkdirSync(dir, { recursive: true });
@@ -149,6 +180,8 @@ export class RegistryStore {
       integrity,
       dependencies: manifest.dependencies || {},
       size,
+      entry,
+      files: manifest.files,
     };
     if (signer) {
       const entrySha = integrity ? integrity.slice('sha256:'.length) : '';
@@ -190,6 +223,34 @@ export class RegistryStore {
       author = m.author;
     }
     return { name: fullName, description, author, tags, versions };
+  }
+
+  /**
+   * Verify a stored version's signature against this store's trust roots
+   * (v4.4). Returns a structured result for `alp registry verify` without
+   * installing. `signed` is whether the version carries a signature; `trusted`
+   * is whether it is covered by a configured trust root; `valid` is whether the
+   * cryptographic signature checks out against the signer key embedded in it.
+   */
+  verifyPackage(fullName: string, version: string): { name: string; version: string; signed: boolean; trusted: boolean; valid: boolean; reason?: string } {
+    const meta = this.getMeta(fullName);
+    if (!meta) return { name: fullName, version, signed: false, trusted: false, valid: false, reason: 'package not found' };
+    const info = meta.versions[version];
+    if (!info) return { name: fullName, version, signed: false, trusted: false, valid: false, reason: 'version not found' };
+    const sig = info.signature as Signature | undefined;
+    if (!sig) {
+      const required = !!this.trustEntry(fullName.replace(/^@/, '').split('/')[0]);
+      return { name: fullName, version, signed: false, trusted: false, valid: false, reason: required ? 'trust root requires a signature' : 'package is unsigned (no trust root configured)' };
+    }
+    const entry = info.entry || (info.files && info.files[0]) || '';
+    const [vns, ...vrest] = fullName.replace(/^@/, '').split('/');
+    const vname = vrest.join('/') || vns;
+    const entryPath = path.join(this.pkgRoot(vns, vname, version), entry);
+    const entryHash = fs.existsSync(entryPath) ? sha256File(entryPath).slice('sha256:'.length) : '';
+    const payload = signingPayload({ name: fullName, version, entry, entryHash, dependencies: info.dependencies });
+    const valid = verify(resolvePublicKey(sig.key), payload, sig);
+    const trusted = this.isTrusted(fullName.replace(/^@/, '').split('/')[0], sig);
+    return { name: fullName, version, signed: true, trusted, valid, reason: valid ? (trusted ? 'signature valid and trusted' : 'signature valid but signer not in trust root') : 'signature invalid' };
   }
 
   /** Read a package file by version + relative path. */

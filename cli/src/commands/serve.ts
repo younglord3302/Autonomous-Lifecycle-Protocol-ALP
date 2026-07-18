@@ -4,6 +4,7 @@ import * as http from 'http';
 import { AlpParser, AlpObject, StateStore, computeAnalytics } from '@alp/parser';
 import { readEvents, runtimeLogPath } from '../runtime';
 import { RegistryStore } from '../registry-store';
+import { loadAlprc } from '../registry';
 
 interface ServeOptions {
   port?: number;
@@ -54,7 +55,10 @@ export function serveCommand(options?: ServeOptions) {
   }
 
   // ─── Hosted registry (Pillar 3) ────────────────────────────────────
-  const registryStore = options?.registry ? new RegistryStore(cwd) : null;
+  // Trust roots (spec/14 §4.3) enforce publisher signatures on upload when a
+  // namespace is configured with one in .alprc `trustedKeys`.
+  const registryTrust = loadAlprc(cwd).trustedKeys;
+  const registryStore = options?.registry ? new RegistryStore(cwd, registryTrust) : null;
   // Per-namespace bearer tokens (registry hardening, spec/14 §4.2). A single
   // token (global) gates every namespace; a `ns:token,ns2:token2` map gates
   // each namespace independently. Publish requires the namespace token; reads
