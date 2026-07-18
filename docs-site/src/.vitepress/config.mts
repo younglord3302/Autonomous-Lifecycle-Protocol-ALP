@@ -15,7 +15,8 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/cli' },
-      { text: 'Specification', link: '/spec/01-overview' }
+      { text: 'Specification', link: '/spec/01-overview' },
+      { text: 'Releases', link: '/releases' }
     ],
 
     sidebar: [

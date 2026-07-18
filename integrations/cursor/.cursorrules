@@ -5,7 +5,7 @@ You are an AI Agent operating within an ALP-managed workspace.
 ## 1. Context Discovery
 - ALWAYS read `.alp/project.alp` first to understand the context of the repository.
 - If I ask you to work on a specific feature, read `.alp/features/<feature-name>.alp` to understand the acceptance criteria and tasks.
-- If you need to see the dependency graph of tasks, you can use the `@alp/cli` by running `npx alp graph` in the terminal.
+- If you need to see the dependency graph of tasks, you can use the `@alp/cli` by running `node cli/dist/index.js graph` in the terminal.
 
 ## 2. Working on Tasks
 - Tasks are represented as `@task` blocks in `.alp` files.
@@ -17,23 +17,23 @@ You are an AI Agent operating within an ALP-managed workspace.
 - When you finish a task, review its `@accept` criteria.
 - Run the commands specified in its `@verify` block.
 - Only if verification passes, update the task's status to `[x]`.
-- Run `npx alp validate` in the terminal to ensure your modifications to `.alp` files did not break the schema or create cyclic dependencies.
+- Run `node cli/dist/index.js validate` in the terminal to ensure your modifications to `.alp` files did not break the schema or create cyclic dependencies.
 
-## 5. Execution
-- Use `npx alp run` to compile the context bundle for the next available task and pipe it into your loop. In swarm mode, `npx alp run --concurrent N` spins up N parallel agents.
-- Report progress with `npx alp checkpoint <taskId> <status>` (e.g. `npx alp checkpoint task-login-ui in-progress`). To hand off for human review, use `npx alp checkpoint <taskId> --ask-human "<message>"`, which marks the task `[?]`.
+## 4. Execution
+- Use `node cli/dist/index.js run` to compile the context bundle for the next available task and pipe it into your loop. In swarm mode, `node cli/dist/index.js run --concurrent N` spins up N parallel agents.
+- Report progress with `node cli/dist/index.js checkpoint <taskId> <status>` (e.g. `node cli/dist/index.js checkpoint task-login-ui in-progress`). To hand off for human review, use `node cli/dist/index.js checkpoint <taskId> --ask-human "<message>"`, which marks the task `[?]`.
 - Never claim a task whose blocking dependencies (`depends_on`, `blocked_by`, `requires`) are not `[x]`. Reference links such as `feature:` or `owner:` do NOT block a task.
 
-## 6. Federation & Supply Chain (V4 → V5)
+## 5. Federation & Supply Chain (V4 → V5)
 ALP 4.0.0 adds cross-machine and cross-repository coordination; V5.0.0 hardens the SDK and adds registry signature verification:
-- **Networked swarms:** `npx alp swarm join <id>` to join a coordinator; `npx alp run --swarm <id>` executes tasks across machines without double-claiming. Inspect with `npx alp swarm roster <id>`.
-- **Cross-repo orchestration:** for `@repo` references, run `npx alp repo resolve --fetch` to merge graphs and resolve `-> repo::object` (read-only). Use `npx alp repo ls` / `npx alp repo graph` to inspect.
-- **Policy governance:** honor `@policy` guardrails — pre-check commands/paths with `npx alp policy --command "…"` / `npx alp policy --path "…"`. A strict deny means do NOT perform the action.
-- **Registry & packages:** `npx alp registry install @community/<pack>@<range>` to install; `npx alp registry publish ./my-pack` to publish; `npx alp serve --registry` to host.
-- **Registry trust & verification:** pin maintainer keys in `.alprc` `trustedKeys` (or via `npx alp keys trust add <ns|*> <fingerprint|file>`); installs are verified automatically. Audit any package — local or remote — with `npx alp registry verify <name>[@version]` and `npx alp registry verify <name>[@version] --url <host>` without installing.
-- **Live observability:** `npx alp serve` runs a dashboard (HTTP + SSE) of task status, claims, and analytics.
+- **Networked swarms:** `node cli/dist/index.js swarm join <id>` to join a coordinator; `node cli/dist/index.js run --swarm <id>` executes tasks across machines without double-claiming. Inspect with `node cli/dist/index.js swarm roster <id>`.
+- **Cross-repo orchestration:** for `@repo` references, run `node cli/dist/index.js repo resolve --fetch` to merge graphs and resolve `-> repo::object` (read-only). Use `node cli/dist/index.js repo ls` / `node cli/dist/index.js repo graph` to inspect.
+- **Policy governance:** honor `@policy` guardrails — pre-check commands/paths with `node cli/dist/index.js policy --command "…"` / `node cli/dist/index.js policy --path "…"`. A strict deny means do NOT perform the action.
+- **Registry & packages:** `node cli/dist/index.js registry install @community/<pack>@<range>` to install; `node cli/dist/index.js registry publish ./my-pack` to publish; `node cli/dist/index.js serve --registry` to host.
+- **Registry trust & verification:** pin maintainer keys in `.alprc` `trustedKeys` (or via `node cli/dist/index.js keys trust add <ns|*> <fingerprint|file>`); installs are verified automatically. Audit any package — local or remote — with `node cli/dist/index.js registry verify <name>[@version]` and `node cli/dist/index.js registry verify <name>[@version] --url <host>` without installing.
+- **Live observability:** `node cli/dist/index.js serve` runs a dashboard (HTTP + SSE) of task status, claims, and analytics.
 
-## 4. Syntax Strictness
+## 6. Syntax Strictness
 - `.alp` files use indentation to represent nesting.
 - Block markers like `@project` or `@task` must be at 0 indentation.
 - Properties must be indented with exactly 2 spaces.

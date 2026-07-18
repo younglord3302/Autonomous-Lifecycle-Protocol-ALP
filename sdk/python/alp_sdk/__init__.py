@@ -2,7 +2,7 @@
 
 from .models import AlpObject
 from .reader import load_workspace, AlpReader, AlpParser
-from .validator import validate_object
+from .validator import validate_object, verify_workspace
 from .analytics import compute_analytics
 from .registry import RegistryClient, load_alprc, semver_cmp, satisfies, verify_version_signature
 from .signing import (
@@ -22,6 +22,7 @@ __all__ = [
     "AlpReader",
     "AlpParser",
     "validate_object",
+    "verify_workspace",
     "compute_analytics",
     "RegistryClient",
     "load_alprc",

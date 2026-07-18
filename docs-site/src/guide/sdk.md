@@ -35,6 +35,10 @@ for obj in objects:
 # Install a package from a hosted registry (V4 Pillar 3)
 client = RegistryClient("http://127.0.0.1:4000")
 client.install("@community/scrum-master", ".alp", "^1.0.0")
+
+# Run every task's quality gates (mirrors `alp verify`, non-mutating)
+report = verify_workspace("./my-project")
+print(report["passed"], [(t["id"], t["verified"]) for t in report["tasks"]])
 ```
 
 ## What an SDK Provides
@@ -44,4 +48,5 @@ client.install("@community/scrum-master", ".alp", "^1.0.0")
 - Build and traverse the dependency graph
 - Compute swarm analytics (`compute_analytics`)
 - Talk to a hosted registry (`RegistryClient`: list/search/install, integrity, `.alprc` routing, bearer auth)
+- Verify a workspace's quality gates (`verify_workspace`) without mutating `.alp` files
 - Export to YAML/JSON

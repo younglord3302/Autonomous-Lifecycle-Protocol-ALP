@@ -7,7 +7,7 @@ SDK_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SDK_ROOT not in sys.path:
     sys.path.insert(0, SDK_ROOT)
 
-from alp_sdk import load_workspace, validate_object, compute_analytics
+from alp_sdk import load_workspace, validate_object, compute_analytics, verify_workspace
 from alp_sdk.reader import AlpReader
 
 REPO_ROOT = os.path.dirname(os.path.dirname(SDK_ROOT))
@@ -52,6 +52,37 @@ class TestValidation(unittest.TestCase):
 """)
             for obj in objs:
                 validate_object(obj._type, obj.properties)
+
+
+class TestVerifyWorkspace(unittest.TestCase):
+    def test_example_tasks_all_pass(self):
+        report = verify_workspace(EXAMPLE_DIR)
+        self.assertTrue(report["passed"])
+        self.assertGreater(len(report["tasks"]), 0)
+        for task in report["tasks"]:
+            self.assertTrue(task["verified"], msg=f"task {task['id']} failed")
+            self.assertEqual(task["failed_gate"], None)
+            self.assertEqual(task["error"], None)
+
+    def test_failing_gate_is_reported(self):
+        import tempfile
+        import shutil
+
+        tmp = tempfile.mkdtemp()
+        try:
+            alp_dir = os.path.join(tmp, ".alp")
+            os.makedirs(alp_dir)
+            with open(os.path.join(alp_dir, "broken.alp"), "w", encoding="utf-8") as f:
+                f.write('@task\n  id: task-broken\n  verify:\n    - "exit 3"\n')
+
+            report = verify_workspace(tmp)
+            self.assertFalse(report["passed"])
+            broken = next(t for t in report["tasks"] if t["id"] == "task-broken")
+            self.assertFalse(broken["verified"])
+            self.assertEqual(broken["failed_gate"], 1)
+            self.assertIsNotNone(broken["error"])
+        finally:
+            shutil.rmtree(tmp)
 
 
 class TestAnalytics(unittest.TestCase):
