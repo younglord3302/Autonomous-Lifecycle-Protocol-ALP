@@ -78,3 +78,25 @@ jobs:
       - name: Verify example tasks (quality gates)
         working-directory: examples/todo-app
         run: node ../../cli/dist/index.js verify task-api-crud
+
+  compliance:
+    name: ALP Compliance Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build --workspace @alp/cli
+
+      - name: Run compliance harness
+        run: node cli/dist/index.js test-harness --suite tests/compliance

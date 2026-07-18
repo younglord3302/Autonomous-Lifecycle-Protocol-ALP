@@ -22,12 +22,13 @@ import { swarmCommand } from './commands/swarm';
 import { repoCommand } from './commands/repo';
 import { registryCommand } from './commands/registry';
 import { keysCommand } from './commands/keys';
+import { testHarnessCommand } from './commands/test-harness';
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('6.0.0');
+  .version('6.2.0');
 
 program
   .command('init')
@@ -183,6 +184,13 @@ program
   .description('Manage registry package-signing keypairs & trust roots (v4.2/4.3)')
   .argument('[args...]', 'generate | fingerprint <file> | trust add <ns|*> <fingerprint|file> | trust list')
   .action((args: string[]) => keysCommand(args[0], args.slice(1)));
+
+program
+  .command('test-harness')
+  .description('Run the ALP compliance test suite against the bundled parser or an external one (v6.2.0)')
+  .option('--executable <cmd>', 'External parser executable: takes a .alp path, prints AST JSON to stdout, non-zero on failure')
+  .option('--suite <dir>', 'Path to the compliance suite directory (default ./tests/compliance)')
+  .action((opts) => testHarnessCommand(opts));
 
 program
   .command('export')

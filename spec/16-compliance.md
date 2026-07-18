@@ -68,10 +68,13 @@ To pass the compliance suite, a parser MUST report errors that include:
 
 ## 5. Running the Suite
 
-A standard compliance harness will be provided as a CLI tool (`alp-test-harness`). 
+The compliance harness is provided as a CLI tool: `alp test-harness` (v6.2.0).
 
-Parser authors can run their parser against the suite by providing an executable that takes a file path as input and outputs the AST as JSON to `stdout`, or outputs error details to `stderr`.
+- With no arguments it runs the bundled `@alp/parser` against `tests/compliance` and exits non-zero on any miscategorized fixture.
+- Use `--executable <cmd>` to certify an external parser: the executable receives the fixture path as its sole argument, prints the AST as JSON to `stdout` on success, and exits non-zero (error to `stderr`) on failure.
+- Use `--suite <dir>` to point at a different fixture directory.
 
 ```bash
-alp-test-harness --executable="./my-custom-parser"
+alp test-harness
+alp test-harness --executable="./my-custom-parser"
 ```
