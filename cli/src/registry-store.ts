@@ -226,6 +226,45 @@ export class RegistryStore {
   }
 
   /**
+   * Shared, source-agnostic verification of a version's signature against a
+   * trust root. Used by both `verifyPackage` (local store) and the remote
+   * client `verifyRemote`, so the same rules apply whether a version is
+   * fetched from disk or over the wire (v4.4).
+   *
+   * `info` is the version's `PackageVersionInfo`; `trustRoots` maps a
+   * namespace (`@ns` / `ns` / `*`) to a fingerprint (`alp1…`) or inline PEM;
+   * `entryHash` is the hex SHA-256 of the resolved entry file (empty when the
+   * file is unavailable, e.g. before download). When `explicitTrustPem` is
+   * given it overrides the namespace trust root (an explicit `--key`).
+   */
+  static verifyVersionSignature(fullName: string, version: string, info: PackageVersionInfo, trustRoots?: Record<string, string>, explicitTrustPem?: string): { name: string; version: string; signed: boolean; trusted: boolean; valid: boolean; reason?: string } {
+    const ns = fullName.replace(/^@/, '').split('/')[0];
+    const trustEntry = (): string | undefined => {
+      if (explicitTrustPem) return explicitTrustPem;
+      const tk = trustRoots || {};
+      return tk['@' + ns] || tk[ns] || tk['*'];
+    };
+    const isTrusted = (sig: Signature): boolean => {
+      const entry = trustEntry();
+      if (!entry) return false;
+      if (entry.startsWith('alp1')) return fingerprint(sig.key) === entry;
+      return entry.trim() === sig.key.trim();
+    };
+
+    const sig = info.signature as Signature | undefined;
+    if (!sig) {
+      const required = !explicitTrustPem && !!trustEntry();
+      return { name: fullName, version, signed: false, trusted: false, valid: false, reason: required ? 'trust root requires a signature' : 'package is unsigned (no trust root configured)' };
+    }
+    const entry = info.entry || (info.files && info.files[0]) || '';
+    const entryHash = info.integrity ? info.integrity.slice('sha256:'.length) : '';
+    const payload = signingPayload({ name: fullName, version, entry, entryHash, dependencies: info.dependencies });
+    const valid = verify(resolvePublicKey(sig.key), payload, sig);
+    const trusted = isTrusted(sig);
+    return { name: fullName, version, signed: true, trusted, valid, reason: valid ? (trusted ? 'signature valid and trusted' : 'signature valid but signer not in trust root') : 'signature invalid' };
+  }
+
+  /**
    * Verify a stored version's signature against this store's trust roots
    * (v4.4). Returns a structured result for `alp registry verify` without
    * installing. `signed` is whether the version carries a signature; `trusted`
@@ -237,20 +276,7 @@ export class RegistryStore {
     if (!meta) return { name: fullName, version, signed: false, trusted: false, valid: false, reason: 'package not found' };
     const info = meta.versions[version];
     if (!info) return { name: fullName, version, signed: false, trusted: false, valid: false, reason: 'version not found' };
-    const sig = info.signature as Signature | undefined;
-    if (!sig) {
-      const required = !!this.trustEntry(fullName.replace(/^@/, '').split('/')[0]);
-      return { name: fullName, version, signed: false, trusted: false, valid: false, reason: required ? 'trust root requires a signature' : 'package is unsigned (no trust root configured)' };
-    }
-    const entry = info.entry || (info.files && info.files[0]) || '';
-    const [vns, ...vrest] = fullName.replace(/^@/, '').split('/');
-    const vname = vrest.join('/') || vns;
-    const entryPath = path.join(this.pkgRoot(vns, vname, version), entry);
-    const entryHash = fs.existsSync(entryPath) ? sha256File(entryPath).slice('sha256:'.length) : '';
-    const payload = signingPayload({ name: fullName, version, entry, entryHash, dependencies: info.dependencies });
-    const valid = verify(resolvePublicKey(sig.key), payload, sig);
-    const trusted = this.isTrusted(fullName.replace(/^@/, '').split('/')[0], sig);
-    return { name: fullName, version, signed: true, trusted, valid, reason: valid ? (trusted ? 'signature valid and trusted' : 'signature valid but signer not in trust root') : 'signature invalid' };
+    return RegistryStore.verifyVersionSignature(fullName, version, info, this.trustRoots);
   }
 
   /** Read a package file by version + relative path. */

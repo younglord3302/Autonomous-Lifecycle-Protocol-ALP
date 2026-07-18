@@ -6,12 +6,15 @@ import tempfile
 import threading
 import unittest
 import urllib.request
+import hashlib
 
 SDK_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SDK_ROOT not in sys.path:
     sys.path.insert(0, SDK_ROOT)
 
 from alp_sdk import RegistryClient, satisfies, semver_cmp, load_alprc
+from alp_sdk import verify_version_signature, signing_payload, sign, generate_keypair, fingerprint
+from alp_sdk.signing import _HAVE_CRYPTO
 
 REPO_ROOT = os.path.dirname(os.path.dirname(SDK_ROOT))
 CLI = os.path.join(REPO_ROOT, "cli", "dist", "index.js")
@@ -208,6 +211,75 @@ class TestRegistryHardening(unittest.TestCase):
         meta = auth.publish(self.pkg)
         self.assertEqual(meta["name"], "@demo/scrum-master")
         self.assertEqual(self._get_status("/api/registry/-/demo/scrum-master/meta.json"), 401)
+
+
+class TestVerifyVersionSignature(unittest.TestCase):
+    """Shared verifier parity with the TS CLI (v4.5)."""
+
+    def _info(self, content, signer=None, trust_roots=None):
+        entry_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        info = {
+            "url": "/x",
+            "integrity": "sha256:" + entry_hash,
+            "dependencies": {},
+            "size": len(content),
+            "entry": "plugin.alp",
+            "files": ["plugin.alp"],
+        }
+        if signer:
+            info["signature"] = sign(
+                signer,
+                signing_payload(name="@demo/x", version="1.0.0", entry="plugin.alp", entry_hash=entry_hash, dependencies={}),
+            )
+        return info
+
+    def test_unsigned_without_trust_root(self):
+        r = verify_version_signature("@demo/x", "1.0.0", self._info("@agent\n  id: a\n"))
+        self.assertFalse(r["signed"])
+        self.assertFalse(r["valid"])
+        self.assertFalse(r["trusted"])
+
+    @unittest.skipUnless(_HAVE_CRYPTO, "Ed25519 signing requires the cryptography package")
+    def test_unsigned_with_trust_root_requires_signature(self):
+        roots = {"@demo": generate_keypair()[1]}
+        r = verify_version_signature("@demo/x", "1.0.0", self._info("@agent\n  id: a\n"), trust_roots=roots)
+        self.assertFalse(r["signed"])
+        self.assertRegex(r["reason"], "trust root requires a signature")
+
+    @unittest.skipUnless(_HAVE_CRYPTO, "Ed25519 signing requires the cryptography package")
+    def test_trusted_and_untrusted_signatures(self):
+        priv, pub = generate_keypair()
+        other = generate_keypair()
+        content = "@agent\n  id: a\n"
+        roots = {"@demo": pub}
+
+        ok = verify_version_signature("@demo/x", "1.0.0", self._info(content, priv), trust_roots=roots)
+        self.assertTrue(ok["signed"])
+        self.assertTrue(ok["valid"])
+        self.assertTrue(ok["trusted"])
+
+        bad = verify_version_signature("@demo/x", "1.0.0", self._info(content, other[0]), trust_roots=roots)
+        self.assertTrue(bad["signed"])
+        self.assertTrue(bad["valid"])
+        self.assertFalse(bad["trusted"])
+        self.assertRegex(bad["reason"], "not in trust root")
+
+        tampered = self._info(content, priv, trust_roots=roots)
+        tampered["integrity"] = "sha256:" + "0" * 64
+        invalid = verify_version_signature("@demo/x", "1.0.0", tampered, trust_roots=roots)
+        self.assertFalse(invalid["valid"])
+
+    @unittest.skipUnless(_HAVE_CRYPTO, "Ed25519 signing requires the cryptography package")
+    def test_fingerprint_root_and_explicit_key(self):
+        priv, pub = generate_keypair()
+        content = "@agent\n  id: a\n"
+        by_fp = verify_version_signature("@demo/x", "1.0.0", self._info(content, priv), trust_roots={"@demo": fingerprint(pub)})
+        self.assertTrue(by_fp["trusted"])
+
+        other = generate_keypair()
+        explicit = verify_version_signature("@demo/x", "1.0.0", self._info(content, other[0]), explicit_trust_pem=other[1])
+        self.assertTrue(explicit["trusted"])
+        self.assertTrue(explicit["valid"])
 
 
 if __name__ == "__main__":

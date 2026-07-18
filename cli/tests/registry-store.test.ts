@@ -2,8 +2,10 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as crypto from 'node:crypto';
 import { RegistryStore } from '../src/registry-store';
 import { satisfies, semverCmp, RegistryClient, loadAlprc } from '../src/registry';
+import { sign, signingPayload, generateKeypair, fingerprint } from '../src/signing';
 
 describe('RegistryStore (Pillar 3)', () => {
   const dirs: string[] = [];
@@ -61,6 +63,77 @@ describe('RegistryStore (Pillar 3)', () => {
     const lock = JSON.parse(fs.readFileSync(path.join(alpDir, 'registry.lock.json'), 'utf-8'));
     expect(lock['@demo/range'].version).toBe('1.2.3');
     expect(lock['@demo/range'].integrity).toBe('sha256:abc');
+  });
+});
+
+describe('verifyVersionSignature (shared verifier, v4.4)', () => {
+  function makeInfo(entryContent: string, signerKey?: string, trustRoots?: Record<string, string>) {
+    const entry = 'plugin.alp';
+    const entryHash = crypto.createHash('sha256').update(entryContent).digest('hex');
+    const info = {
+      url: `/api/registry/-/demo/x/${entry}`,
+      integrity: 'sha256:' + entryHash,
+      dependencies: {},
+      size: entryContent.length,
+      entry,
+      files: [entry],
+    } as any;
+    if (signerKey) {
+      info.signature = sign(signerKey, signingPayload({ name: '@demo/x', version: '1.0.0', entry, entryHash, dependencies: {} }));
+    }
+    return info;
+  }
+
+  it('reports unsigned when no trust root is configured', () => {
+    const r = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', makeInfo('@agent\n  id: a\n'));
+    expect(r.signed).toBe(false);
+    expect(r.valid).toBe(false);
+    expect(r.trusted).toBe(false);
+  });
+
+  it('requires a signature when a trust root is configured', () => {
+    const roots = { '@demo': generateKeypair().publicKey };
+    const r = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', makeInfo('@agent\n  id: a\n'), roots);
+    expect(r.signed).toBe(false);
+    expect(r.reason).toMatch(/trust root requires a signature/i);
+  });
+
+  it('validates a trusted signature and rejects a wrong-key signature', () => {
+    const { privateKey, publicKey } = generateKeypair();
+    const other = generateKeypair();
+    const content = '@agent\n  id: a\n';
+    const roots = { '@demo': publicKey };
+
+    const ok = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', makeInfo(content, privateKey), roots);
+    expect(ok.signed).toBe(true);
+    expect(ok.valid).toBe(true);
+    expect(ok.trusted).toBe(true);
+
+    const bad = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', makeInfo(content, other.privateKey), roots);
+    expect(bad.signed).toBe(true);
+    expect(bad.valid).toBe(true);
+    expect(bad.trusted).toBe(false);
+    expect(bad.reason).toMatch(/not in trust root/i);
+
+    // A tampered entryHash invalidates the signature.
+    const tampered = makeInfo(content, privateKey, roots);
+    tampered.integrity = 'sha256:' + '0'.repeat(64);
+    const invalid = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', tampered, roots);
+    expect(invalid.valid).toBe(false);
+  });
+
+  it('matches trust root by fingerprint and honors an explicit --key override', () => {
+    const { privateKey, publicKey } = generateKeypair();
+    const content = '@agent\n  id: a\n';
+    const roots = { '@demo': fingerprint(publicKey) };
+    const viaFp = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', makeInfo(content, privateKey), roots);
+    expect(viaFp.trusted).toBe(true);
+
+    // explicit PEM overrides roots (and need not match the fingerprint root).
+    const other = generateKeypair();
+    const explicit = RegistryStore.verifyVersionSignature('@demo/x', '1.0.0', makeInfo(content, other.privateKey), undefined, other.publicKey);
+    expect(explicit.trusted).toBe(true);
+    expect(explicit.valid).toBe(true);
   });
 });
 

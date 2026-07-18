@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.4.0` (The Federation Era).
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.5.0` (The Federation Era).
 
 ## Execution Engine (`alp run`)
 
@@ -284,7 +284,7 @@ local `alp serve --registry`); the client refuses plain HTTP for any other host.
 | `search <q>` | Substring search over name + description |
 | `install <name>[@range]` | Download, verify integrity (and signature with `--key`), and pin to the lockfile |
 | `serve` | Hint to start `alp serve --registry` |
-| `verify <name>[@version]` | Audit a stored version's signature against the trust root, without installing (4.4.0) |
+| `verify <name>[@version]` | Audit a version's signature against the trust root, without installing. Works on the local store, or `--url <host>` to verify a remote package (4.5.0) |
 | `keys <generate\|fingerprint\|trust>` | Manage package-signing Ed25519 keypairs & trust roots (4.2.0/4.3.0) |
 
 ## Style Enforcement (`alp lint`)

@@ -24,9 +24,9 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
-from .signing import sign, verify, signing_payload, resolve_public_key, fingerprint, Signature
+from .signing import sign, verify, signing_payload, resolve_public_key, fingerprint
 
-__all__ = ["RegistryClient", "load_alprc", "semver_cmp", "satisfies"]
+__all__ = ["RegistryClient", "load_alprc", "semver_cmp", "satisfies", "verify_version_signature"]
 
 
 _LOCALHOST = re.compile(r"^(localhost|127\.0\.0\.1|\[::1\]|::1)$", re.IGNORECASE)
@@ -143,6 +143,70 @@ def satisfies(v: str, rng: str) -> bool:
     return semver_cmp(v, rng) == 0
 
 
+def verify_version_signature(
+    pkg_name: str,
+    version: str,
+    info: Dict[str, Any],
+    trust_roots: Optional[Dict[str, str]] = None,
+    explicit_trust_pem: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Shared, source-agnostic signature verification (v4.5).
+
+    Mirrors the TypeScript ``RegistryStore.verifyVersionSignature``: checks a
+    version's ``signature`` against a trust root without installing. ``info`` is
+    the version's metadata (``PackageVersionInfo``); ``trust_roots`` maps a
+    namespace (``@ns`` / ``ns`` / ``*``) to a fingerprint (``alp1...``) or
+    inline PEM; ``explicit_trust_pem`` overrides the namespace trust root (an
+    explicit ``--key``). The entry hash is taken from ``info["integrity"]`` so
+    remote and local verification use the same canonical payload.
+
+    Returns ``{name, version, signed, trusted, valid, reason}``.
+    """
+    ns = pkg_name.replace("@", "", 1).split("/")[0]
+
+    def trust_entry() -> Optional[str]:
+        if explicit_trust_pem:
+            return explicit_trust_pem
+        trusted = trust_roots or {}
+        return trusted.get("@" + ns) or trusted.get(ns) or trusted.get("*")
+
+    def is_trusted(signature: Dict[str, str]) -> bool:
+        entry = trust_entry()
+        if not entry:
+            return False
+        if entry.startswith("alp1"):
+            return fingerprint(signature.get("key", "")) == entry
+        return entry.strip() == signature.get("key", "").strip()
+
+    signature = info.get("signature")
+    if not signature:
+        required = not explicit_trust_pem and bool(trust_entry())
+        return {
+            "name": pkg_name,
+            "version": version,
+            "signed": False,
+            "trusted": False,
+            "valid": False,
+            "reason": "trust root requires a signature" if required else "package is unsigned (no trust root configured)",
+        }
+
+    entry = info.get("entry") or (info.get("files") or [None])[0] or ""
+    entry_hash = info["integrity"][len("sha256:") :] if info.get("integrity") else ""
+    payload = signing_payload(
+        name=pkg_name, version=version, entry=entry, entry_hash=entry_hash, dependencies=info.get("dependencies", {})
+    )
+    valid = verify(resolve_public_key(signature["key"]), payload, signature)
+    trusted = is_trusted(signature)
+    reason = (
+        "signature valid and trusted"
+        if valid and trusted
+        else "signature valid but signer not in trust root"
+        if valid
+        else "signature invalid"
+    )
+    return {"name": pkg_name, "version": version, "signed": True, "trusted": trusted, "valid": valid, "reason": reason}
+
+
 class RegistryClient:
     def __init__(self, base_url: str = "", config: Optional[Dict[str, Any]] = None, token: Optional[str] = None):
         self.base_url = base_url or os.environ.get("ALP_REGISTRY_URL") or "http://127.0.0.1:4000"
@@ -223,6 +287,27 @@ class RegistryClient:
             raise RuntimeError(f"No version satisfying {rng} for {meta.get('name')} (have {', '.join(versions)})")
         return matched[-1]
 
+    def verify_remote(self, pkg_name: str, version_range: str = "latest", trust_key: Optional[str] = None) -> Dict[str, Any]:
+        """Verify a remote package version's signature without downloading it (v4.5).
+
+        Fetches ``meta.json``, resolves the version, and runs the shared
+        ``verify_version_signature`` against the remote ``PackageVersionInfo``
+        (``integrity`` supplies the canonical entry hash). ``trust_key`` (a PEM
+        public key) overrides the ``.alprc`` namespace trust root. Returns the
+        same ``{name, version, signed, trusted, valid, reason}`` dict as the TS
+        CLI's ``alp registry verify --url`` so remote and local checks agree.
+        """
+        meta = self.get_meta(pkg_name)
+        version = self.resolve_version(meta, version_range)
+        info = meta["versions"][version]
+        return verify_version_signature(
+            pkg_name,
+            version,
+            info,
+            self.config.get("trustedKeys"),
+            resolve_public_key(trust_key) if trust_key else None,
+        )
+
     def install(self, pkg_name: str, target_alp_dir: str, version_range: str = "latest", trust_key: Optional[str] = None) -> str:
         import shutil
 
@@ -241,28 +326,19 @@ class RegistryClient:
         if status != 200:
             raise RuntimeError(f"Failed to download {entry} ({status})")
 
-        # v4.2/v4.3: signature verification against a configured trust root.
-        # An explicit trust_key PEM wins; otherwise fall back to the .alprc
-        # trustedKeys entry (matched by namespace, then global `*`).
-        signature = info.get("signature")
-        if trust_key and signature:
-            entry_sha = info["integrity"][len("sha256:") :] if info.get("integrity") else ""
-            payload = signing_payload(
-                name=pkg_name, version=version, entry=entry, entry_hash=entry_sha, dependencies=info.get("dependencies", {})
-            )
-            if not verify(resolve_public_key(trust_key), payload, signature):
+        # v4.2/v4.3: signature verification against a configured trust root,
+        # via the shared verify_version_signature helper (v4.5). An explicit
+        # trust_key PEM overrides the namespace trust root. The entryHash is
+        # taken from the declared integrity, so install and verify agree.
+        explicit_trust_pem = resolve_public_key(trust_key) if trust_key else None
+        result = verify_version_signature(pkg_name, version, info, self.config.get("trustedKeys"), explicit_trust_pem)
+        if explicit_trust_pem or self.resolve_trust_entry(pkg_name):
+            if not result["signed"]:
+                raise RuntimeError(f"Package {pkg_name}@{version} is not signed; trust root requires signatures")
+            if not result["trusted"]:
+                raise RuntimeError(f"Signature for {pkg_name}@{version} is not from a trusted key")
+            if not result["valid"]:
                 raise RuntimeError(f"Signature verification failed for {pkg_name}@{version}")
-        elif not trust_key and signature and self.is_trusted(pkg_name, signature):
-            entry_sha = info["integrity"][len("sha256:") :] if info.get("integrity") else ""
-            payload = signing_payload(
-                name=pkg_name, version=version, entry=entry, entry_hash=entry_sha, dependencies=info.get("dependencies", {})
-            )
-            if not verify(resolve_public_key(signature["key"]), payload, signature):
-                raise RuntimeError(f"Signature verification failed for {pkg_name}@{version}")
-        elif not trust_key and signature and self.resolve_trust_entry(pkg_name):
-            raise RuntimeError(f"Signature for {pkg_name}@{version} is not from a trusted key")
-        elif not trust_key and not signature and self.resolve_trust_entry(pkg_name):
-            raise RuntimeError(f"Package {pkg_name}@{version} is not signed; trust root requires signatures")
 
         if info.get("integrity"):
             actual = "sha256:" + hashlib.sha256(body).hexdigest()

@@ -4,7 +4,8 @@ import * as path from 'path';
 import * as crypto from 'node:crypto';
 import * as http from 'node:http';
 import * as https from 'node:https';
-import { sign, verify, signingPayload, resolvePublicKey, fingerprint, Signature } from './signing';
+import { sign, signingPayload, resolvePublicKey, fingerprint, Signature } from './signing';
+import { RegistryStore } from './registry-store';
 
 /**
  * ALP Registry Client (v4 — The Federation Era, Pillar 3)
@@ -157,24 +158,17 @@ export class RegistryClient {
     const r = await request(fileUrl, this.authHeader(pkgBase));
     if (r.status !== 200) throw new Error(`Failed to download ${entryName} (${r.status})`);
 
-    // v4.2/v4.3: signature verification against a configured trust root. An
-    // explicit --key PEM wins; otherwise fall back to the .alprc trustedKeys
-    // entry (matched by namespace, then global `*`).
-    const explicitTrust = trustedKey ? resolvePublicKey(trustedKey) : undefined;
-    const signature = info.signature as Signature | undefined;
-    if (explicitTrust && signature) {
-      const entrySha = info.integrity ? info.integrity.slice('sha256:'.length) : '';
-      const payload = signingPayload({ name: pkgName, version, entry: entryName, entryHash: entrySha, dependencies: info.dependencies });
-      if (!verify(explicitTrust, payload, signature)) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
-    } else if (!trustedKey && signature && this.isTrusted(pkgName, signature)) {
-      const entrySha = info.integrity ? info.integrity.slice('sha256:'.length) : '';
-      const payload = signingPayload({ name: pkgName, version, entry: entryName, entryHash: entrySha, dependencies: info.dependencies });
-      if (!verify(resolvePublicKey(signature.key), payload, signature)) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
-    } else if (!trustedKey && signature && this.resolveTrustEntry(pkgName)) {
-      // A trust root is configured but this signature's signer is not covered.
-      throw new Error(`Signature for ${pkgName}@${version} is not from a trusted key`);
-    } else if (!trustedKey && !signature && this.resolveTrustEntry(pkgName)) {
-      throw new Error(`Package ${pkgName}@${version} is not signed; trust root requires signatures`);
+    // v4.2/v4.3: signature verification against a configured trust root, shared
+    // with the local store via `RegistryStore.verifyVersionSignature`. An
+    // explicit --key PEM overrides the namespace trust root. The entryHash is
+    // taken from the declared integrity (the server hasher), so remote and
+    // local verification use the exact same canonical payload.
+    const explicitTrustPem = trustedKey ? resolvePublicKey(trustedKey) : undefined;
+    const vresult = RegistryStore.verifyVersionSignature(pkgName, version, info, this.config.trustedKeys, explicitTrustPem);
+    if (explicitTrustPem || this.resolveTrustEntry(pkgName)) {
+      if (!vresult.signed) throw new Error(`Package ${pkgName}@${version} is not signed; trust root requires signatures`);
+      if (!vresult.trusted) throw new Error(`Signature for ${pkgName}@${version} is not from a trusted key`);
+      if (!vresult.valid) throw new Error(`Signature verification failed for ${pkgName}@${version}`);
     }
 
     if (info.integrity) {
@@ -185,6 +179,22 @@ export class RegistryClient {
     fs.writeFileSync(path.join(destBase, 'alp-package.json'), JSON.stringify({ ...meta, version, _installed: new Date().toISOString() }, null, 2));
     this.writeLock(targetAlpDir, pkgName, version, info.integrity || null);
     return path.join(destBase, entryName);
+  }
+
+  /**
+   * Verify a remote package version's signature without downloading the entry
+   * (v4.4). Fetches `meta.json`, resolves the version, and runs the shared
+   * `RegistryStore.verifyVersionSignature` against the remote `PackageVersionInfo`
+   * (`info.integrity` supplies the canonical entryHash). When `explicitTrustPem`
+   * is given it overrides the `.alprc` namespace trust root. The result mirrors
+   * `alp registry verify` for the local store so remote and local checks agree.
+   */
+  async verifyRemote(pkgName: string, versionRange = 'latest', explicitTrustPem?: string): Promise<{ name: string; version: string; signed: boolean; trusted: boolean; valid: boolean; reason?: string }> {
+    const meta = await this.getMeta(pkgName);
+    const version = this.resolveVersion(meta, versionRange);
+    const info = meta.versions[version];
+    if (!info) throw new Error(`Version ${version} missing from metadata for ${pkgName}`);
+    return RegistryStore.verifyVersionSignature(pkgName, version, info, this.config.trustedKeys, explicitTrustPem);
   }
 
   /** Append/refresh a pinned entry in `<alpDir>/registry.lock.json`. */

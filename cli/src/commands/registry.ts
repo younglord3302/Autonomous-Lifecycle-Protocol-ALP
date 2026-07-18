@@ -101,12 +101,26 @@ export async function registryCommand(sub: string | undefined, target: string | 
       const at = target.lastIndexOf('@');
       const name = at > 0 ? target.slice(0, at) : target;
       const ver = at > 0 ? target.slice(at + 1) : 'latest';
-      const store = new RegistryStore(cwd, loadAlprc(cwd).trustedKeys);
-      const res = store.verifyPackage(name, ver);
-      if (res.reason && !res.signed) { console.log(`ℹ️  ${name}@${ver}: ${res.reason}`); return; }
-      const tag = res.valid && res.trusted ? '✅' : '❌';
-      console.log(`${tag} ${name}@${ver}: signed=${res.signed} valid=${res.valid} trusted=${res.trusted} — ${res.reason}`);
-      if (!(res.valid && res.trusted)) process.exit(1);
+      try {
+        if (options?.url) {
+          // Remote verify: no entry download, signature checked from meta.json.
+          const trustedKey = options?.key ? fs.readFileSync(path.resolve(options.key), 'utf-8') : process.env.ALP_REGISTRY_TRUST_KEY;
+          const res = await client.verifyRemote(name, ver, trustedKey);
+          const tag = res.valid && res.trusted ? '✅' : '❌';
+          console.log(`${tag} ${name}@${res.version}: signed=${res.signed} valid=${res.valid} trusted=${res.trusted} — ${res.reason}`);
+          if (!(res.valid && res.trusted)) process.exit(1);
+        } else {
+          const store = new RegistryStore(cwd, loadAlprc(cwd).trustedKeys);
+          const res = store.verifyPackage(name, ver);
+          if (res.reason && !res.signed) { console.log(`ℹ️  ${name}@${ver}: ${res.reason}`); return; }
+          const tag = res.valid && res.trusted ? '✅' : '❌';
+          console.log(`${tag} ${name}@${ver}: signed=${res.signed} valid=${res.valid} trusted=${res.trusted} — ${res.reason}`);
+          if (!(res.valid && res.trusted)) process.exit(1);
+        }
+      } catch (e: any) {
+        console.error(`❌ ${e.message}`);
+        process.exit(1);
+      }
       return;
     }
     default:

@@ -4,7 +4,7 @@ from .models import AlpObject
 from .reader import load_workspace
 from .validator import validate_object
 from .analytics import compute_analytics
-from .registry import RegistryClient, load_alprc, semver_cmp, satisfies
+from .registry import RegistryClient, load_alprc, semver_cmp, satisfies, verify_version_signature
 from .signing import (
     Signature,
     fingerprint,
@@ -24,6 +24,7 @@ __all__ = [
     "load_alprc",
     "semver_cmp",
     "satisfies",
+    "verify_version_signature",
     "Signature",
     "fingerprint",
     "generate_keypair",

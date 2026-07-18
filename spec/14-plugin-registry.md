@@ -176,7 +176,7 @@ Rules:
 - When a trust root is configured for a namespace, an install of a **signed** package MUST verify its signature against that root; a signature from an untrusted key MUST be rejected.
 - When a trust root is configured for a namespace, an **unsigned** package for that namespace MUST be rejected.
 - Packages in namespaces with **no** trust root install as before (signing remains optional and backward compatible).
-- The CLI manages trust roots via `alp keys trust add <ns|*> <fingerprint|file>` and `alp keys trust list`; the Python SDK resolves them through `RegistryClient.resolve_trust_entry` / `is_trusted`.
+- The CLI manages trust roots via `alp keys trust add <ns|*> <fingerprint|file>` and `alp keys trust list`; the Python SDK resolves them through `RegistryClient.resolve_trust_entry` / `is_trusted`, and audits signatures via the shared `verify_version_signature` helper / `RegistryClient.verify_remote`.
 - **Server-side enforcement (v4.4).** A hosted registry (`alp serve --registry`) whose `.alprc` declares a trust root for a namespace MUST reject `PUT` uploads that are unsigned or signed by an untrusted key for that namespace. This closes the loop so a compromised token cannot publish untrusted packages into a protected namespace. `alp registry verify <name>[@version]` audits a stored version's signature against the local trust roots without installing.
 
 ---
