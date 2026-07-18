@@ -1,6 +1,6 @@
 {
   "name": "@alp/mcp-server",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "ALP Model Context Protocol Server — Connect any AI agent to your ALP workspace",
   "main": "dist/index.js",
   "bin": {

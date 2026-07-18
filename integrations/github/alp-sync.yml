@@ -18,6 +18,9 @@ jobs:
           node-version: "20"
 
       - name: Install ALP CLI
+        # Prefer the published package; until @alp/cli is on npm, build it from
+        # a checked-out monorepo instead:
+        #   npm ci && npm run build --workspace @alp/cli
         run: npm install -g @alp/cli
 
       - name: Sync Task Status
@@ -52,8 +55,6 @@ jobs:
             } else {
               newStatus = '[~]'; // In Progress / Review
             }
-
-            console.log(`Setting task ${taskId} status to ${newStatus}`);
 
             console.log(`Setting task ${taskId} status to ${newStatus}`);
 

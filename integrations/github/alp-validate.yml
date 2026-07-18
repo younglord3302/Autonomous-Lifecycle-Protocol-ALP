@@ -1,0 +1,36 @@
+name: "ALP Validate"
+
+# Validate the ALP workspace on every PR. Fails the check when any .alp file
+# is schema-invalid or the dependency graph has cycles, so a broken protocol
+# state can never be merged. Mirrors the `validate` job in the repo's own
+# .github/workflows/ci.yml: the CLI is built from source (the @alp/cli package
+# is not yet published to npm), then `alp validate` runs against the workspace.
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  alp_validate:
+    name: Validate ALP workspace
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build --workspace @alp/cli
+
+      - name: Validate workspace
+        run: node cli/dist/index.js validate

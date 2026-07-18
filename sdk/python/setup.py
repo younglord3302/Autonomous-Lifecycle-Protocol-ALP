@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="alp-sdk",
-    version="5.0.0",
+    version="6.0.0",
     packages=find_packages(),
     description="Official Python SDK for the Autonomous Lifecycle Protocol",
     author="ALP Contributors",

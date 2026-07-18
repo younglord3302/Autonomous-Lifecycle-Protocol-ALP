@@ -23,11 +23,11 @@ If a task specifies `owner: -> agent-reviewer`, and you are `agent-developer`, y
 - When reporting progress, use `npx alp checkpoint <taskId> <status>` (e.g. `npx alp checkpoint task-login-ui in-progress`). To hand off for review, use `npx alp checkpoint <taskId> --ask-human "<message>"`, which marks the task `[?]`.
 - Never claim a task whose blocking dependencies (`depends_on`, `blocked_by`, `requires`) are not `[x]`. Reference links such as `feature:` or `owner:` do NOT block a task.
 
-## Federation (V4 — The Federation Era)
-ALP 4.0.0 adds cross-machine and cross-repository coordination. Use these when
-the workspace spans more than one machine or repo:
+## Federation & Supply Chain (V4 → V5)
+ALP 4.0.0 adds cross-machine and cross-repository coordination; V5.0.0 hardens the SDK and adds registry signature verification. Use these when the workspace spans more than one machine, repo, or package:
 - **Networked swarms:** Join a coordinator with `npx alp swarm join <id>` and execute tasks across machines via `npx alp run --swarm <id>`. List live nodes with `npx alp swarm roster <id>`. The coordinator assigns task claims so no two nodes double-claim.
 - **Cross-repo orchestration:** If the workspace references external repos via `@repo` objects, run `npx alp repo resolve --fetch` to merge their graphs and resolve `-> repo::object` references (read-only). Use `npx alp repo ls` / `npx alp repo graph` to inspect the federation.
 - **Policy governance:** Respect `@policy` guardrails. Before running a shell command or editing a path, check it with `npx alp policy --command "…"` or `npx alp policy --path "…"`. A strict policy that denies an action means you MUST NOT perform it.
 - **Registry & packages:** Install shared knowledge with `npx alp registry install @community/<pack>@<range>`. Publish your own with `npx alp registry publish ./my-pack`, or host a registry via `npx alp serve --registry`.
+- **Registry trust & verification:** Pin maintainer keys in `.alprc` `trustedKeys` (or via `npx alp keys trust add <ns|*> <fingerprint|file>`); installs are then verified automatically. Audit any package — local or remote — with `npx alp registry verify <name>[@version]` and `npx alp registry verify <name>[@version] --url <host>` without installing.
 - **Live observability:** `npx alp serve` starts a dashboard (HTTP + SSE) showing task status, claims, and analytics in real time.

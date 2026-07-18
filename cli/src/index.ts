@@ -27,7 +27,7 @@ const program = new Command();
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('5.0.0');
+  .version('6.0.0');
 
 program
   .command('init')
