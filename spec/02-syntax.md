@@ -353,6 +353,18 @@ Directives are special instructions that control agent behavior. They appear at 
 | `!read-only` | File | File should not be modified by agents |
 | `!deprecated` | Block | Object is deprecated, include migration note |
 
+**Implementation status (v6.1.0):** The following directives are actively evaluated by the reference parser:
+
+- `!alp-version` — recorded; does not reject mismatched versions yet.
+- `!if <expr>` — if the boolean expression is false, the **next top-level block** is skipped during parse.
+- `!assert <expr>` — if the boolean expression is false, parsing fails with a `DirectiveError`.
+- `!deprecated: "<msg>"` — records a non-fatal deprecation warning retrievable via `parser.warnings`.
+- `!import <target>` — recognised and warned; full resolution is deferred to the V6.6 federation release.
+
+Expressions (`<expr>`) support literals (`"string"`, `42`, `true`/`false`), identifiers resolved against the current object's scalar properties plus `alp_version`, comparisons (`==`, `!=`, `>`, `<`, `>=`, `<=`), logical `&&`/`||`/`!`, and parentheses. In v6.1.0 these are evaluated at **file scope** (top level); block-level evaluation is reserved for a later release.
+
+The remaining directives (`!context-scope`, `!agent-mode`, `!max-iterations`, `!fail-strategy`, `!retry-delay`, `!timeout`, `!priority-override`, `!read-only`) are reserved and currently ignored by the reference parser (forward-compatible).
+
 ### 2.10 Nested Blocks
 
 Some protocol objects can contain nested sub-blocks. Nested blocks are indented relative to their parent.

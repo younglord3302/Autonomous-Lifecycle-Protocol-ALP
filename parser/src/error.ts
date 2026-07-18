@@ -34,3 +34,10 @@ export class ValidationError extends AlpError {
     this.details = details;
   }
 }
+
+export class DirectiveError extends AlpError {
+  constructor(message: string, line?: number, column?: number) {
+    super(message, line, column);
+    this.name = 'DirectiveError';
+  }
+}

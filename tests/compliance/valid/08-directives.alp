@@ -1,0 +1,13 @@
+!alp-version: 2.0.0
+
+@project
+  id: directive-demo
+  status: production
+
+!assert: status == "production"
+
+!if: status == "production"
+
+@task
+  id: prod-task
+  description: "Only present in production"

@@ -1,0 +1,7 @@
+!alp-version: 2.0.0
+
+@project
+  id: assert-fail
+  status: development
+
+!assert: status == "production"
