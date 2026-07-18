@@ -1,7 +1,7 @@
 """ALP Python SDK"""
 
 from .models import AlpObject
-from .reader import load_workspace
+from .reader import load_workspace, AlpReader, AlpParser
 from .validator import validate_object
 from .analytics import compute_analytics
 from .registry import RegistryClient, load_alprc, semver_cmp, satisfies, verify_version_signature
@@ -14,10 +14,13 @@ from .signing import (
     verify,
     resolve_public_key,
 )
+from .error import AlpError, SyntaxError, IndentationError, ValidationError
 
 __all__ = [
     "AlpObject",
     "load_workspace",
+    "AlpReader",
+    "AlpParser",
     "validate_object",
     "compute_analytics",
     "RegistryClient",
@@ -32,4 +35,8 @@ __all__ = [
     "sign",
     "verify",
     "resolve_public_key",
+    "AlpError",
+    "SyntaxError",
+    "IndentationError",
+    "ValidationError",
 ]

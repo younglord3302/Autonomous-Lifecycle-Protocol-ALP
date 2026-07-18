@@ -1,6 +1,6 @@
 {
   "name": "@alp/cli",
-  "version": "4.5.0",
+  "version": "5.0.0",
   "description": "Command Line Interface for ALP",
   "main": "dist/index.js",
   "bin": {

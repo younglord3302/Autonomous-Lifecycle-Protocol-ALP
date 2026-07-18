@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `4.5.0` (The Federation Era).
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `5.0.0` (The Federation Era).
 
 ## Execution Engine (`alp run`)
 
