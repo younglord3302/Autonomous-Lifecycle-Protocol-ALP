@@ -269,27 +269,26 @@ ALP parses your project into a **Directed Acyclic Graph**. Agents receive exactl
 need, exactly when they need it — and work is only considered complete when quality gates pass.
 
 ```alp
-@project todo-app {
+@project todo-app
+  id: todo-app
   description: "A minimal todo application"
   language: typescript
-}
 
-@decision use-postgres {
+@decision use-postgres
   description: "Persist with PostgreSQL"
-}
 
-@task setup-db {
+@task setup-db
   description: "Provision the database"
   depends_on: use-postgres
-  verify: ["npm run db:migrate"]
-}
+  verify:
+    - "npm run db:migrate"
 
-@task build-api {
+@task build-api
   description: "Build the REST API"
   depends_on: setup-db
-  rule: "no ORMs"
-  verify: ["npm test"]
-}
+  rule: no-orms
+  verify:
+    - "npm test"
 ```
 
 1. **Describe** — Declare `@project`, `@task`, `@decision`, and `@rule` blocks in your `.alp/` files.
