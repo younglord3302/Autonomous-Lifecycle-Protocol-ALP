@@ -19,14 +19,22 @@ import os
 import re
 import json
 import hashlib
+import functools
 import urllib.parse
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
-from .signing import sign, verify, signing_payload, resolve_public_key, fingerprint
-
-__all__ = ["RegistryClient", "load_alprc", "semver_cmp", "satisfies", "verify_version_signature"]
+__all__ = [
+    "RegistryClient",
+    "load_alprc",
+    "semver_cmp",
+    "satisfies",
+    "verify_version_signature",
+    "VersionConflictError",
+    "parse_registry_alias",
+    "resolve_dependency_graph",
+]
 
 
 _LOCALHOST = re.compile(r"^(localhost|127\.0\.0\.1|\[::1\]|::1)$", re.IGNORECASE)
@@ -279,7 +287,7 @@ class RegistryClient:
     def resolve_version(self, meta: Dict[str, Any], rng: str = "latest") -> str:
         versions = list(meta.get("versions", {}).keys())
         if rng in ("latest", "", None):
-            return meta.get("tags", {}).get("latest") or sorted(versions, key=semver_cmp)[-1]
+            return meta.get("tags", {}).get("latest") or sorted(versions, key=functools.cmp_to_key(semver_cmp))[-1]
         if rng in meta.get("versions", {}):
             return rng
         matched = sorted((v for v in versions if satisfies(v, rng)), key=semver_cmp)
@@ -439,6 +447,184 @@ class RegistryClient:
                 msg = f"publish failed ({status})"
             raise RuntimeError(msg)
         return json.loads(body.decode("utf-8"))
+
+
+    def resolve_dependencies(self, direct_imports: List[str], max_depth: int = 8) -> Dict[str, str]:
+        """Resolve the full dependency graph for ``direct_imports`` (spec/14 §6).
+
+        Mirrors ``resolve_dependency_graph`` but bound to this client's live
+        ``get_meta`` so transitive dependencies are fetched from the registry.
+        Returns ``{package: version}`` with exactly one version per package.
+        Raises ``VersionConflictError`` on an empty range intersection.
+        """
+        return resolve_dependency_graph(direct_imports, self.get_meta, max_depth)
+
+
+class VersionConflictError(RuntimeError):
+    """Raised by Strict Singleton dependency resolution (spec/14 §6)."""
+
+
+_ALIAS_RE = re.compile(r"^@([^/]+)/([^@]+)@(.+)$")
+
+
+def parse_registry_alias(alias: str) -> Tuple[str, str, str]:
+    """Parse a registry alias ``@<namespace>/<name>@<range>`` (spec/14 §2).
+
+    Returns ``(package, namespace, version_range)`` where ``package`` is the
+    canonical ``@ns/name`` form used by the rest of the client.
+    """
+    m = _ALIAS_RE.match(alias.strip())
+    if not m:
+        raise ValueError(f"Invalid registry alias: '{alias}' (expected @ns/name@range)")
+    ns, name, rng = m.group(1), m.group(2), m.group(3)
+    return f"@{ns}/{name}", ns, rng
+
+
+def _bounds(rng: str) -> Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]:
+    """Return the ``[min, max)`` semver bounds for a single range expression.
+
+    Handles exact versions, ``^`` and ``~`` ranges, and the ``*``/``x``
+    wildcards. Returns ``None`` for unsupported operators (treated as
+    unconstrained by the caller).
+    """
+    rng = rng.strip()
+    if rng in ("*", "x", "latest"):
+        return ((0, 0, 0), (9999, 9999, 9999))
+    if rng.startswith("^"):
+        parts = rng[1:].split(".")
+        maj, mn, pt = _pad(parts)
+        if maj > 0:
+            return ((maj, mn, pt), (maj + 1, 0, 0))
+        if mn > 0:
+            return ((maj, mn, pt), (0, mn + 1, 0))
+        return ((maj, mn, pt), (0, 0, pt + 1))
+    if rng.startswith("~"):
+        parts = rng[1:].split(".")
+        maj, mn, pt = _pad(parts)
+        return ((maj, mn, pt), (maj, mn + 1, 0))
+    if rng.startswith(">="):
+        maj, mn, pt = _pad(rng[2:].split("."))
+        return ((maj, mn, pt), (9999, 9999, 9999))
+    if rng.startswith(">"):
+        maj, mn, pt = _pad(rng[1:].split("."))
+        return ((maj, mn, pt + 1), (9999, 9999, 9999))
+    # Exact version.
+    maj, mn, pt = _pad(rng.split("."))
+    return ((maj, mn, pt), (maj, mn, pt + 1))
+
+
+def _pad(parts) -> Tuple[int, int, int]:
+    nums = [int(p) if p.replace("-", "").isdigit() else 0 for p in list(parts)[:3]]
+    while len(nums) < 3:
+        nums.append(0)
+    return (nums[0], nums[1], nums[2])
+
+
+def _intersect_ranges(existing: Optional[str], incoming: str) -> Optional[str]:
+    """Intersect two semver ranges (spec/14 §6 step 3).
+
+    Computes the actual ``[min, max)`` bounds of each range and intersects
+    them. Returns the canonical ``^`` range for the merged window, or ``None``
+    when the ranges are mutually exclusive (a Version Conflict).
+    """
+    if existing is None:
+        return incoming
+    if existing == incoming:
+        return existing
+    try:
+        lo_e, hi_e = _bounds(existing)
+        lo_i, hi_i = _bounds(incoming)
+    except Exception:
+        # Mixed/unsupported operators: conservatively keep the tighter floor.
+        return existing if semver_cmp(_strip_op(existing), _strip_op(incoming)) >= 0 else incoming
+    lo = max(lo_e, lo_i)
+    hi = min(hi_e, hi_i)
+    if semver_cmp(_ver(lo), _ver(hi)) >= 0:
+        return None  # disjoint → conflict
+    return f">={_ver(lo)} <{_ver(hi)}"
+
+
+def _strip_op(rng: str) -> str:
+    return rng.lstrip("^~>=<").strip()
+
+
+def _ver(t: Tuple[int, int, int]) -> str:
+    return f"{t[0]}.{t[1]}.{t[2]}"
+
+
+def resolve_dependency_graph(
+    direct_imports: List[str],
+    fetch_meta,
+    max_depth: int = 8,
+) -> Dict[str, str]:
+    """Strict Singleton dependency resolution (spec/14 §6).
+
+    Given a list of registry aliases/package names (the project's direct
+    plugin imports), walk their transitive ``dependencies`` and intersect each
+    package's version requirement. Exactly one version of each package survives;
+    an empty intersection raises ``VersionConflictError``.
+
+    ``fetch_meta(pkg_name) -> dict`` returns registry metadata whose
+    ``versions`` keys are semver strings and whose version entries carry a
+    ``dependencies`` map of ``pkg_name -> range``. Typically bound to
+    ``RegistryClient.get_meta``.
+    """
+    resolved: Dict[str, str] = {}
+    constraints: Dict[str, Optional[str]] = {}
+
+    queue = list(direct_imports)
+    depth = 0
+    while queue and depth < max_depth:
+        depth += 1
+        pkg = queue.pop(0)
+        meta = fetch_meta(pkg)
+        versions = list(meta.get("versions", {}).keys())
+        if not versions:
+            raise VersionConflictError(f"Package {pkg} has no published versions")
+        rng = constraints.get(pkg)
+        if rng:
+            satisfying = [v for v in versions if satisfies(v, rng)]
+            if not satisfying:
+                raise VersionConflictError(
+                    f"Version conflict for '{pkg}': no version satisfies '{rng}'"
+                )
+            chosen = sorted(satisfying, key=functools.cmp_to_key(semver_cmp))[-1]
+        else:
+            chosen = sorted(versions, key=functools.cmp_to_key(semver_cmp))[-1]
+        if pkg not in resolved:
+            resolved[pkg] = chosen
+
+        for ver, info in meta.get("versions", {}).items():
+            for dep_name, dep_range in (info.get("dependencies") or {}).items():
+                if dep_name not in constraints:
+                    constraints[dep_name] = dep_range
+                else:
+                    merged = _intersect_ranges(constraints[dep_name], dep_range)
+                    if merged is None:
+                        raise VersionConflictError(
+                            f"Version conflict for '{dep_name}': "
+                            f"'{constraints[dep_name]}' vs '{dep_range}' have no intersection"
+                        )
+                    constraints[dep_name] = merged
+                if dep_name not in resolved and dep_name not in queue:
+                    queue.append(dep_name)
+
+    # Pin each constrained package to the highest version satisfying the
+    # intersected range (only one version may exist in the final graph).
+    for dep_name, rng in constraints.items():
+        if dep_name in resolved:
+            continue
+        meta = fetch_meta(dep_name)
+        satisfying = sorted(
+            (v for v in meta.get("versions", {}) if satisfies(v, rng or "*")),
+            key=functools.cmp_to_key(semver_cmp),
+        )
+        if not satisfying:
+            raise VersionConflictError(
+                f"Version conflict for '{dep_name}': no version satisfies '{rng}'"
+            )
+        resolved[dep_name] = satisfying[-1]
+    return resolved
 
 
 def _iso_now() -> str:

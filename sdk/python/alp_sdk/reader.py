@@ -13,10 +13,20 @@ Indentation contract (spec/16.4):
 
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .models import AlpObject
-from .error import SyntaxError, IndentationError
+from .error import SyntaxError, IndentationError, DirectiveError
+from .alpel import evaluate_bool, build_context
+
+
+def _unquote(s: str) -> str:
+    """Strip one pair of surrounding quotes from a directive expression."""
+    if len(s) >= 2 and (
+        (s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")
+    ):
+        return s[1:-1]
+    return s
 
 
 class AlpReader:
@@ -27,6 +37,8 @@ class AlpReader:
         current_obj: Dict[str, Any] = None
         current_nested: str = None
         current_list: str = None
+        skip_next_obj = [False]
+        current_obj_skipped = [False]
 
         for line_num, line in enumerate(lines, start=1):
             # Tab characters are not allowed (spec 16.4).
@@ -49,19 +61,35 @@ class AlpReader:
             # ── Level 0: directives and top-level block markers ──
             if indent == 0:
                 if trimmed.startswith("!"):
+                    self._handle_directive(
+                        trimmed, line_num, current_obj, skip_next_obj,
+                    )
                     continue
                 type_match = re.match(r"^@([a-z_]+)$", trimmed)
                 if type_match:
-                    if current_obj:
+                    # Commit the previous top-level object (if any and not
+                    # skipped) before starting the next one — mirrors TS reader.
+                    if current_obj and not current_obj_skipped[0]:
                         objects.append(AlpObject.from_dict(current_obj))
+                    if skip_next_obj[0]:
+                        # A preceding `!if: false` excludes this top-level
+                        # object: read its body into a throwaway that is never
+                        # committed (mirrors TS reader.currentObjectSkipped).
+                        skip_next_obj[0] = False
+                        current_obj = {"_type": type_match.group(1)}
+                        current_obj_skipped[0] = True
+                        current_nested = None
+                        current_list = None
+                        continue
                     current_obj = {"_type": type_match.group(1)}
+                    current_obj_skipped[0] = False
                     current_nested = None
                     current_list = None
                     continue
                 raise SyntaxError(f"Invalid block marker: '{trimmed}'", line_num)
 
             # ── Level 1 (indent=2): properties and nested block markers ──
-            if indent == 2 and current_obj is not None:
+            if indent == 2 and current_obj is not None and not current_obj_skipped[0]:
                 nested_match = re.match(r"^@([a-z_]+)$", trimmed)
                 if nested_match:
                     current_nested = nested_match.group(1)
@@ -96,7 +124,7 @@ class AlpReader:
                 raise SyntaxError(f"Invalid property format: '{trimmed}'", line_num)
 
             # ── Level 2 (indent=4): list items and nested properties ──
-            if indent == 4 and current_obj is not None and (current_nested or current_list):
+            if indent == 4 and current_obj is not None and not current_obj_skipped[0] and (current_nested or current_list):
                 if trimmed.startswith("- "):
                     val = trimmed[2:].strip()
                     # Strip surrounding quotes so list values (e.g. `verify`
@@ -130,13 +158,17 @@ class AlpReader:
                 raise SyntaxError(f"Invalid list item or nested property format: '{trimmed}'", line_num)
 
             # ── Invalid indentation ──
-            if current_obj is not None and indent > 0:
+            if current_obj is not None and not current_obj_skipped[0] and indent > 0:
                 if indent in (1, 3) or (indent > 4 and indent % 2 != 0):
                     raise IndentationError(
                         f"Invalid indentation: {indent} spaces. Properties must be indented by exactly 2 spaces.",
                         line_num,
                     )
                 raise IndentationError(f"Unexpected indentation level: {indent} spaces", line_num)
+
+            if current_obj is not None and current_obj_skipped[0] and indent > 0:
+                # Discard the body of a `!if: false`-excluded object.
+                continue
 
             if current_obj is None and indent > 0:
                 raise IndentationError("Unexpected indentation outside of a block", line_num)
@@ -147,6 +179,37 @@ class AlpReader:
             objects.append(AlpObject.from_dict(current_obj))
 
         return objects
+
+    def _handle_directive(
+        self,
+        trimmed: str,
+        line_num: int,
+        current_obj: Optional[Dict[str, Any]],
+        skip_next_obj: List[bool],
+    ) -> None:
+        """Evaluate ``!assert`` / ``!if`` directives (spec/12 §2.2, spec/16 §4).
+
+        ``!assert`` raises ``DirectiveError`` when the ALPEL condition is false;
+        ``!if`` sets ``skip_next_obj`` so the following top-level block is
+        excluded when the condition is false. Other directives (e.g.
+        ``!alp-version``) are recorded but do not affect parsing.
+        """
+        body = trimmed[1:].strip()
+        m = re.match(r"^(alp-version|assert|if)(?::|\s)\s*(.+)$", body)
+        if not m:
+            return
+        kind = m.group(1)
+        expr = _unquote(m.group(2).strip())
+
+        if kind == "alp-version":
+            return
+
+        ctx = build_context(current_obj, {"alp_version": "2.0.0"}) if current_obj else {}
+        if kind == "assert":
+            if not evaluate_bool(expr, ctx):
+                raise DirectiveError(f"!assert failed: {expr}", line_num)
+        elif kind == "if":
+            skip_next_obj[0] = not evaluate_bool(expr, ctx)
 
 
 class AlpParser:

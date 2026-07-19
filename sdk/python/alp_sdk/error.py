@@ -33,3 +33,8 @@ class ValidationError(AlpError):
     def __init__(self, message: str, details=None, line: int = None, column: int = None):
         super().__init__(message, line, column)
         self.details = details
+
+
+class DirectiveError(AlpError):
+    """Raised when an ``!assert`` directive fails or a directive is malformed
+    (spec/12 §2.2, spec/16 §4)."""
