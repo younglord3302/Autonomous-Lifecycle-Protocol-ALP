@@ -14,6 +14,7 @@ export * from './swarm-client';
 export * from './repo-resolver';
 export * from './status';
 export * from './schedule';
+export * from './contract';
 export { AlpObject, AlpReader };
 
 export class AlpParser {

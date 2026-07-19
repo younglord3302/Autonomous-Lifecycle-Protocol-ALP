@@ -1180,7 +1180,31 @@ automatically disabled after firing; re-enable it manually to re-trigger.
 Evaluated by `TimelineEngine.evaluate(now)` and by `alp schedule`
 (spec/17).
 
-## 28. Repo — `@repo` (v4.0.0+)
+## 29. Contract — `@contract` (v8.3.0+)
+
+Declares a runtime boundary between two entities (agents, tasks, repos).
+Evaluated by `ContractEngine` at handoff points to enforce least-privilege
+access. Introduced in ALP v8.3.0.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Contract identifier |
+| `name` | String | No | Human-readable name |
+| `from` | Ref | Yes | Source entity (agent, repo, or task) |
+| `to` | Ref | Yes | Destination entity |
+| `type` | String | No | Boundary kind: `api` (default), `data`, `tool`, `repo` |
+| `requires` | String[] | No | Pre-conditions that MUST be true |
+| `allows` | String[] | No | Operations/fields explicitly permitted |
+| `denies` | String[] | No | Operations/fields explicitly blocked |
+| `on_violation` | String | No | Action: `deny` (default), `warn`, `log` |
+
+A contract is satisfied when: (1) every `requires` entry evaluates to `true`,
+and (2) the operation is in `allows` (if non-empty) and not in `denies`.
+
+Evaluated by `ContractEngine.check(contractId, context)`; full semantics in
+spec/18.
+
+## 30. Repo — `@repo` (v4.0.0+)
 
 Declares an **external repository** that participates in cross-repository
 orchestration. Introduced in ALP v4 (The Federation Era, Pillar 2) so a single

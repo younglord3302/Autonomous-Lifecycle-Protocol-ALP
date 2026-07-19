@@ -9,6 +9,7 @@ from .graph import AlpGraph, GraphNode, GraphEdge
 from .memory import MemoryStore, MemoryEntry, MemoryQuery
 from .policy import PolicyEngine, PolicyDecision, PolicyQuery
 from .schedule import TimelineEngine, TimelineResult
+from .contract import ContractEngine, ContractResult, ContractViolation, ContractObject
 from .alpel import (
     AlpelError,
     build_context,
@@ -146,4 +147,8 @@ __all__ = [
     "FederatedDecision",
     "TimelineEngine",
     "TimelineResult",
+    "ContractEngine",
+    "ContractResult",
+    "ContractViolation",
+    "ContractObject",
 ]
