@@ -13,6 +13,7 @@ export * from './state-store';
 export * from './swarm-client';
 export * from './repo-resolver';
 export * from './status';
+export * from './schedule';
 export { AlpObject, AlpReader };
 
 export class AlpParser {

@@ -18,6 +18,7 @@ import { checkpointCommand } from './commands/checkpoint';
 import { serveCommand } from './commands/serve';
 import { evolveCommand } from './commands/evolve';
 import { policyCommand } from './commands/policy';
+import { scheduleCommand } from './commands/schedule';
 import { swarmCommand } from './commands/swarm';
 import { repoCommand } from './commands/repo';
 import { registryCommand } from './commands/registry';
@@ -127,6 +128,15 @@ program
   .option('--proposal <id>', 'v8.1.0: verify a signed action proposal by id')
   .option('--trust <pem>', 'v8.1.0: trust root (ns=pem) for proposal verification')
   .action((opts) => policyCommand(opts));
+
+program
+  .command('schedule')
+  .description('List and evaluate @timeline schedules (v8.2.0)')
+  .option('--next', 'Show only timelines that are due at the current time')
+  .option('--enable <id>', 'Enable a disabled @timeline by id')
+  .option('--disable <id>', 'Disable an enabled @timeline by id')
+  .option('--at <iso>', 'Evaluate schedules as of a fixed ISO datetime (testing)')
+  .action((opts) => scheduleCommand(opts));
 
 program
   .command('swarm')

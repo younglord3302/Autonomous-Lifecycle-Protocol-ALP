@@ -1141,7 +1141,46 @@ remotely carry the `node_id` so dead nodes can be reaped by the coordinator.
 Join a networked swarm with `alp run --swarm <id>` or inspect it with
 `alp swarm roster <id>`.
 
-## 27. Repo — `@repo` (v4.0.0+)
+## 27. Timeline — `@timeline` (v8.2.0+)
+
+Declares a scheduled trigger that fires a task on a cron expression or a
+one-shot `at` datetime. Introduced in ALP v8.2.0 so autonomous agents can
+defer, batch, and trigger work without an external cron daemon.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Timeline identifier |
+| `name` | String | No | Human-readable name |
+| `cron` | String | No | Standard 5-field cron expression (`minute hour dom month dow`) |
+| `at` | DateTime | No | One-shot ISO 8601 trigger (e.g. `2026-08-01T09:00:00Z`) |
+| `task` | Ref | Yes | Task to execute when the timeline fires |
+| `agent` | Ref | No | Agent that should own the execution (default: task's `owner`) |
+| `enabled` | Boolean | No | Whether the timeline is active (default: `true`) |
+
+Exactly one of `cron` or `at` MUST be present. An `at` timeline is
+automatically disabled after firing; re-enable it manually to re-trigger.
+
+**Example:**
+```
+@timeline
+  id: tl-daily-standup
+  name: "Daily standup reminder"
+  cron: "0 9 * * 1-5"
+  task: -> task-daily-standup
+  agent: -> agent-facilitator
+
+@timeline
+  id: tl-q3-review
+  name: "Q3 architecture review"
+  at: "2026-09-30T14:00:00Z"
+  task: -> task-q3-review
+  agent: -> agent-architect
+```
+
+Evaluated by `TimelineEngine.evaluate(now)` and by `alp schedule`
+(spec/17).
+
+## 28. Repo — `@repo` (v4.0.0+)
 
 Declares an **external repository** that participates in cross-repository
 orchestration. Introduced in ALP v4 (The Federation Era, Pillar 2) so a single

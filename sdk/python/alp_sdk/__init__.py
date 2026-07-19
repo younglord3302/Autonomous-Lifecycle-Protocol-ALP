@@ -8,6 +8,7 @@ from .analytics import compute_analytics
 from .graph import AlpGraph, GraphNode, GraphEdge
 from .memory import MemoryStore, MemoryEntry, MemoryQuery
 from .policy import PolicyEngine, PolicyDecision, PolicyQuery
+from .schedule import TimelineEngine, TimelineResult
 from .alpel import (
     AlpelError,
     build_context,
@@ -143,4 +144,6 @@ __all__ = [
     "PolicyFederation",
     "PolicySource",
     "FederatedDecision",
+    "TimelineEngine",
+    "TimelineResult",
 ]
