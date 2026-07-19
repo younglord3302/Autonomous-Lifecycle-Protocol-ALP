@@ -15,6 +15,7 @@ export * from './repo-resolver';
 export * from './status';
 export * from './schedule';
 export * from './contract';
+export * from './vault';
 export { AlpObject, AlpReader };
 
 export class AlpParser {

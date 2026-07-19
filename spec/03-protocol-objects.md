@@ -1240,3 +1240,31 @@ A task in the local workspace can then depend on it:
   depends_on:
     - -> billing::task-stripe-integration | blocks
 ```
+
+## 31. Vault — `@vault` (v8.4.0+)
+
+Declares an **encrypted secrets vault** so agents store sensitive values
+without committing plaintext to `.alp/`. Introduced in ALP v8.4.0 (Production-Grade
+Era, V5). The vault is sealed to one or more X25519 recipient keys (age-style
+envelope + AES-256-GCM); the `recipients` list doubles as the registry trust
+root (spec/14 §4.2).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | No | Vault identifier (default `default`) |
+| `recipients` | String[] | Yes | X25519 public-key fingerprints allowed to unseal |
+| `rotation_days` | Int | No | Auto-rotate reminder window (default 90) |
+
+Ciphertext lives in `.alp/.vault/store.jsonl`; only the `@vault` metadata
+(recipients, policy) is declared in `.alp`. Full engine semantics, envelope
+format, and `alp vault` CLI in spec/19.
+
+**Example:**
+```
+@vault
+  id: default
+  recipients:
+    - "age1qlp...frontend-maintainer"
+    - "age1z9x...backend-maintainer"
+  rotation_days: 90
+```

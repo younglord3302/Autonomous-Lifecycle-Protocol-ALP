@@ -10,6 +10,7 @@ from .memory import MemoryStore, MemoryEntry, MemoryQuery
 from .policy import PolicyEngine, PolicyDecision, PolicyQuery
 from .schedule import TimelineEngine, TimelineResult
 from .contract import ContractEngine, ContractResult, ContractViolation, ContractObject
+from .vault import Vault, SealedSecret, VaultAuditEntry
 from .alpel import (
     AlpelError,
     build_context,
@@ -151,4 +152,7 @@ __all__ = [
     "ContractResult",
     "ContractViolation",
     "ContractObject",
+    "Vault",
+    "SealedSecret",
+    "VaultAuditEntry",
 ]

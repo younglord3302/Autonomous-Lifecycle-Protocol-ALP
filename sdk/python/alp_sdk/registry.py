@@ -25,6 +25,23 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    from .signing import (
+        signing_payload,
+        verify,
+        sign,
+        fingerprint,
+        resolve_public_key,
+        _HAVE_CRYPTO,
+    )
+except ImportError:  # pragma: no cover
+    signing_payload = None
+    verify = None
+    sign = None
+    fingerprint = None
+    resolve_public_key = None
+    _HAVE_CRYPTO = False
+
 __all__ = [
     "RegistryClient",
     "load_alprc",
