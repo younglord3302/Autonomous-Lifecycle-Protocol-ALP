@@ -12,6 +12,20 @@ ALP versioning tracks two independent axes:
 
 ## Toolchain
 
+### 6.5.0 — Plugin System (local + remote)
+- Local plugin loading: file-level `!import "plugins/x.alp"` is resolved relative to the `.alp/` workspace root (spec/11 §3.1), with circular-import detection and path-traversal guards.
+- `@plugin` + `@type_definition` blocks register custom object types; custom block markers (e.g. `@epic`) parse and validate against their declared `properties` (required-field + unknown-property warnings, §4.1).
+- Remote HTTPS imports (§3.2–3.4): HTTPS-only, `.alp` extension check, 1 MB size cap, 30 s timeout, on-disk cache under `.alp/.cache/remote/<sha256>/` (24 h TTL, stale-on-error), and `!integrity: sha256:…` verification.
+- Registry alias imports `@ns/name@version` (§3.5) resolve to a registry URL and reuse the same fetch/cache/integrity path.
+- `PluginResolver` + `RemoteFetcher` added to both `@alp/parser` and the Python `alp_sdk`, covered by `parser/tests/{plugin,remote}.test.ts` and `sdk/python/tests/test_plugin.py`.
+
+### 6.4.0 — Python Engine Parity
+- Python `alp_sdk` gains three engines mirroring `@alp/parser` for full cross-SDK parity:
+  - `AlpGraph` — DAG build, `-> ref` edge resolution, cycle detection, topological sort, impact/blocker queries.
+  - `MemoryStore` — persistent scoped key-value memory backed by `.alp/.memory.json`.
+  - `PolicyEngine` — evaluates path/command actions against declarative `@policy` objects (deny beats allow, `enforcement: warn` reports only).
+- All three are exported from the `alp_sdk` top-level package and covered by `tests/test_engines.py`.
+
 ### 6.0.1 — 2026-07-18
 - **Docs:** Homepage "How it works" example now uses canonical, indentation-based `.alp` syntax (no braces), matching the real `.alp/` example files.
 

@@ -1,6 +1,6 @@
 # ALP Specification — Plugin System
 
-**Version:** 2.0.0
+**Version:** 8.0.0
 **Status:** Stable
 
 ---
@@ -9,9 +9,11 @@
 
 The ALP format is designed to be extensible. While the core specification provides 17 standard protocol objects (e.g., `@task`, `@feature`, `@agent`), many teams use specific methodologies like Agile, Scrum, Kanban, or domain-specific objects that don't fit perfectly into the core protocol.
 
-The ALP Plugin System (introduced in v0.2.0) allows projects to define **Custom Object Types** using the `@plugin` and `@type_definition` protocol objects, and load them using the `!import` directive.
+The ALP Plugin System (introduced in v0.2.0) allows projects to define **Custom Object Types** using the `@type` protocol object, and load them using the `!import` directive.
 
 Starting with v0.4.0, plugins can also be **imported from remote HTTPS URLs**, enabling organizations and the community to share and distribute standardized ALP extensions without manual file copying.
+
+> **v8.0.0 breaking change:** the two-object model (`@plugin` + `@type_definition`) is collapsed into a single **`@type`** declaration (§2). `@type_definition` is retained as a *deprecated alias* for one major (it registers identically to `@type` and emits a deprecation warning). In v9.0.0 `@type_definition` is removed.
 
 ---
 
@@ -62,7 +64,38 @@ A plugin is simply an `.alp` file that contains a `@plugin` declaration and one 
 
 ---
 
-## 3. The `!import` Directive
+## 2.5. The `@type` Block (v8.0.0+)
+
+As of **v8.0.0** the canonical way to declare a custom type is a single `@type` object. It replaces the former `@plugin` + `@type_definition` pair (which required two objects to ship one type). A `@type` block both **identifies** the type and **defines** its schema:
+
+```alp
+!alp-version: 8.0.0
+
+@type
+  id: type-epic
+  type_name: epic
+  description: "A large body of work broken into features or stories"
+  properties:
+    - { name: "id", type: "String", required: true }
+    - { name: "name", type: "String", required: true }
+    - { name: "status", type: "Status", required: true }
+    - { name: "features", type: "List[Ref]", required: false }
+  allowed_nested:
+    - "accept"
+    - "verify"
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Type definition identifier |
+| `type_name` | String | Yes | The keyword used for the block marker (e.g., `epic` for `@epic`) |
+| `description` | String | No | What this custom type represents |
+| `properties` | List[Obj] | Yes | Schema definitions for properties (name, type, required) |
+| `allowed_nested` | List[String] | No | Which blocks can be nested inside this type |
+
+**Deprecated alias:** `@type_definition` is accepted through v8.x and registers identically to `@type`, but emits a parser deprecation warning. It is **removed in v9.0.0**. The `@plugin` object (with `id` / `name` / `version` / `dependencies`) is retained for declaring *plugin metadata and dependencies*; a plugin that exposes types SHOULD still declare a `@plugin` for its `dependencies`, but each type is now its own `@type` block.
+
+---
 
 To use a plugin in a project, you must import the `.alp` file that defines it. This is done using the file-level `!import` directive.
 

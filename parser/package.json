@@ -1,6 +1,6 @@
 {
   "name": "@alp/parser",
-  "version": "6.3.0",
+  "version": "8.1.0",
   "description": "Parser for the Autonomous Lifecycle Protocol (ALP)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

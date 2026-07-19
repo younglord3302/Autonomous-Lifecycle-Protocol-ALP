@@ -120,10 +120,12 @@ program
 
 program
   .command('policy')
-  .description('List or evaluate policy guardrails governing agent actions (v4)')
+  .description('List or evaluate policy guardrails governing agent actions (v4; v2 in v8.1.0)')
   .option('--path <path>', 'Check whether a file path may be modified')
   .option('--command <cmd>', 'Check whether a shell command may be run')
   .option('--agent <agent>', 'Scope the check to a specific agent')
+  .option('--proposal <id>', 'v8.1.0: verify a signed action proposal by id')
+  .option('--trust <pem>', 'v8.1.0: trust root (ns=pem) for proposal verification')
   .action((opts) => policyCommand(opts));
 
 program

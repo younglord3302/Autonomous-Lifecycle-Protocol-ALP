@@ -1,121 +1,36 @@
 import { SyntaxError, IndentationError, DirectiveError } from './error';
+import { evaluateBool, interpolate, buildContext, AlpelValue } from './alpel';
 
 export interface AlpObject {
   _type: string;
   [key: string]: any;
 }
 
-/**
- * Minimal ALPEL-style boolean expression evaluator for directives
- * (`!if`, `!assert`). Supports literals (numbers, "strings", true/false),
- * identifiers resolved against a context object, comparisons
- * (== != > < >= <=), logical and/or/not (&& || !), and parentheses.
- */
-function evalExpr(expr: string, ctx: Record<string, any>): boolean {
-  const tokens = tokenize(expr);
-  let pos = 0;
-
-  function peek(): string | undefined { return tokens[pos]; }
-  function next(): string | undefined { return tokens[pos++]; }
-
-  function parseOr(): any {
-    let left = parseAnd();
-    while (peek() === '||') { next(); const right = parseAnd(); left = left || right; }
-    return left;
+/** Strip one pair of surrounding quotes from a directive expression. */
+function unquote(s: string): string {
+  if (
+    s.length >= 2 &&
+    ((s[0] === '"' && s[s.length - 1] === '"') ||
+      (s[0] === "'" && s[s.length - 1] === "'"))
+  ) {
+    return s.slice(1, -1);
   }
-  function parseAnd(): any {
-    let left = parseComparison();
-    while (peek() === '&&') { next(); const right = parseComparison(); left = left && right; }
-    return left;
-  }
-  function parseComparison(): any {
-    const left = parseNot();
-    const op = peek();
-    if (op === '==' || op === '!=' || op === '>=' || op === '<=' || op === '>' || op === '<') {
-      next();
-      const right = parseNot();
-      switch (op) {
-        case '==': return left === right;
-        case '!=': return left !== right;
-        case '>': return left > right;
-        case '<': return left < right;
-        case '>=': return left >= right;
-        case '<=': return left <= right;
-      }
-    }
-    return left;
-  }
-  function parseNot(): any {
-    if (peek() === '!') { next(); return !coerceBool(parsePrimary()); }
-    return parsePrimary();
-  }
-  function parsePrimary(): any {
-    if (peek() === '(') { next(); const v = parseOr(); if (next() !== ')') throw new Error('Unbalanced parenthesis'); return v; }
-    const tok = next();
-    if (tok === undefined) throw new Error('Unexpected end of expression');
-    if (tok.startsWith('"') || tok.startsWith("'")) return tok.slice(1, -1);
-    if (tok === 'true') return true;
-    if (tok === 'false') return false;
-    if (/^-?\d+(\.\d+)?$/.test(tok)) return Number(tok);
-    if (tok in ctx) return ctx[tok];
-    throw new Error(`Unknown identifier '${tok}'`);
-  }
-
-  const result = parseOr();
-  if (pos < tokens.length) throw new Error(`Unexpected token '${tokens[pos]}'`);
-  return coerceBool(result);
+  return s;
 }
 
-function coerceBool(v: any): boolean {
-  if (typeof v === 'boolean') return v;
-  if (typeof v === 'number') return v !== 0;
-  if (typeof v === 'string') return v.length > 0;
-  return Boolean(v);
+/** Evaluate a directive expression, treating any error (e.g. unknown
+ *  identifier in a missing context) as false rather than throwing. */
+function safeEvalBool(expr: string, ctx: Record<string, any>): boolean {
+  try {
+    return evaluateBool(expr, buildContext(ctx as any, { alp_version: '2.0.0' }));
+  } catch {
+    return false;
+  }
 }
 
-function tokenize(expr: string): string[] {
-  const tokens: string[] = [];
-  let i = 0;
-  while (i < expr.length) {
-    const ch = expr[i];
-    if (ch === ' ' || ch === '\t') { i++; continue; }
-    if (ch === '(' || ch === ')' || ch === '|' || ch === '&' || ch === '!') {
-      // multi-char operators
-      if ((ch === '|' && expr[i + 1] === '|') || (ch === '&' && expr[i + 1] === '&')) {
-        tokens.push(ch + expr[i + 1]); i += 2; continue;
-      }
-      if (ch === '|' || ch === '&') throw new Error(`Unsupported operator '${ch}' (use || / &&)`);
-      tokens.push(ch); i++; continue;
-    }
-    if (ch === '=' || ch === '>' || ch === '<') {
-      let op = ch;
-      if (expr[i + 1] === '=') op += '=';
-      tokens.push(op); i += op.length; continue;
-    }
-    if (ch === '"' || ch === "'") {
-      const start = i;
-      i++;
-      while (i < expr.length && expr[i] !== ch) i++;
-      i++; // include closing quote
-      tokens.push(expr.slice(start, i));
-      continue;
-    }
-    // identifier or number
-    const start = i;
-    while (i < expr.length && /[A-Za-z0-9_.]/.test(expr[i])) i++;
-    tokens.push(expr.slice(start, i));
-  }
-  return tokens;
-}
-
-function exprContext(obj: AlpObject | null): Record<string, any> {
-  const ctx: Record<string, any> = { alp_version: '2.0.0' };
-  if (obj) {
-    for (const [k, v] of Object.entries(obj)) {
-      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') ctx[k] = v;
-    }
-  }
-  return ctx;
+/** Apply `${ }` interpolation to a scalar property or list value. */
+function applyInterp(value: string, ctx: Record<string, any>): string {
+  return interpolate(value, ctx as any);
 }
 
 /**
@@ -216,6 +131,14 @@ export class AlpReader {
 
       // ── Level 1 (indent=2): Properties and nested block markers ──
 
+      // In-block directives (e.g. `!if` / `!assert` inside a @block, per
+      // spec/12) are handled before property parsing.
+      if (indent === 2 && this.currentObject && trimmed.startsWith('!') &&
+          /^\!(alp-version|if|assert|deprecated|import)(\s|:)/.test(trimmed)) {
+        this.handleDirective(trimmed, lineNum);
+        continue;
+      }
+
       if (indent === 2 && this.currentObject) {
         // Nested block markers (e.g., @accept, @verify inside a task)
         if (trimmed.startsWith('@')) {
@@ -256,9 +179,26 @@ export class AlpReader {
             throw new SyntaxError('Unclosed string literal', lineNum);
           }
 
+          // Expand ${ } interpolation against the current object's context.
+          if (value.includes('${')) {
+            const ctx = buildContext(this.currentObject as any, { alp_version: '2.0.0' });
+            value = applyInterp(value, ctx);
+          }
+
           this.currentObject[key] = value;
           this.currentNestedBlock = null;
           this.currentListProp = null;
+
+          // ── v8.0.0: status-marker deprecation ──
+          // `[!]` (blocked) and `[?]` (human gate) MUST carry a
+          // free-text reason as of v8.0.0. Unannotated markers emit
+          // a deprecation warning now and become a hard error in v9.
+          if (key === 'status' && (value === '[!]' || value === '[?]')) {
+            this.warnings.push(
+              `Deprecation (line ${lineNum}): status marker '${value}' requires a reason (e.g. '[!] reason text'). Required in v9.0.0.`
+            );
+          }
+
           continue;
         }
 
@@ -277,6 +217,10 @@ export class AlpReader {
               ((val.startsWith('"') && val.endsWith('"')) ||
                (val.startsWith("'") && val.endsWith("'")))) {
             val = val.substring(1, val.length - 1);
+          }
+          if (val.includes('${')) {
+            const ctx = buildContext(this.currentObject as any, { alp_version: '2.0.0' });
+            val = applyInterp(val, ctx);
           }
           if (this.currentNestedBlock) {
              if (Array.isArray(this.currentObject[this.currentNestedBlock])) {
@@ -372,17 +316,32 @@ export class AlpReader {
     // !if <expr>  (expr may be unquoted or after a colon)
     m = trimmed.match(/^if(?::|\s)\s*(.+)$/);
     if (m) {
-      const result = evalExpr(m[1].trim(), exprContext(this.currentObject));
-      if (!result) this.skipPending = true;
+      const expr = unquote(m[1].trim());
+      const result = this.safeEval(expr);
+      if (!result) {
+        this.skipPending = true;
+        if (this.currentObject && !this.currentObjectSkipped) {
+          this.currentObjectSkipped = true;
+        }
+      }
       return;
     }
 
-    // !assert <expr>
+    // !assert <expr>  — fail-closed as of v8.0.0: a false
+    // expression OR an unparseable/errored expression raises. Earlier
+    // versions silently treated eval errors as "pass"; v8 requires
+    // the assertion to be both well-formed and true.
     m = trimmed.match(/^assert(?::|\s)\s*(.+)$/);
     if (m) {
-      const result = evalExpr(m[1].trim(), exprContext(this.currentObject));
+      const expr = unquote(m[1].trim());
+      let result = false;
+      try {
+        result = this.safeEval(expr);
+      } catch (e) {
+        throw new DirectiveError(`!assert expression error: ${expr}`, lineNum);
+      }
       if (!result) {
-        throw new DirectiveError(`!assert failed: ${m[1].trim()}`, lineNum);
+        throw new DirectiveError(`!assert failed: ${expr}`, lineNum);
       }
       return;
     }
@@ -398,13 +357,32 @@ export class AlpReader {
       return;
     }
 
-    // !import <target> — federation (V6.6). Recognised, not yet resolved.
+    // !import <target> — resolved by the PluginResolver (v6.5.0+),
+    // which pre-scans import directives before invoking the reader.
+    // When the reader sees one directly (e.g. a bare `AlpParser.parse`
+    // without a resolver), it emits a non-fatal warning so callers
+    // and the compliance suite can assert recognition.
     m = trimmed.match(/^import(?::|\s)\s*(.+)$/);
     if (m) {
-      this.warnings.push(`!import is not yet resolved by the parser (line ${lineNum}); pending V6.6 federation.`);
+      this.warnings.push(
+        `!import is not yet resolved by the parser (line ${lineNum}); ` +
+          `use PluginResolver or alp import.`
+      );
       return;
     }
 
-    // Unknown directive: ignore gracefully (forward compatibility).
+    // Unknown directive: as of v8.0.0 this is a HARD parse error
+    // (fail-closed). Forward compatibility of *known* directives is
+    // preserved by the grammar; an unrecognised directive name is a
+    // syntax violation, not a silent no-op.
+    throw new SyntaxError(`Unknown directive: '!${trimmed}'`, lineNum);
+  }
+
+  /**
+   * Evaluate an ALPEL boolean directive (`!if` / `!assert`) against the
+   * current object's context, treating any error as false (spec/12 §3.2).
+   */
+  private safeEval(expr: string): boolean {
+    return safeEvalBool(expr, this.currentObject ?? {});
   }
 }

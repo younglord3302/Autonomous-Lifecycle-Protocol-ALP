@@ -6,15 +6,22 @@ interface PolicyOptions {
   path?: string;
   command?: string;
   agent?: string;
+  /** v8.1.0: verify a signed `proposal` by id. */
+  proposal?: string;
+  /** v8.1.0: PEM/ fingerprint trust root for proposal verification. */
+  trust?: string;
 }
 
 /**
- * `alp policy` — Policy & Permission Governance (v4 Pillar 4).
+ * `alp policy` — Policy & Permission Governance (v4 Pillar 4; v2 in v8.1.0).
  *
  * With no action flags, lists the policies in the workspace. With
  * `--path`, `--command`, or `--agent`, evaluates whether that action is
  * permitted and exits non-zero if a strict policy blocks it (making it
  * usable as a pre-flight gate in CI or agent wrappers).
+ *
+ * v8.1.0 adds `alp policy --proposal <id> [--trust <pem>]` to
+ * verify a signed, auditable action proposal against a trust root.
  */
 export function policyCommand(options?: PolicyOptions) {
   const cwd = process.cwd();
@@ -50,6 +57,28 @@ export function policyCommand(options?: PolicyOptions) {
     }
     console.log('');
     return;
+  }
+
+  // ── v8.1.0: Proposal verification mode ───────────────────────
+  if (options?.proposal) {
+    const trust: Record<string, string> | undefined = options.trust
+      ? { [options.trust.split(':')[0]]: options.trust.split(':').slice(1).join(':') }
+      : undefined;
+    const decision = engine.evaluateProposal(options.proposal, trust);
+    console.log(
+      `\n🛡️  Proposal check: "${options.proposal}"` +
+        `${options.agent ? ` (agent: ${options.agent})` : ''}\n`
+    );
+    if (decision.allowed) {
+      console.log(`   ✅ Proposal allowed${options.trust ? ' (signature verified).' : '.'}`);
+      if (decision.audit) {
+        console.log(`   📝 audit: ${JSON.stringify(decision.audit)}`);
+      }
+      return;
+    }
+    for (const reason of decision.reasons) console.log(`   ⛔ ${reason}`);
+    console.log('\n   ⛔ Proposal DENIED.\n');
+    process.exit(1);
   }
 
   // ── Evaluate mode ──────────────────────────────────────────────────────

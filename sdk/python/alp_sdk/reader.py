@@ -30,6 +30,11 @@ def _unquote(s: str) -> str:
 
 
 class AlpReader:
+    def __init__(self):
+        """Non-fatal notices (e.g. ``!deprecated`` directives, v8 status-marker
+        deprecations). Callers may inspect ``reader.warnings`` after ``parse``."""
+        self.warnings: List[str] = []
+
     def parse(self, content: str) -> List[AlpObject]:
         lines = content.split("\n")
         objects: List[AlpObject] = []
@@ -119,6 +124,17 @@ class AlpReader:
                     current_obj[key] = value
                     current_nested = None
                     current_list = None
+                    # ── v8.0.0: status-marker deprecation ──
+                    # `[!]` (blocked) and `[?]` (human gate) MUST carry a
+                    # free-text reason as of v8.0.0. Unannotated markers
+                    # emit a deprecation warning now and become a hard error
+                    # in v9.
+                    if key == "status" and value in ("[!]", "[?]"):
+                        self.warnings.append(
+                            f"Deprecation (line {line_num}): status marker "
+                            f"'{value}' requires a reason (e.g. '[!] reason "
+                            f"text'). Required in v9.0.0."
+                        )
                     continue
 
                 raise SyntaxError(f"Invalid property format: '{trimmed}'", line_num)
@@ -197,7 +213,11 @@ class AlpReader:
         body = trimmed[1:].strip()
         m = re.match(r"^(alp-version|assert|if)(?::|\s)\s*(.+)$", body)
         if not m:
-            return
+            # As of v8.0.0 an unrecognised directive is a HARD parse
+            # error (fail-closed). Forward compatibility is preserved
+            # for *known* directives via the grammar; an unknown name
+            # is a syntax violation, not a silent no-op.
+            raise SyntaxError(f"Unknown directive: '!{body}'", line_num)
         kind = m.group(1)
         expr = _unquote(m.group(2).strip())
 
@@ -206,7 +226,14 @@ class AlpReader:
 
         ctx = build_context(current_obj, {"alp_version": "2.0.0"}) if current_obj else {}
         if kind == "assert":
-            if not evaluate_bool(expr, ctx):
+            # Fail-closed (v8.0.0): both a false expression and an
+            # unparseable/errored expression raise. Earlier versions
+            # silently treated eval errors as "pass".
+            try:
+                ok = evaluate_bool(expr, ctx)
+            except Exception as e:
+                raise DirectiveError(f"!assert expression error: {expr}", line_num)
+            if not ok:
                 raise DirectiveError(f"!assert failed: {expr}", line_num)
         elif kind == "if":
             skip_next_obj[0] = not evaluate_bool(expr, ctx)

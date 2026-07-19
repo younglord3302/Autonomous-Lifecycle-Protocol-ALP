@@ -1,0 +1,7 @@
+!alp-version: 8.0.0
+
+@project
+  id: unknown-directive
+  status: development
+
+!asret: status == "production"

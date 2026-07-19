@@ -60,7 +60,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/alp-protocol/alp' }
+      { icon: 'github', link: 'https://github.com/younglord3302/Autonomous-Lifecycle-Protocol-ALP' }
     ]
   }
 })

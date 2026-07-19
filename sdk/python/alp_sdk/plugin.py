@@ -1,11 +1,12 @@
-"""ALP plugin system (v6.5.0 - Python SDK parity).
+"""ALP plugin system (v6.5.0, @type rewrite v8.0.0 - Python SDK parity).
 
 Mirrors the TypeScript ``@alp/parser`` ``PluginResolver``: resolves local
 file-level ``!import`` directives (spec/11 §3.1) relative to the ``.alp/``
 workspace root, remote HTTPS imports with caching + integrity (§3.2-3.4),
 and registry aliases ``@ns/name@version`` (§3.5). Builds a registry of
-custom types from ``@type_definition`` blocks (§2) and validates
-custom-type instances (§4.1).
+custom types declared via the canonical ``@type`` block (v8.0.0+), with
+``@type_definition`` retained as a deprecated alias for one major, and
+validates custom-type instances (§4.1).
 """
 
 import os
@@ -64,7 +65,7 @@ class PluginInfo:
 
 CORE_TYPES = {
     "project", "feature", "task", "agent", "decision", "rule", "memory",
-    "state", "workflow", "policy", "macro", "plugin", "type_definition",
+    "state", "workflow", "policy", "macro", "plugin", "type",
     "workspace", "repo", "swarm", "resource", "constraint", "context",
     "goal", "artifact", "event", "package",
 }
@@ -77,6 +78,7 @@ class PluginResolver:
         self.types: Dict[str, CustomType] = {}
         self.plugins: Dict[str, PluginInfo] = {}
         self.objects: List[AlpObject] = []
+        self.warnings: List[str] = []
         self._reader = AlpReader()
         self._visited: Set[str] = set()
         self._fetcher = RemoteFetcher(root_dir or os.getcwd())
@@ -118,8 +120,20 @@ class PluginResolver:
         for obj in parsed:
             if obj._type == "plugin":
                 self._register_plugin(obj)
+            elif obj._type == "type":
+                self._register_type(obj, [])
             elif obj._type == "type_definition":
-                self._register_type(obj)
+                # Deprecated alias (v8.0.0): `@type_definition` is
+                # retained for one major so existing plugins keep
+                # parsing; it emits a deprecation warning and
+                # registers identically to `@type`.
+                self._register_type(
+                    obj,
+                    [
+                        "Deprecation: @type_definition is deprecated "
+                        "(v8.0.0); use @type instead."
+                    ],
+                )
             self.objects.append(obj)
 
     def _extract_import(self, directive: str):
@@ -158,13 +172,14 @@ class PluginResolver:
             ids,
         )
 
-    def _register_type(self, obj: AlpObject) -> None:
+    def _register_type(self, obj: AlpObject, warnings: Optional[List[str]] = None) -> None:
+        warnings = warnings if warnings is not None else []
         type_name = obj.properties.get("type_name")
         if not type_name:
-            raise ValidationError(f"@type_definition '{obj.id}' missing type_name")
+            raise ValidationError(f"@type '{obj.id}' missing type_name")
         if type_name in CORE_TYPES:
             raise ValidationError(
-                f"@type_definition '{obj.id}' redefines core type '{type_name}'"
+                f"@type '{obj.id}' redefines core type '{type_name}'"
             )
         raw_props = obj.properties.get("properties", [])
         properties: List[TypeProperty] = []
@@ -187,6 +202,7 @@ class PluginResolver:
             properties,
             allowed_nested,
         )
+        self.warnings.extend(warnings)
 
     def validate_custom(self, obj: AlpObject, warnings: Optional[List[str]] = None) -> None:
         warnings = warnings if warnings is not None else []
@@ -206,7 +222,7 @@ class PluginResolver:
                 continue
             if key not in known:
                 warnings.append(
-                    f"Unknown property '{key}' in @{obj._type} '{obj.id}' (not in type_definition)"
+                    f"Unknown property '{key}' in @{obj._type} '{obj.id}' (not in type)"
                 )
 
     def is_custom_type(self, type_name: str) -> bool:

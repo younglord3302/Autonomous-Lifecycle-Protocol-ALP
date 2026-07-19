@@ -96,3 +96,67 @@ describe('PolicyEngine', () => {
     expect(engineFrom('@task\n  id: t1\n').count).toBe(0);
   });
 });
+
+describe('PolicyEngine v8.1.0', () => {
+  const WIN = `
+@policy
+  id: policy-hours
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+  allow_during:
+    - { days: ["monday","tuesday","wednesday","thursday","friday"], start: "09:00", end: "17:00" }
+`;
+
+  it('denies an action outside the allowed time window', () => {
+    // 2026-07-25 is a Saturday (outside Mon-Fri).
+    const sat = new Date(Date.UTC(2026, 6, 25, 14, 0));
+    const d = engineFrom(WIN).evaluate({ kind: 'path', value: 'src/main.ts', now: sat });
+    expect(d.allowed).toBe(false);
+    expect(d.blocked).toBe(true);
+  });
+
+  it('allows an action inside the allowed time window', () => {
+    // 2026-07-20 is a Monday, 10:30 UTC (inside window).
+    const mon = new Date(Date.UTC(2026, 6, 20, 10, 30));
+    const d = engineFrom(WIN).evaluate({ kind: 'path', value: 'src/main.ts', now: mon });
+    expect(d.allowed).toBe(true);
+  });
+
+  it('escalates require_approval instead of blocking', () => {
+    const src = `
+@policy
+  id: policy-approve
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+  require_approval:
+    - { kind: "path", value: "src/secrets/**" }
+`;
+    const d = engineFrom(src).evaluate({ kind: 'path', value: 'src/secrets/key.ts' });
+    expect(d.allowed).toBe(true);
+    expect(d.blocked).toBe(false);
+    expect(d.requiresApproval).toBe(true);
+  });
+
+  it('verifies a signed proposal against a trust root', () => {
+    const src = `
+@policy
+  id: policy-props
+  applies_to: "*"
+  proposals:
+    - { id: "prop-1", action: "deploy", agent: "a1", signed_by: "alice", signature: "sig" }
+`;
+    const engine = engineFrom(src);
+    // Untrusted signer -> denied + audited.
+    const bad = engine.evaluateProposal('prop-1', { bob: 'key-bob' });
+    expect(bad.allowed).toBe(false);
+    expect(bad.blocked).toBe(true);
+    expect(bad.audit?.proposalId).toBe('prop-1');
+    // Trusted signer -> allowed.
+    const good = engine.evaluateProposal('prop-1', { alice: 'key-alice' });
+    expect(good.allowed).toBe(true);
+  });
+});

@@ -5,13 +5,14 @@ import { SyntaxError, ValidationError } from './error';
 import { RemoteFetcher, FetchOptions } from './remote';
 
 /**
- * ALP Plugin System (v6.5.0).
+ * ALP Plugin System (v6.5.0, @type rewrite v8.0.0).
  *
  * Resolves file-level `!import` directives (spec/11): local `.alp` files
  * relative to the `.alp/` workspace root (§3.1), remote HTTPS URLs with
  * caching + integrity (§3.2–3.4), and registry aliases `@ns/name@version`
- * (§3.5). Builds a registry of custom types from `@type_definition` blocks
- * (§2) and validates custom-type instances (§4.1).
+ * (§3.5). Builds a registry of custom types — declared via the
+ * canonical `@type` block (v8.0.0+), with `@type_definition` kept as a
+ * deprecated alias for one major — and validates custom-type instances (§4.1).
  */
 
 export interface TypeProperty {
@@ -38,7 +39,7 @@ export interface PluginInfo {
 
 const CORE_TYPES = new Set([
   'project', 'feature', 'task', 'agent', 'decision', 'rule', 'memory',
-  'state', 'workflow', 'policy', 'macro', 'plugin', 'type_definition',
+  'state', 'workflow', 'policy', 'macro', 'plugin', 'type',
   'workspace', 'repo', 'swarm', 'resource', 'constraint', 'context',
   'goal', 'artifact', 'event', 'package',
 ]);
@@ -51,6 +52,9 @@ export class PluginResolver {
 
   /** All objects discovered across the root file + imported files. */
   public objects: AlpObject[] = [];
+
+  /** Non-fatal notices (e.g. deprecated `@type_definition`). */
+  public warnings: string[] = [];
 
   private reader = new AlpReader();
   private visited = new Set<string>();
@@ -126,8 +130,16 @@ export class PluginResolver {
     for (const obj of parsed) {
       if (obj._type === 'plugin') {
         this.registerPlugin(obj);
+      } else if (obj._type === 'type') {
+        this.registerType(obj, []);
       } else if (obj._type === 'type_definition') {
-        this.registerType(obj);
+        // Deprecated alias (v8.0.0): `@type_definition` is
+        // retained for one major so existing plugins keep parsing;
+        // it emits a deprecation warning and registers identically
+        // to `@type`.
+        this.registerType(obj, [
+          `Deprecation: @type_definition is deprecated (v8.0.0); use @type instead.`,
+        ]);
       }
       this.objects.push(obj);
     }
@@ -183,14 +195,14 @@ export class PluginResolver {
     });
   }
 
-  private registerType(obj: AlpObject): void {
+  private registerType(obj: AlpObject, warnings: string[] = []): void {
     const typeName = obj['type_name'] as string;
     if (!typeName) {
-      throw new ValidationError(`@type_definition '${obj.id}' missing type_name`);
+      throw new ValidationError(`@type '${obj.id}' missing type_name`);
     }
     if (CORE_TYPES.has(typeName)) {
       throw new ValidationError(
-        `@type_definition '${obj.id}' redefines core type '${typeName}'`
+        `@type '${obj.id}' redefines core type '${typeName}'`
       );
     }
     const rawProps = Array.isArray(obj['properties']) ? obj['properties'] : [];
@@ -214,6 +226,7 @@ export class PluginResolver {
       properties,
       allowedNested,
     });
+    for (const w of warnings) this.warnings.push(w);
   }
 
   /**

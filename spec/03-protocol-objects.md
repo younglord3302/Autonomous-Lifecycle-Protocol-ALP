@@ -166,6 +166,20 @@ Tasks are the atomic units of work. Every piece of implementation work is repres
 
 **Nested blocks allowed:** `@accept`, `@verify`, `@artifact`
 
+**Status markers (v8.0.0+):** Every `status` value is one of
+`[ ]` (todo), `[~]` (in progress), `[x]` (done), `[-]` (blocked/removed),
+`[!]` (blocked by external dependency), `[?]` (waiting on human).
+As of **v8.0.0**, `[!]` and `[?]` MUST carry a free-text reason:
+
+```
+  status: [!] upstream API v3 contract not published yet
+  status: [?] needs security sign-off on token storage
+```
+
+Parsers SHOULD emit a deprecation warning for an unannotated `[!]`/`[?]`
+marker. In **v9.0.0** the missing reason becomes a hard parse error.
+The plain `[ ]`, `[~]`, `[x]`, and `[-]` markers are unchanged.
+
 **Example:**
 ```
 @task
@@ -1004,12 +1018,20 @@ All `required: true` verifications must pass for the task to be marked `[x]`.
 
 ---
 
-## 25. Policy — `@policy` (v4.0.0+)
+## 25. Policy — `@policy` (v4.0.0+, v2 in v8.1.0)
 
 Declarative guardrails that govern what autonomous agents may do. Introduced
 in ALP v4 (The Federation Era) to make unattended swarms safe. Policies are
 evaluated by the Policy Engine before an agent modifies a file or runs a
 command; `deny_*` always takes precedence over `allow_*`.
+
+**v8.1.0 additions (the *Production-Grade* V5 era):**
+- `allow_during` — **time-windows**: an action outside every declared UTC
+  window is denied (a strict, time-scoped least-privilege guard).
+- `require_approval` — **human-in-the-loop escalation**: matching actions are
+  NOT blocked; they are flagged `requires_approval` so a human gate can approve.
+- `proposal` — **signed, auditable action proposals**: verified against a
+  trust root; the engine emits an `audit` record for the MCP-enforcement trail.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -1021,6 +1043,9 @@ command; `deny_*` always takes precedence over `allow_*`.
 | `deny_commands` | List (prefix) | No | Forbidden command prefixes (wins over allow) |
 | `budgets` | Object | No | `max_iterations`, `max_tokens`, `max_seconds`, `max_cost_usd` |
 | `enforcement` | Enum | No | `strict` (block, default) or `warn` (report only) |
+| `allow_during` | List[Obj] | No | **v8.1.0** time-windows `{ days, start, end }` (UTC); outside every window the action is denied |
+| `require_approval` | List[Obj] | No | **v8.1.0** `{ kind, value }` patterns that escalate to human approval instead of blocking |
+| `proposal` | List[Obj] | No | **v8.1.0** signed action proposals `{ id, action, agent, signed_by, signature }` verified against a trust root |
 
 **Precedence:** `deny_*` beats `allow_*`. If an `allow_*` list is present and
 non-empty, the action must match it. If absent, the action is permitted unless
@@ -1050,8 +1075,33 @@ explicitly denied.
     max_seconds: 600
 ```
 
-Enforced by `alp policy` (check an action) and by `alp verify` (verify
-commands must comply before execution).
+**v8.1.0 example — time-windows, approval, signed proposals:**
+```alp
+@policy
+  id: policy-prod-safe
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+  deny_paths:
+    - ".env"
+    - ".alp/**"
+  # Only permit file edits on weekday business hours (UTC).
+  allow_during:
+    - { days: ["monday","tuesday","wednesday","thursday","friday"], start: "09:00", end: "17:00" }
+  # Anything touching secrets escalates to a human gate.
+  require_approval:
+    - { kind: "path", value: "src/secrets/**" }
+  # Signed, auditable deploy proposal (verified vs trust root).
+  proposals:
+    - { id: "prop-deploy-prod", action: "deploy", agent: "agent-devops",
+        signed_by: "release-bot", signature: "ed25519:..." }
+```
+
+Enforced by `alp policy` (check an action), `alp policy --proposal <id> --trust <pem>`
+(verify a signed proposal against a trust root), and by `alp verify`
+(verify commands comply before execution). The engine emits an `audit` record
+on every decision for the V5 MCP-enforcement trail.
 
 ## 26. Swarm — `@swarm` (v4.0.0+)
 
