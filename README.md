@@ -5,9 +5,9 @@
   <p><b>The open standard and execution engine for Autonomous Software Engineering.</b></p>
   <br/>
 
-  [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-  [![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](#)
-  [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
+   [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
+   [![Version](https://img.shields.io/badge/version-8.4.0-blue.svg)](#)
+   [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 
 <br/>
@@ -125,11 +125,72 @@ alp evolve --apply   # writes proposals to .alp/evolved.alp
 
 ---
 
+## 🛡️ The Production-Grade Era (V5 — v8.0.0 → v8.4.0)
+
+ALP v8 hardens the protocol for real autonomous deployments. It introduces
+**fail-closed safety**, **runtime governance**, and **encrypted secrets** so
+agents can operate with verifiable least privilege.
+
+### 8. Policy v2 — Time-windows, Approvals & Signed Proposals (`@policy` / `alp policy`) — *v8.1.0*
+Grant least-privilege by time and human escalation, and verify signed action
+proposals against a trust root:
+```bash
+alp policy --path "src/auth/login.ts"
+alp policy --proposal prop-123 --trust maintainer.pub   # verify a signed proposal
+```
+`@policy` gains `allow_during` (UTC time-windows; actions outside are denied),
+`require_approval` (human-in-the-loop escalation), and `proposal` blocks
+(signed, auditable actions).
+
+### 9. Scheduling (`@timeline` / `alp schedule`) — *v8.2.0*
+Defer, batch, and trigger work without an external cron daemon:
+```bash
+alp schedule                 # list all timelines
+alp schedule next            # show what's due now
+alp schedule disable tl-retro
+```
+`@timeline` supports standard 5-field `cron` expressions and one-shot `at`
+ISO-8601 triggers, evaluated by the `TimelineEngine`.
+
+### 10. Contracts — Runtime Boundary Validation (`@contract`) — *v8.3.0*
+Declare least-privilege boundaries between agents, tasks, and repos. A
+`ContractEngine` enforces `requires` / `allows` / `denies` rules (with glob
+deny patterns) at every handoff:
+```alp
+@contract
+  id: c-api
+  from: -> agent-frontend
+  to: -> agent-backend
+  allows: [ api.v1.users.read ]
+  denies:  [ api.v1.admin.* ]
+```
+
+### 11. Encrypted Secrets Vault (`@vault` / `alp vault`) — *v8.4.0*
+Store secrets encrypted at rest (age-style X25519 envelope + AES-256-GCM),
+recipient-scoped so only the matching private key can unseal them. The vault
+`recipients` double as the registry trust root:
+```bash
+alp vault set db-password --value "$DB_PW" --recipient maintainer.pub
+alp vault get db-password --key maintainer.key
+```
+
+### v8.0.0 Breaking Changes
+- **`@type` is canonical** — the plugin model collapsed to a single `@type`
+  declaration; `@type_definition` is a deprecated alias (removed in v9).
+- **`!assert` is fail-closed** — a false *or* unparseable `!assert` raises an
+  error; unknown directives raise a hard `SyntaxError` instead of being
+  silently ignored.
+- **`[!]` / `[?]` must carry a reason** — status markers without a free-text
+  reason emit a deprecation warning in v8 and become a hard error in v9.
+See [`docs-site/MIGRATION-v8.md`](docs-site/MIGRATION-v8.md).
+
+---
+
 ## 📦 Packages
 
 | Package | Description |
 |---|---|
-| [`@alp/cli`](cli/) | The terminal interface (`run`, `serve`, `evolve`, `policy`, `verify`, `checkpoint`, `doctor`, `lint`, `export`, `upgrade`) |
+| [`@alp/cli`](cli/) | The terminal interface (`run`, `serve`, `evolve`, `policy`, `schedule`, `vault`, `verify`, `checkpoint`, `doctor`, `lint`, `export`, `upgrade`) |
 | [`@alp/parser`](parser/) | The engine for parsing `.alp` files and managing Kahn's Topological sort |
 | [`@alp/mcp-server`](mcp-server/) | The MCP server for IDE and Agent integrations |
 | [`@alp/vscode`](vscode/) | The official VS Code extension |

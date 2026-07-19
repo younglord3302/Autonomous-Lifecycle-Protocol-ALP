@@ -163,6 +163,20 @@ Deprecated elements:
 
 ## 8. Future Versions Roadmap
 
+The roadmap below records delivered eras and looks ahead. Released versions
+are authoritative in the table in §7; this section captures intent.
+
+| Era | Versions | Delivered |
+|---|---|---|
+| V2 — Execution Engine | 2.0.0 | Context bundles, topological execution |
+| V3 — Multi-Agent Orchestration | 3.0.0–3.1.0 | Concurrent swarms, live state server, self-evolving protocol |
+| V4 — The Federation Era | 4.0.0–4.5.0 | Networked swarms, cross-repo `@repo`, hosted registry, package signing & trust roots |
+| V5 — Production-Grade Era | 7.0.0–8.4.0 | Unified Python engine, policy federation, observability parity, and the v8 hardening: canonical `@type`, fail-closed `!assert`, `@policy` v2 (time-windows / approvals / signed proposals), `@timeline` scheduling, `@contract` boundary validation, and encrypted `@vault` secrets |
+
+### Forward-looking (post-8.4.0)
+
 | Version | Planned Features |
 |---|---|
-| `4.0.0` | The Federation Era — networked/remote swarms, cross-repo orchestration, a hosted registry, and policy/permission governance for autonomous agents. |
+| `9.0.0` | Remove the deprecated `@type_definition` alias; promote `[!]`/`[?]` reason requirement from warning to hard error |
+| `9.x` | Distributed contract enforcement across swarm boundaries; vault key-rotation automation |
+| `10.0.0` | Candidate for the next specification major — formalize the V5 governance objects into the locked grammar (currently the grammar is stable at 2.0.0) |

@@ -12,6 +12,38 @@ ALP versioning tracks two independent axes:
 
 ## Toolchain
 
+### 8.4.0 — Encrypted Secrets Vault (V5)
+- `@vault` (spec/19, spec/03 §31): secrets sealed at rest with an age-style X25519 envelope + AES-256-GCM, recipient-scoped so only the matching private key unseals. `recipients` double as the registry trust root (spec/14 §4.2).
+- New `Vault` engine in `parser/src/vault.ts` (Node built-in `crypto`) and `sdk/python/alp_sdk/vault.py` (optional `cryptography` dep, zero-dep fallback). `set` / `get` / `list` / `rotate` / `audit` APIs; `parser/tests/vault.test.ts` (8 cases) + `sdk/python/tests/test_vault.py` (8 cases, skip without `cryptography`).
+- Fixed pre-existing missing `signing` imports in `registry.py` (2 registry test errors). Full Python suite: 179 pass.
+
+### 8.3.0 — Contracts: Runtime Boundary Validation (V5)
+- `@contract` (spec/18, spec/03 §29): least-privilege boundaries between two entities (agents/tasks/repos) with `requires` pre-conditions, `allows` / `denies` lists (glob `.*` deny patterns), and `on_violation` modes (`deny`/`warn`/`log`).
+- `ContractEngine.check(contractId, context)` enforces boundaries at handoff points (task transfer, repo write, MCP tool call). New `parser/src/contract.ts` + `sdk/python/alp_sdk/contract.py`; `parser/tests/contract.test.ts` (9) + `sdk/python/tests/test_contracts.py` (9). Full Python suite: 171 pass.
+
+### 8.2.0 — Scheduling Engine (V5)
+- `@timeline` (spec/17, spec/03 §27): native scheduling without an external cron daemon. Standard 5-field `cron` expressions and one-shot ISO 8601 `at` triggers, evaluated by `TimelineEngine.evaluate(now)`.
+- New `parser/src/schedule.ts` + `sdk/python/alp_sdk/schedule.py`; `parser/tests/schedule.test.ts` (6) + `sdk/python/tests/test_schedule.py` (6). CLI `alp schedule` (list / next / enable / disable / `--at`). Full Python suite: 162 pass.
+
+### 8.1.0 — Policy v2 (V5)
+- `@policy` gains three extensions: `allow_during` time-windows (actions outside every declared UTC window are denied — time-scoped least-privilege), `require_approval` (matching actions escalate to human-in-the-loop instead of auto-blocking), and `proposal` blocks (signed, auditable action proposals verified against a trust root with MCP-enforcement audit trail).
+- `evaluate_proposal` / `evaluateProposal` APIs; `tests/test_policy_v2.py` (6) + `parser/tests/policy.test.ts` v8.1.0 block (3). CLI `alp policy` gains `--proposal <id>` + `--trust <pem>`. Full Python suite: 156 pass.
+
+### 8.0.0 — Production-Grade Era (V5), three breaking changes
+1. **`@type` is canonical** — the plugin model collapsed to a single `@type` declaration (spec/11 §2.5); `@type_definition` retained as a *deprecated alias* for one major, removed in v9.
+2. **`!assert` is fail-closed** (spec/16 §4) — a false *or* unparseable `!assert` raises `DirectiveError`, and **unknown directives** raise a hard `SyntaxError` instead of being silently ignored.
+3. **`[!]` / `[?]` must carry a reason** (spec/03 §4) — unannotated markers emit a deprecation warning in v8 and become a hard error in v9.
+- Migration guide: `docs-site/MIGRATION-v8.md`. All sub-packages bumped to `8.0.0`.
+
+### 7.2.0 — Policy Federation & Engine Parity
+- `policy_federation` layering multi-source governance over the atomic `PolicyEngine`: `PolicyFederation` aggregates `PolicySource`s (local, every member project, hosted-registry namespaces) into one effective decision where `deny_*` / strict from ANY source wins. Adds `FederatedDecision` + `audit_trail`. `tests/test_policy_federation.py` (12). Full Python suite: 150 pass.
+
+### 7.1.0 — Observability Parity
+- Python `observ.py` mirroring TS runtime primitives — `RuntimeLog` (append-only JSONL at `.alp/.runtime/log.jsonl`), best-effort / never-raises.
+
+### 7.0.0 — Unified Execution Engine
+- Python `engine.py` implementing all four spec/05 engines — `LoopEngine` (7 stages, checkpoint-per-iteration, event emitter), `WorkflowEngine` (retry strategies), `ContextEngine`, `VerificationEngine`.
+
 ### 6.5.0 — Plugin System (local + remote)
 - Local plugin loading: file-level `!import "plugins/x.alp"` is resolved relative to the `.alp/` workspace root (spec/11 §3.1), with circular-import detection and path-traversal guards.
 - `@plugin` + `@type_definition` blocks register custom object types; custom block markers (e.g. `@epic`) parse and validate against their declared `properties` (required-field + unknown-property warnings, §4.1).

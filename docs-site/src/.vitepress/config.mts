@@ -54,7 +54,10 @@ export default defineConfig({
           { text: '13. Multi-Project', link: '/spec/13-multi-project' },
           { text: '14. Plugin Registry', link: '/spec/14-plugin-registry' },
           { text: '15. Formal Grammar', link: '/spec/15-formal-grammar' },
-          { text: '16. Compliance', link: '/spec/16-compliance' }
+          { text: '16. Compliance', link: '/spec/16-compliance' },
+          { text: '17. Scheduling', link: '/spec/17-scheduling' },
+          { text: '18. Contracts', link: '/spec/18-contracts' },
+          { text: '19. Encrypted Vault', link: '/spec/19-vault' }
         ]
       }
     ],

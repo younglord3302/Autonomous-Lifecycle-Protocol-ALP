@@ -20,4 +20,5 @@ The reference parser implementation for the `.alp` file format.
 
 ## Status
 
-🔜 **Phase 8** — Not yet started.
+✅ **Stable** — reference parser for the ALP `.alp` format, part of the
+Production-Grade Era (V5) toolchain (`8.4.0`).

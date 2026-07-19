@@ -222,10 +222,10 @@ track of dependencies. ALP replaces scattered `README.md`, `PRD.md`, `AGENTS.md`
 files with **one deterministic protocol stored natively in your repository** (`.alp/`).
 
 <div class="alp-stats">
-  <div class="alp-stat"><span class="alp-stat-num">17</span><span class="alp-stat-label">Core protocol objects</span></div>
+  <div class="alp-stat"><span class="alp-stat-num">20+</span><span class="alp-stat-label">Protocol objects</span></div>
   <div class="alp-stat"><span class="alp-stat-num">6</span><span class="alp-stat-label">Lifecycle status states</span></div>
   <div class="alp-stat"><span class="alp-stat-num">2.0.0</span><span class="alp-stat-label">Stable specification</span></div>
-  <div class="alp-stat"><span class="alp-stat-num">100%</span><span class="alp-stat-label">Machine-validatable</span></div>
+  <div class="alp-stat"><span class="alp-stat-num">8.4.0</span><span class="alp-stat-label">Toolchain (V5 era)</span></div>
 </div>
 
 ## How ALP compares to other formats
@@ -306,12 +306,15 @@ alp verify build-api
 ALP is a complete, production-ready toolbox — not just a spec.
 
 <div class="alp-eco">
-  <a class="alp-eco-card" href="/guide/cli"><h3>@alp/cli</h3><p>The terminal interface: <code>run</code>, <code>verify</code>, <code>doctor</code>, <code>lint</code>, <code>export</code>, <code>upgrade</code>.</p></a>
+  <a class="alp-eco-card" href="/guide/cli"><h3>@alp/cli</h3><p>The terminal interface: <code>run</code>, <code>policy</code>, <code>schedule</code>, <code>vault</code>, <code>verify</code>, <code>registry</code>.</p></a>
   <a class="alp-eco-card" href="/spec/03-protocol-objects"><h3>@alp/parser</h3><p>Parses <code>.alp</code> files and computes Kahn topological sorts over the dependency graph.</p></a>
   <a class="alp-eco-card" href="/mcp-server"><h3>@alp/mcp-server</h3><p>Real-time MCP integration for Claude Desktop, Cursor, and any compliant client.</p></a>
   <a class="alp-eco-card" href="/vscode-extension"><h3>alp-vscode</h3><p>Language Server with IntelliSense, go-to-definition, and rich hover metadata.</p></a>
   <a class="alp-eco-card" href="/guide/sdk"><h3>@alp/sdk &amp; alp-sdk</h3><p>Official TypeScript and Python SDKs for programmatic access.</p></a>
   <a class="alp-eco-card" href="/spec/16-compliance"><h3>Compliance Suite</h3><p>Schema validation and conformance tests that guarantee "done" is checkable.</p></a>
+  <a class="alp-eco-card" href="/spec/17-scheduling"><h3>@timeline</h3><p>Native scheduling — cron + one-shot triggers — without an external cron daemon (v8.2.0).</p></a>
+  <a class="alp-eco-card" href="/spec/18-contracts"><h3>@contract</h3><p>Runtime boundary validation between agents, tasks, and repos (v8.3.0).</p></a>
+  <a class="alp-eco-card" href="/spec/19-vault"><h3>@vault</h3><p>Encrypted secrets at rest — X25519 envelope + AES-256-GCM (v8.4.0).</p></a>
 </div>
 
 ## Quick start

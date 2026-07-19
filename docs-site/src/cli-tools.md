@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `6.0.0` (The Federation Era).
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `8.4.0` (The Production-Grade Era, V5). New in v8: `alp schedule`, `alp vault`, and `alp policy --proposal` / `--trust`.
 
 ## Execution Engine (`alp run`)
 
@@ -145,6 +145,59 @@ alp policy --command "git push" --agent agent-developer
 Policies are also enforced automatically by `alp verify`: a verification command
 that violates a strict policy is blocked and never executed. `deny_*` rules
 always take precedence over `allow_*`.
+
+### Policy v2 — time-windows, approvals & signed proposals (*v8.1.0*)
+
+`@policy` is extended for least-privilege operation:
+
+```bash
+# Verify a signed action proposal against a trust root
+alp policy --proposal prop-deploy-prod --trust maintainer.pub
+
+# Time-scoped least privilege: a policy with `allow_during` denies actions
+# outside every declared UTC window. `require_approval` escalates a matching
+# action to a human instead of auto-blocking it.
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--proposal <id>` | *v8.1.0.* Verify a signed `proposal` block by id against the workspace's `proposals` list |
+| `--trust <pem>` | *v8.1.0.* Trust root (PEM / fingerprint) for proposal signature verification |
+
+## Scheduling (`alp schedule`) — *v8.2.0*
+
+Native scheduling without an external cron daemon. Declare `@timeline`
+objects (standard 5-field `cron` or one-shot `at` ISO-8601 triggers) and
+discover what's due:
+
+```bash
+alp schedule                 # list every @timeline and its next fire time
+alp schedule next            # list only timelines due now
+alp schedule enable  tl-daily-standup
+alp schedule disable tl-retro
+alp schedule --at "2026-07-20T09:00:00Z"   # evaluate as of a fixed time (testing)
+```
+
+Evaluated by `TimelineEngine.evaluate(now)` and by agents through the Loop
+Engine (spec/17).
+
+## Encrypted Secrets Vault (`alp vault`) — *v8.4.0*
+
+Store secrets encrypted at rest (age-style X25519 envelope + AES-256-GCM),
+recipient-scoped so only the matching private key can unseal them. The vault
+`recipients` list doubles as the registry trust root (spec/19).
+
+```bash
+alp vault set db-password --value "$DB_PW" --recipient maintainer.pub
+alp vault get db-password --key maintainer.key
+alp vault list
+alp vault rotate db-password --key maintainer.key
+alp vault audit
+```
+
+> Encryption in the Python SDK requires the optional `cryptography` package
+> (`pip install alp-sdk[vault]`); the TS SDK uses Node's built-in `crypto`, so
+> encryption is always available there.
 
 ## Hosted Registry & Marketplace (`alp registry`)
 
