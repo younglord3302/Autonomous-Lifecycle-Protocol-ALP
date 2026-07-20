@@ -16,6 +16,10 @@ export default defineConfig({
       noExternal: ['vue'],
     },
   },
+  head: [
+    ['link', { rel: 'stylesheet', href: '/Autonomous-Lifecycle-Protocol-ALP/style.css' }],
+    ['script', { src: '/Autonomous-Lifecycle-Protocol-ALP/stars.js', defer: '' }],
+  ],
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
