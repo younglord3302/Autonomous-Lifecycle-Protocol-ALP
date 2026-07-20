@@ -46,6 +46,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install jsonschema referencing
           npm ci
           npm run build --workspace @alp/parser --workspace @alp/cli
 
@@ -69,7 +70,7 @@ jobs:
         run: npm ci
 
       - name: Build CLI
-        run: npm run build --workspace @alp/cli
+        run: npm run build --workspace @alp/parser --workspace @alp/cli
 
       - name: Validate examples/todo-app
         working-directory: examples/todo-app
@@ -96,7 +97,7 @@ jobs:
         run: npm ci
 
       - name: Build CLI
-        run: npm run build --workspace @alp/cli
+        run: npm run build --workspace @alp/parser --workspace @alp/cli
 
       - name: Run compliance harness
         run: node cli/dist/index.js test-harness --suite tests/compliance
