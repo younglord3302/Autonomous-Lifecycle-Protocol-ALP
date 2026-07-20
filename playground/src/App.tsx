@@ -6,7 +6,7 @@ import 'reactflow/dist/style.css';
 import { AlpParser, AlpGraph } from '@alp/parser';
 import './App.css';
 
-const DEFAULT_CODE = `!alp-version: 2.0.0
+const DEFAULT_CODE = `!alp-version: 3.0.0
 
 @project
   id: my-awesome-project

@@ -193,6 +193,7 @@ function parseExpr(tokens: Token[]): (ctx: EvalContext) => AlpelValue {
         const name = (id as any).v;
         node = (c) => getProp(base(c), name);
         (node as any).__id = name;
+        (node as any).__base = base;
         isName = true;
       } else if (peek()?.t === 'lb') {
         // bracket access obj['k'] / arr[0] — always (never a call; calls use `(`).
@@ -219,6 +220,7 @@ function parseExpr(tokens: Token[]): (ctx: EvalContext) => AlpelValue {
         } else {
           next();
           const fnName = (node as any).__id;
+          const base = (node as any).__base;
           const args: ((c: EvalContext) => AlpelValue)[] = [];
           if (peek()?.t !== 'rp') {
             args.push(parseOr());
@@ -226,7 +228,11 @@ function parseExpr(tokens: Token[]): (ctx: EvalContext) => AlpelValue {
           }
           if (peek()?.t !== 'rp') throw new AlpelError('ALPEL: expected )');
           next();
-          node = (c) => callFn(fnName, args.map((a) => a(c)));
+          if (base) {
+            node = (c) => callFn(fnName, [base(c), ...args.map((a) => a(c))]);
+          } else {
+            node = (c) => callFn(fnName, args.map((a) => a(c)));
+          }
         }
         isName = false;
       } else {
@@ -275,7 +281,13 @@ function parseExpr(tokens: Token[]): (ctx: EvalContext) => AlpelValue {
       }
       if (peek()?.t !== 'rbrace') throw new AlpelError("ALPEL: expected }");
       next();
-      return () => obj;
+      return (c) => {
+        const result: Record<string, AlpelValue> = {};
+        for (const k of Object.keys(obj)) {
+          result[k] = (obj as any)[k](c);
+        }
+        return result;
+      };
     }
     if (tok.t === 'num') { next(); return () => tok.v; }
     if (tok.t === 'str') { next(); return () => tok.v; }

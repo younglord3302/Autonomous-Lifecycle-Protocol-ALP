@@ -25,10 +25,13 @@ export function upgradeCommand() {
 
         // Check if missing directive or 1.0.0
         if (!content.includes('!alp-version')) {
-          content = '!alp-version 2.0.0\n' + content;
+          content = '!alp-version: 3.0.0\n' + content;
           needsUpgrade = true;
         } else if (content.includes('!alp-version 1.0.0')) {
-          content = content.replace('!alp-version 1.0.0', '!alp-version 2.0.0');
+          content = content.replace('!alp-version 1.0.0', '!alp-version: 3.0.0');
+          needsUpgrade = true;
+        } else if (content.includes('!alp-version 2.0.0')) {
+          content = content.replace('!alp-version 2.0.0', '!alp-version: 3.0.0');
           needsUpgrade = true;
         }
 

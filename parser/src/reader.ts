@@ -307,8 +307,8 @@ export class AlpReader {
   private handleDirective(line: string, lineNum: number): void {
     const trimmed = line.replace(/^!/, '').trim();
 
-    // !alp-version: 2.0.0
-    let m = trimmed.match(/^alp-version:\s*(.+)$/);
+    // !alp-version: 2.0.0 or !alp-version 2.0.0
+    let m = trimmed.match(/^alp-version[:\s]\s*(.+)$/);
     if (m) {
       this.declaredVersion = m[1].trim().replace(/^"|"$/g, '');
       return;

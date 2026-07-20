@@ -11,7 +11,7 @@ export function initCommand(options: any) {
   
   fs.mkdirSync(targetDir, { recursive: true });
   
-  const defaultProject = `!alp-version: 2.0.0
+  const defaultProject = `!alp-version: 3.0.0
 
 @project
   id: my-project

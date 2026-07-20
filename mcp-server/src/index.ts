@@ -495,7 +495,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const denied = enforcePolicy(cwd, file, args?.agent as string | undefined);
         if (denied) return denied;
         const body =
-          `!alp-version: 2.0.0\n\n` +
+          `!alp-version: 3.0.0\n\n` +
           `@task\n` +
           `  id: ${id}\n` +
           `  status: [ ]\n` +

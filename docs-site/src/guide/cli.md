@@ -25,7 +25,7 @@ This creates an `.alp/` directory and a `project.alp` file in your repository.
 Create `.alp` files inside your `.alp/` directory. For example, `.alp/features.alp`:
 
 ```alp
-!alp-version: 2.0.0
+!alp-version: 3.0.0
 
 @feature
   id: feat-auth

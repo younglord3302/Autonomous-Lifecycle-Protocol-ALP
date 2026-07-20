@@ -5,7 +5,7 @@ describe('AlpParser - Directives (v6.1.0)', () => {
   it('ignores !alp-version without affecting objects', () => {
     const parser = new AlpParser();
     const input = `
-!alp-version: 2.0.0
+!alp-version: 3.0.0
 
 @project
   id: p

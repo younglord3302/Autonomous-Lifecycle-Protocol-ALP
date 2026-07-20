@@ -72,7 +72,7 @@ export function importCommand(file?: string) {
   }
 
   // Create .alp output
-  let alpContent = `!alp-version 2.0.0\n\n`;
+  let alpContent = `!alp-version: 3.0.0\n\n`;
   for (const rule of rules) {
     alpContent += `@rule\n`;
     alpContent += `  id: ${rule.id}\n`;

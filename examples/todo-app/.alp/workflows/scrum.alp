@@ -1,4 +1,4 @@
-!alp-version 2.0.0
+!alp-version: 3.0.0
 @workflow
   id: wf-scrum-sprint
   description: "Standard 2-week Agile Scrum Sprint"

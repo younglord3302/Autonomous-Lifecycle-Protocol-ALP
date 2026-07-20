@@ -1,4 +1,4 @@
-!alp-version: 2.0.0
+!alp-version: 3.0.0
 
 @feature
   id: feat-user-auth
