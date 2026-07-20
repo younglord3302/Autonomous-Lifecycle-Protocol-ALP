@@ -1,4 +1,11 @@
 import { defineConfig } from 'vitepress'
+import fs from 'fs'
+import path from 'path'
+
+const stylePath = path.resolve('src/.vitepress/public/style.css')
+const starsPath = path.resolve('src/.vitepress/public/stars.js')
+const styleContent = fs.existsSync(stylePath) ? fs.readFileSync(stylePath, 'utf-8') : ''
+const starsContent = fs.existsSync(starsPath) ? fs.readFileSync(starsPath, 'utf-8') : ''
 
 export default defineConfig({
   title: "ALP",
@@ -16,10 +23,12 @@ export default defineConfig({
       noExternal: ['vue'],
     },
   },
-  head: [
-    ['link', { rel: 'stylesheet', href: '/Autonomous-Lifecycle-Protocol-ALP/style.css' }],
-    ['script', { src: '/Autonomous-Lifecycle-Protocol-ALP/stars.js', defer: '' }],
-  ],
+  transformHead: () => {
+    return [
+      ['style', {}, styleContent],
+      ['script', {}, starsContent],
+    ]
+  },
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
