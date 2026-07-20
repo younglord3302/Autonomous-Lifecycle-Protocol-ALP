@@ -2,12 +2,14 @@
   function initStars() {
     const container = document.createElement('div');
     container.className = 'stars-container';
-    for (let i = 0; i < 6; i++) {
+    const stars = [];
+    for (let i = 0; i < 12; i++) {
       const star = document.createElement('div');
       star.className = 'star';
-      star.style.animationDelay = (i * 1.5) + 's';
-      star.style.animationDuration = (7 + Math.random() * 5) + 's';
+      star.style.animationDelay = (i * 0.5) + 's';
+      star.style.animationDuration = (4 + Math.random() * 4) + 's';
       container.appendChild(star);
+      stars.push(star);
     }
     document.body.appendChild(container);
 
@@ -22,13 +24,13 @@
     });
 
     function animate() {
-      currentX += (mouseX - currentX) * 0.05;
-      currentY += (mouseY - currentY) * 0.05;
+      currentX += (mouseX - currentX) * 0.03;
+      currentY += (mouseY - currentY) * 0.03;
 
       const offsetX = (currentX - window.innerWidth / 2) / window.innerWidth;
       const offsetY = (currentY - window.innerHeight / 2) / window.innerHeight;
 
-      container.style.transform = `translate(${offsetX * 20}px, ${offsetY * 20}px)`;
+      container.style.transform = `translate(${offsetX * 30}px, ${offsetY * 30}px)`;
 
       requestAnimationFrame(animate);
     }
