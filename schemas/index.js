@@ -22,6 +22,7 @@ module.exports = {
   "repo": require("./repo.schema.json"),
   "package": require("./package.schema.json"),
   "task": require("./task.schema.json"),
+  "type": require("./type.schema.json"),
   "type_definition": require("./type_definition.schema.json"),
   "verification": require("./verification.schema.json"),
   "workflow": require("./workflow.schema.json"),

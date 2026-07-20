@@ -28,7 +28,7 @@ const PLUGIN = `
 
 ---
 
-@type_definition
+@type
   id: type-epic
   type_name: epic
   properties:

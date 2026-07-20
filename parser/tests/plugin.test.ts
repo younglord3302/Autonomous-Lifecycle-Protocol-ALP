@@ -27,7 +27,7 @@ const PLUGIN = `
 
 ---
 
-@type_definition
+@type
   id: type-epic
   type_name: epic
   description: "A large body of work"

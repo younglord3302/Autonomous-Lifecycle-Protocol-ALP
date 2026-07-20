@@ -225,7 +225,7 @@ files with **one deterministic protocol stored natively in your repository** (`.
   <div class="alp-stat"><span class="alp-stat-num">20+</span><span class="alp-stat-label">Protocol objects</span></div>
   <div class="alp-stat"><span class="alp-stat-num">6</span><span class="alp-stat-label">Lifecycle status states</span></div>
   <div class="alp-stat"><span class="alp-stat-num">2.0.0</span><span class="alp-stat-label">Stable specification</span></div>
-  <div class="alp-stat"><span class="alp-stat-num">8.4.0</span><span class="alp-stat-label">Toolchain (V5 era)</span></div>
+  <div class="alp-stat"><span class="alp-stat-num">9.0.0</span><span class="alp-stat-label">Toolchain (V5 era)</span></div>
 </div>
 
 ## How ALP compares to other formats
@@ -314,7 +314,7 @@ ALP is a complete, production-ready toolbox — not just a spec.
   <a class="alp-eco-card" href="/spec/16-compliance"><h3>Compliance Suite</h3><p>Schema validation and conformance tests that guarantee "done" is checkable.</p></a>
   <a class="alp-eco-card" href="/spec/17-scheduling"><h3>@timeline</h3><p>Native scheduling — cron + one-shot triggers — without an external cron daemon (v8.2.0).</p></a>
   <a class="alp-eco-card" href="/spec/18-contracts"><h3>@contract</h3><p>Runtime boundary validation between agents, tasks, and repos (v8.3.0).</p></a>
-  <a class="alp-eco-card" href="/spec/19-vault"><h3>@vault</h3><p>Encrypted secrets at rest — X25519 envelope + AES-256-GCM (v8.4.0).</p></a>
+  <a class="alp-eco-card" href="/spec/19-vault"><h3>@vault</h3><p>Encrypted secrets at rest — X25519 envelope + AES-256-GCM (v9.0.0).</p></a>
 </div>
 
 ## Quick start

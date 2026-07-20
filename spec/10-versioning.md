@@ -122,6 +122,7 @@ Deprecated elements:
 
 | Version | Date | Changes |
 |---|---|---|
+| `9.0.0` | 2026-07-20 | v9 Breaking Changes: (1) Removed deprecated `@type_definition` alias — `@type` is now the sole custom-type declaration (spec/11 §2.5). (2) `[!]` (blocked) and `[?]` (human gate) status markers MUST carry a free-text reason; unannotated markers are a hard `SyntaxError` (promoted from v8 deprecation warning, spec/03 §4). |
 | `8.4.0` | 2026-07-20 | Encrypted Secrets Vault (Production-Grade Era, V5). Introduces `@vault` (spec/03 §31 / spec/19): secrets sealed at rest with an age-style X25519 envelope + AES-256-GCM, recipient-scoped so only the matching private key unseals. `recipients` double as the registry trust root (spec/14 §4.2). New `Vault` engine in `parser/src/vault.ts` (Node built-in `crypto`) and `sdk/python/alp_sdk/vault.py` (optional `cryptography` dep, zero-dep fallback). `set`/`get`/`list`/`rotate`/`audit` APIs; `parser/tests/vault.test.ts` (8 cases) and `sdk/python/tests/test_vault.py` (8 cases, skip without `cryptography`) cover seal/unseal, no-plaintext-on-disk, unauthorized rejection, multi-recipient, rotation, and audit trail. Also fixed pre-existing missing `signing` imports in `registry.py` (2 registry test errors). Full Python suite: 179 pass. |
 | `8.3.0` | 2026-07-20 | @contract Runtime Boundary Validation (Production-Grade Era, V5). Introduces declarative `@contract` objects (spec/03 §29) defining least-privilege boundaries between two entities (agents/tasks/repos) with `requires` pre-conditions, `allows`/`denies` lists (glob `.*` deny patterns), and `on_violation` modes (`deny`/`warn`/`log`). Enforced by `ContractEngine.check(contractId, context)` at handoff points (task transfer, repo write, MCP tool call). New `parser/src/contract.ts` and `sdk/python/alp_sdk/contract.py` mirror the TS engine; `parser/tests/contract.test.ts` (9 cases) and `sdk/python/tests/test_contracts.py` (9 cases) cover allow/deny, numeric & nested `requires`, unknown contracts, warn mode, and glob denial. Full Python suite: 171 pass. |
 | `8.2.0` | 2026-07-20 | @timeline Scheduling Engine (Production-Grade Era, V5). Introduces native ALP scheduling without an external cron daemon: a declarative `@timeline` object (spec/03 §27) with standard 5-field `cron` expressions and one-shot ISO 8601 `at` triggers, evaluated by `TimelineEngine.evaluate(now)` returning `TimelineResult[]`. New `parser/src/schedule.ts` and `sdk/python/alp_sdk/schedule.py` mirror the TS engine; `parser/tests/schedule.test.ts` (6 cases) and `sdk/python/tests/test_schedule.py` (6 cases) cover cron matching, one-shot firing, disabled timelines, and listing. CLI `alp schedule` (spec/17) supports list/next/enable/disable/--at modes. Full Python suite: 162 pass. |
@@ -171,12 +172,11 @@ are authoritative in the table in §7; this section captures intent.
 | V2 — Execution Engine | 2.0.0 | Context bundles, topological execution |
 | V3 — Multi-Agent Orchestration | 3.0.0–3.1.0 | Concurrent swarms, live state server, self-evolving protocol |
 | V4 — The Federation Era | 4.0.0–4.5.0 | Networked swarms, cross-repo `@repo`, hosted registry, package signing & trust roots |
-| V5 — Production-Grade Era | 7.0.0–8.4.0 | Unified Python engine, policy federation, observability parity, and the v8 hardening: canonical `@type`, fail-closed `!assert`, `@policy` v2 (time-windows / approvals / signed proposals), `@timeline` scheduling, `@contract` boundary validation, and encrypted `@vault` secrets |
+| V5 — Production-Grade Era | 7.0.0–9.0.0 | Unified Python engine, policy federation, observability parity, and the v8/v9 hardening: canonical `@type`, fail-closed `!assert`, `@policy` v2 (time-windows / approvals / signed proposals), `@timeline` scheduling, `@contract` boundary validation, encrypted `@vault` secrets, removed `@type_definition` alias, mandatory `[!]`/`[?]` reasons |
 
-### Forward-looking (post-8.4.0)
+### Forward-looking (post-9.0.0)
 
 | Version | Planned Features |
 |---|---|
-| `9.0.0` | Remove the deprecated `@type_definition` alias; promote `[!]`/`[?]` reason requirement from warning to hard error |
 | `9.x` | Distributed contract enforcement across swarm boundaries; vault key-rotation automation |
 | `10.0.0` | Candidate for the next specification major — formalize the V5 governance objects into the locked grammar (currently the grammar is stable at 2.0.0) |

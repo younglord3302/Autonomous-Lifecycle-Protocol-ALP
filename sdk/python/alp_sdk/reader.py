@@ -124,16 +124,15 @@ class AlpReader:
                     current_obj[key] = value
                     current_nested = None
                     current_list = None
-                    # ── v8.0.0: status-marker deprecation ──
+                    # ── v9.0.0: status-marker reason is now mandatory ──
                     # `[!]` (blocked) and `[?]` (human gate) MUST carry a
-                    # free-text reason as of v8.0.0. Unannotated markers
-                    # emit a deprecation warning now and become a hard error
-                    # in v9.
+                    # free-text reason. Unannotated markers are a hard error
+                    # (promoted from a v8.0.0 deprecation warning).
                     if key == "status" and value in ("[!]", "[?]"):
-                        self.warnings.append(
-                            f"Deprecation (line {line_num}): status marker "
-                            f"'{value}' requires a reason (e.g. '[!] reason "
-                            f"text'). Required in v9.0.0."
+                        raise SyntaxError(
+                            f"Status marker '{value}' requires a reason "
+                            f"(e.g. '{value} reason text'). Mandatory since v9.0.0.",
+                            line_num,
                         )
                     continue
 

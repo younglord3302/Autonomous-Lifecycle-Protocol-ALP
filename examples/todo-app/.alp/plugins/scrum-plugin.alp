@@ -12,7 +12,7 @@
 
 ---
 
-@type_definition
+@type
   id: type-epic
   type_name: epic
   description: "A large body of work that can be broken down into specific tasks (or stories)"
@@ -27,7 +27,7 @@
 
 ---
 
-@type_definition
+@type
   id: type-sprint
   type_name: sprint
   description: "A time-boxed iteration of work"

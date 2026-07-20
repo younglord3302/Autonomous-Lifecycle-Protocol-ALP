@@ -21,7 +21,7 @@ The ALP repo ships an active CI workflow at `.github/workflows/ci.yml` (TypeScri
 
 > **CLI install:** the drop-in workflows use `npm install -g @alp/cli`. Until the `@alp/cli` package is published to npm, replace that step with a build-from-source step in your fork: `npm ci && npm run build --workspace @alp/cli`, then invoke the CLI via `node cli/dist/index.js`. This matches the `validate` job in the repo's own `.github/workflows/ci.yml`.
 
-## The Production-Grade Era (V5 — v8.0.0 → v8.4.0)
+## The Production-Grade Era (V5 — v8.0.0 → v9.0.0)
 
 Integrations should be aware of the v8 governance surface so agents operate
 with verifiable least privilege:

@@ -189,13 +189,14 @@ export class AlpReader {
           this.currentNestedBlock = null;
           this.currentListProp = null;
 
-          // ── v8.0.0: status-marker deprecation ──
+          // ── v9.0.0: status-marker reason is now mandatory ──
           // `[!]` (blocked) and `[?]` (human gate) MUST carry a
-          // free-text reason as of v8.0.0. Unannotated markers emit
-          // a deprecation warning now and become a hard error in v9.
+          // free-text reason. Unannotated markers are a hard error
+          // (promoted from a v8.0.0 deprecation warning).
           if (key === 'status' && (value === '[!]' || value === '[?]')) {
-            this.warnings.push(
-              `Deprecation (line ${lineNum}): status marker '${value}' requires a reason (e.g. '[!] reason text'). Required in v9.0.0.`
+            throw new SyntaxError(
+              `Status marker '${value}' requires a reason (e.g. '${value} reason text'). Mandatory since v9.0.0.`,
+              lineNum
             );
           }
 

@@ -133,13 +133,11 @@ export class PluginResolver {
       } else if (obj._type === 'type') {
         this.registerType(obj, []);
       } else if (obj._type === 'type_definition') {
-        // Deprecated alias (v8.0.0): `@type_definition` is
-        // retained for one major so existing plugins keep parsing;
-        // it emits a deprecation warning and registers identically
-        // to `@type`.
-        this.registerType(obj, [
-          `Deprecation: @type_definition is deprecated (v8.0.0); use @type instead.`,
-        ]);
+        // Removed in v9.0.0: `@type_definition` was a deprecated alias kept
+        // for one major (v8.0.0). It is now an error — use `@type`.
+        throw new ValidationError(
+          `@type_definition was removed in v9.0.0; declare custom types with @type instead.`
+        );
       }
       this.objects.push(obj);
     }

@@ -12,6 +12,10 @@ ALP versioning tracks two independent axes:
 
 ## Toolchain
 
+### 9.0.0 — v9 Breaking Changes
+- Removed deprecated `@type_definition` alias — `@type` is now the sole custom-type declaration (spec/11 §2.5).
+- `[!]` (blocked) and `[?]` (human gate) status markers MUST carry a free-text reason; unannotated markers are a hard `SyntaxError` (promoted from v8 deprecation warning, spec/03 §4).
+
 ### 8.4.0 — Encrypted Secrets Vault (V5)
 - `@vault` (spec/19, spec/03 §31): secrets sealed at rest with an age-style X25519 envelope + AES-256-GCM, recipient-scoped so only the matching private key unseals. `recipients` double as the registry trust root (spec/14 §4.2).
 - New `Vault` engine in `parser/src/vault.ts` (Node built-in `crypto`) and `sdk/python/alp_sdk/vault.py` (optional `cryptography` dep, zero-dep fallback). `set` / `get` / `list` / `rotate` / `audit` APIs; `parser/tests/vault.test.ts` (8 cases) + `sdk/python/tests/test_vault.py` (8 cases, skip without `cryptography`).
