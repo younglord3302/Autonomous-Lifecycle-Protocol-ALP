@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitepress'
-import { alp, ebnf } from './langs'
 
 export default defineConfig({
   title: "ALP",
@@ -8,8 +7,13 @@ export default defineConfig({
   markdown: {
     code: {
       shiki: {
-        languages: [alp, ebnf],
+        langs: [],
       },
+    },
+  },
+  vite: {
+    ssr: {
+      noExternal: ['vue'],
     },
   },
   themeConfig: {
