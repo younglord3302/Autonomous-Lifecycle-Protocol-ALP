@@ -4,6 +4,7 @@ import { alp, ebnf } from './langs'
 export default defineConfig({
   title: "ALP",
   description: "Autonomous Lifecycle Protocol",
+  base: '/Autonomous-Lifecycle-Protocol-ALP/',
   markdown: {
     code: {
       shiki: {
