@@ -1,6 +1,6 @@
 # ALP Specification — Plugin System
 
-**Version:** 8.0.0
+**Version:** 10.0.0
 **Status:** Stable
 
 ---
@@ -13,13 +13,13 @@ The ALP Plugin System (introduced in v0.2.0) allows projects to define **Custom 
 
 Starting with v0.4.0, plugins can also be **imported from remote HTTPS URLs**, enabling organizations and the community to share and distribute standardized ALP extensions without manual file copying.
 
-> **v8.0.0 breaking change:** the two-object model (`@plugin` + `@type_definition`) is collapsed into a single **`@type`** declaration (§2). `@type_definition` is retained as a *deprecated alias* for one major (it registers identically to `@type` and emits a deprecation warning). In v9.0.0 `@type_definition` is removed.
+> **v8.0.0 breaking change:** the plugin model uses a single **`@type`** declaration (§2). `@type_definition` was retained as a deprecated alias through v8.x and was removed in v9.0.0.
 
 ---
 
 ## 2. Defining a Plugin
 
-A plugin is simply an `.alp` file that contains a `@plugin` declaration and one or more `@type_definition` blocks.
+A plugin is simply an `.alp` file that contains a `@plugin` declaration and one or more `@type` blocks.
 
 ```alp
 !alp-version: 0.4.0
@@ -35,7 +35,7 @@ A plugin is simply an `.alp` file that contains a `@plugin` declaration and one 
 
 ---
 
-@type_definition
+@type
   id: type-epic
   type_name: epic
   description: "A large body of work that can be broken down into specific tasks (or stories)"
@@ -50,7 +50,7 @@ A plugin is simply an `.alp` file that contains a `@plugin` declaration and one 
 
 ---
 
-@type_definition
+@type
   id: type-sprint
   type_name: sprint
   description: "A time-boxed iteration of work"
@@ -66,7 +66,7 @@ A plugin is simply an `.alp` file that contains a `@plugin` declaration and one 
 
 ## 2.5. The `@type` Block (v8.0.0+)
 
-As of **v8.0.0** the canonical way to declare a custom type is a single `@type` object. It replaces the former `@plugin` + `@type_definition` pair (which required two objects to ship one type). A `@type` block both **identifies** the type and **defines** its schema:
+As of **v8.0.0** the canonical way to declare a custom type is a single `@type` object. A `@type` block both **identifies** the type and **defines** its schema:
 
 ```alp
 !alp-version: 8.0.0
@@ -93,7 +93,7 @@ As of **v8.0.0** the canonical way to declare a custom type is a single `@type` 
 | `properties` | List[Obj] | Yes | Schema definitions for properties (name, type, required) |
 | `allowed_nested` | List[String] | No | Which blocks can be nested inside this type |
 
-**Deprecated alias:** `@type_definition` is accepted through v8.x and registers identically to `@type`, but emits a parser deprecation warning. It is **removed in v9.0.0**. The `@plugin` object (with `id` / `name` / `version` / `dependencies`) is retained for declaring *plugin metadata and dependencies*; a plugin that exposes types SHOULD still declare a `@plugin` for its `dependencies`, but each type is now its own `@type` block.
+**Note:** `@type_definition` was removed in v9.0.0. The `@plugin` object (with `id` / `name` / `version` / `dependencies`) is retained for declaring *plugin metadata and dependencies*; a plugin that exposes types SHOULD still declare a `@plugin` for its `dependencies`, but each type is now its own `@type` block.
 
 ---
 
@@ -250,7 +250,7 @@ Once a type is defined and imported, you can use its `type_name` as a block mark
 
 When a parser encounters a custom block marker (e.g., `@epic`):
 1. It checks the global registry of defined types.
-2. If the type is found, it validates the properties against the schema defined in the `@type_definition`'s `properties` list.
+2. If the type is found, it validates the properties against the schema defined in the `@type`'s `properties` list.
 3. If a required property is missing, or a property has the wrong type, it throws a validation error.
 4. Unrecognized properties within a custom type SHOULD generate a warning, not a fatal error.
 5. If the type is NOT found (i.e., the plugin wasn't imported), the parser falls back to the forward-compatibility rule (Warning: skip the block).
@@ -259,7 +259,7 @@ When a parser encounters a custom block marker (e.g., `@epic`):
 
 ## 5. Standard Property Types
 
-When defining a custom type in `@type_definition`, the following values are valid for the `type` field in the `properties` schema:
+When defining a custom type in `@type`, the following values are valid for the `type` field in the `properties` schema:
 
 - `String`
 - `Number`

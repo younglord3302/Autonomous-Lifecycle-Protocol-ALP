@@ -6,7 +6,7 @@
   <br/>
 
    [![Status](https://img.shields.io/badge/status-stable-success.svg)](#)
-    [![Version](https://img.shields.io/badge/version-9.0.0-blue.svg)](#)
+    [![Version](https://img.shields.io/badge/version-10.0.0-blue.svg)](#)
    [![License](https://img.shields.io/badge/license-MIT-green.svg)](#)
 </div>
 
@@ -125,7 +125,7 @@ alp evolve --apply   # writes proposals to .alp/evolved.alp
 
 ---
 
-## 🛡️ The Production-Grade Era (V5 — v8.0.0 → v9.0.0)
+## 🛡️ The Production-Grade Era (V5 — v8.0.0 → v10.0.0)
 
 ALP v8 hardens the protocol for real autonomous deployments. It introduces
 **fail-closed safety**, **runtime governance**, and **encrypted secrets** so
@@ -165,7 +165,7 @@ deny patterns) at every handoff:
   denies:  [ api.v1.admin.* ]
 ```
 
-### 11. Encrypted Secrets Vault (`@vault` / `alp vault`) — *v9.0.0*
+### 11. Encrypted Secrets Vault (`@vault` / `alp vault`) — *v10.0.0*
 Store secrets encrypted at rest (age-style X25519 envelope + AES-256-GCM),
 recipient-scoped so only the matching private key can unseal them. The vault
 `recipients` double as the registry trust root:

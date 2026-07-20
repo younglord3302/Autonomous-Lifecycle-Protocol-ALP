@@ -65,7 +65,7 @@ A block marker starts a new protocol object. It MUST appear at column 0 (no inde
 ```
 
 **Rules:**
-- `type` MUST be a valid core protocol object type OR a custom type defined via `@type_definition`
+- `type` MUST be a valid core protocol object type OR a custom type defined via `@type`
 - `inline-id` is optional — a shorthand for setting the `id` property
 - Block markers are case-sensitive and MUST be lowercase
 
@@ -84,9 +84,11 @@ A block marker starts a new protocol object. It MUST appear at column 0 (no inde
 @agent       @memory      @state       @artifact
 @decision    @constraint  @verification @dependency
 @resource    @event       @goal        @context
-@rule        @plugin      @type_definition
+@rule        @plugin      @policy      @timeline
+@contract    @vault       @type        @macro
+@repo        @swarm       @package
 ```
-Plus any custom types defined via `@type_definition`.
+Plus any custom types defined via `@type`.
 
 ### 2.3 Properties — `key: value`
 

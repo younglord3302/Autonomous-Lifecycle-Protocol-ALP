@@ -1,6 +1,6 @@
 # ALP Specification — Versioning
 
-**Version:** 2.0.0
+**Version:** 3.0.0
 **Status:** Stable
 
 ---
@@ -35,15 +35,15 @@ MAJOR.MINOR.PATCH
 
 ## 3. Semantic Versioning Guarantees (2.x+)
 
-Starting with `v2.0.0`, ALP adheres strictly to Semantic Versioning (`MAJOR.MINOR.PATCH`). This provides strong guarantees to parser implementers and agent developers:
+Starting with `v3.0.0`, ALP adheres strictly to Semantic Versioning (`MAJOR.MINOR.PATCH`). This provides strong guarantees to parser implementers and agent developers:
 
-1. **PATCH (`2.0.x`)**: Bug fixes, typo corrections in documentation, and clarifications that do not change protocol behavior.
-2. **MINOR (`2.x.0`)**: New backwards-compatible features (e.g., adding a new optional field to a core object).
-3. **MAJOR (`3.0.0`)**: Breaking changes to the grammar or core object schemas.
+1. **PATCH (`3.0.x`)**: Bug fixes, typo corrections in documentation, and clarifications that do not change protocol behavior.
+2. **MINOR (`3.x.0`)**: New backwards-compatible features (e.g., adding a new optional field to a core object).
+3. **MAJOR (`4.0.0`)**: Breaking changes to the grammar or core object schemas.
 
 ### 3.1 Backward Compatibility
 
-Within the same MAJOR version:
+Within the same MAJOR version (3.x):
 - New object types MAY be added (parsers SHOULD ignore unknown types gracefully)
 - New properties MAY be added to existing objects (with defaults)
 - Existing properties MUST NOT be removed or renamed
@@ -77,7 +77,7 @@ When a parser encounters a file with a higher version than it supports:
 |---|---|
 | Same MAJOR, higher MINOR | Parse with warnings for unknown elements |
 | Same MAJOR, higher PATCH | Parse normally |
-| Higher MAJOR | Error: "This file requires ALP v2.x, but this parser supports v1.x" |
+| Higher MAJOR | Error: "This file requires ALP v3.x, but this parser supports v2.x" |
 | No version declared | Parse with latest supported version |
 
 ---
@@ -99,16 +99,16 @@ Object versions are for tracking changes to the object's definition, NOT the ALP
 ## 6. Deprecation Policy
 
 To guarantee that agent parsers do not break unexpectedly, ALP enforces a strict major-version deprecation policy:
-- A feature or field MAY be marked as deprecated in any `MINOR` release (e.g., `2.1.0`).
+- A feature or field MAY be marked as deprecated in any `MINOR` release (e.g., `3.1.0`).
 - A deprecated feature MUST remain fully valid and supported by parsers for the remainder of that major version lifecycle.
-- A deprecated feature MAY only be fully removed in the next `MAJOR` release (e.g., `3.0.0`).
+- A deprecated feature MAY only be fully removed in the next `MAJOR` release (e.g., `4.0.0`).
 
 When a feature is deprecated in a new version, use the `!deprecated` directive:
 
 ```alp
 @task
   id: task-old-login
-  !deprecated: "Replaced by task-new-login in v2.1.0"
+  !deprecated: "Replaced by task-new-login in v3.1.0"
 ```
 
 Deprecated elements:
@@ -121,7 +121,8 @@ Deprecated elements:
 ## 7. Version History
 
 | Version | Date | Changes |
-|---|---|---|
+||---|---|
+| `10.0.0` | 2026-07-20 | Locked Grammar 3.0.0 (V6 — The Governance Era). The formal grammar is bumped to 3.0.0: removed `@type_definition` (deprecated in v8, removed in v9) and added V5 governance objects (`@policy`, `@timeline`, `@contract`, `@vault`) as first-class block types. Also promoted `@type` to explicit block status (previously only `identifier`). `repo`, `swarm`, and `package` are now explicit. All parser/SDK version-negotiation references updated from `2.x` to `3.x`. Migration guide: `docs-site/MIGRATION-v10.md`. |
 | `9.0.0` | 2026-07-20 | v9 Breaking Changes: (1) Removed deprecated `@type_definition` alias — `@type` is now the sole custom-type declaration (spec/11 §2.5). (2) `[!]` (blocked) and `[?]` (human gate) status markers MUST carry a free-text reason; unannotated markers are a hard `SyntaxError` (promoted from v8 deprecation warning, spec/03 §4). |
 | `8.4.0` | 2026-07-20 | Encrypted Secrets Vault (Production-Grade Era, V5). Introduces `@vault` (spec/03 §31 / spec/19): secrets sealed at rest with an age-style X25519 envelope + AES-256-GCM, recipient-scoped so only the matching private key unseals. `recipients` double as the registry trust root (spec/14 §4.2). New `Vault` engine in `parser/src/vault.ts` (Node built-in `crypto`) and `sdk/python/alp_sdk/vault.py` (optional `cryptography` dep, zero-dep fallback). `set`/`get`/`list`/`rotate`/`audit` APIs; `parser/tests/vault.test.ts` (8 cases) and `sdk/python/tests/test_vault.py` (8 cases, skip without `cryptography`) cover seal/unseal, no-plaintext-on-disk, unauthorized rejection, multi-recipient, rotation, and audit trail. Also fixed pre-existing missing `signing` imports in `registry.py` (2 registry test errors). Full Python suite: 179 pass. |
 | `8.3.0` | 2026-07-20 | @contract Runtime Boundary Validation (Production-Grade Era, V5). Introduces declarative `@contract` objects (spec/03 §29) defining least-privilege boundaries between two entities (agents/tasks/repos) with `requires` pre-conditions, `allows`/`denies` lists (glob `.*` deny patterns), and `on_violation` modes (`deny`/`warn`/`log`). Enforced by `ContractEngine.check(contractId, context)` at handoff points (task transfer, repo write, MCP tool call). New `parser/src/contract.ts` and `sdk/python/alp_sdk/contract.py` mirror the TS engine; `parser/tests/contract.test.ts` (9 cases) and `sdk/python/tests/test_contracts.py` (9 cases) cover allow/deny, numeric & nested `requires`, unknown contracts, warn mode, and glob denial. Full Python suite: 171 pass. |
@@ -172,11 +173,11 @@ are authoritative in the table in §7; this section captures intent.
 | V2 — Execution Engine | 2.0.0 | Context bundles, topological execution |
 | V3 — Multi-Agent Orchestration | 3.0.0–3.1.0 | Concurrent swarms, live state server, self-evolving protocol |
 | V4 — The Federation Era | 4.0.0–4.5.0 | Networked swarms, cross-repo `@repo`, hosted registry, package signing & trust roots |
-| V5 — Production-Grade Era | 7.0.0–9.0.0 | Unified Python engine, policy federation, observability parity, and the v8/v9 hardening: canonical `@type`, fail-closed `!assert`, `@policy` v2 (time-windows / approvals / signed proposals), `@timeline` scheduling, `@contract` boundary validation, encrypted `@vault` secrets, removed `@type_definition` alias, mandatory `[!]`/`[?]` reasons |
+| V5 — Production-Grade Era | 7.0.0–10.0.0 | Unified Python engine, policy federation, observability parity, v8/v9 hardening, and v10 locked grammar 3.0.0: canonical `@type`, fail-closed `!assert`, `@policy` v2 (time-windows / approvals / signed proposals), `@timeline` scheduling, `@contract` boundary validation, encrypted `@vault` secrets, removed `@type_definition` alias, mandatory `[!]`/`[?]` reasons, formalized V5 governance objects in grammar |
 
-### Forward-looking (post-9.0.0)
+### Forward-looking (post-10.0.0)
 
 | Version | Planned Features |
 |---|---|
-| `9.x` | Distributed contract enforcement across swarm boundaries; vault key-rotation automation |
-| `10.0.0` | Candidate for the next specification major — formalize the V5 governance objects into the locked grammar (currently the grammar is stable at 2.0.0) |
+| `10.x` | Grammar refinements, new governance primitives, distributed enforcement optimizations |
+| `11.0.0` | Candidate for the next specification major — next-era feature set TBD |

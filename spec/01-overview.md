@@ -87,7 +87,7 @@ No feature requires another feature unless explicitly specified.
 
 ### 3.4 Extensible
 
-The format supports custom object types and custom properties through the **Plugin System**. New protocol objects (e.g., `@epic`, `@sprint`) can be introduced via the `!import` directive and `@type_definition` blocks. Plugins can be loaded locally or dynamically via secure, remote HTTPS URLs, allowing organizations to share standardized methodologies.
+The format supports custom object types and custom properties through the **Plugin System**. New protocol objects (e.g., `@epic`, `@sprint`) can be introduced via the `!import` directive and `@type` blocks. Plugins can be loaded locally or dynamically via secure, remote HTTPS URLs, allowing organizations to share standardized methodologies.
 
 ### 3.5 Programmable
 

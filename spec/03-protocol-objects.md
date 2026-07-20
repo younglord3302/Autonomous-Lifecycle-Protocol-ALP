@@ -909,7 +909,7 @@ Declares an external plugin that extends the ALP parser with new capabilities or
 | `version` | String | Yes | Plugin version (semver format) |
 | `description` | String | No | What this plugin provides |
 | `author` | String | No | Author of the plugin |
-| `types` | List[Ref] | No | References to `@type_definition` objects exported by this plugin |
+| `types` | List[Ref] | No | References to `@type` objects exported by this plugin |
 | `dependencies` | List[Obj] | No | Plugins this plugin depends on (v0.6.0+) |
 
 **Example:**
@@ -929,9 +929,9 @@ Declares an external plugin that extends the ALP parser with new capabilities or
 
 ---
 
-## 22. Type Definition — `@type_definition`
+## 22. Type Definition — `@type`
 
-Defines a custom object type that extends the core ALP protocol.
+Defines a custom object type that extends the core ALP protocol. As of v8.0.0, `@type` is the canonical block marker (replacing the deprecated `@type_definition` alias, removed in v9.0.0).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -943,7 +943,7 @@ Defines a custom object type that extends the core ALP protocol.
 
 **Example:**
 ```
-@type_definition
+@type
   id: type-epic
   type_name: epic
   description: "A large body of work that can be broken down into specific tasks (or stories)"

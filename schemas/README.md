@@ -24,7 +24,7 @@ This directory will contain JSON Schema definitions for every ALP protocol objec
 - `macro.schema.json`
 - `workspace.schema.json`
 - `plugin.schema.json`
-- `type_definition.schema.json`
+- `type.schema.json`
 
 ## Status
 

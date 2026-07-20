@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `9.0.0` (The Production-Grade Era, V5). New in v8: `alp schedule`, `alp vault`, and `alp policy --proposal` / `--trust`.
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `10.0.0` (The Production-Grade Era, V5/V6). New in v8: `alp schedule`, `alp vault`, and `alp policy --proposal` / `--trust`.
 
 ## Execution Engine (`alp run`)
 
@@ -181,7 +181,7 @@ alp schedule --at "2026-07-20T09:00:00Z"   # evaluate as of a fixed time (testin
 Evaluated by `TimelineEngine.evaluate(now)` and by agents through the Loop
 Engine (spec/17).
 
-## Encrypted Secrets Vault (`alp vault`) — *v9.0.0*
+## Encrypted Secrets Vault (`alp vault`) — *v10.0.0*
 
 Store secrets encrypted at rest (age-style X25519 envelope + AES-256-GCM),
 recipient-scoped so only the matching private key can unseal them. The vault

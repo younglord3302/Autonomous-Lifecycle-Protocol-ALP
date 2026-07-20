@@ -166,6 +166,20 @@ Tasks are the atomic units of work. Every piece of implementation work is repres
 
 **Nested blocks allowed:** `@accept`, `@verify`, `@artifact`
 
+**Status markers (v8.0.0+):** Every `status` value is one of
+`[ ]` (todo), `[~]` (in progress), `[x]` (done), `[-]` (blocked/removed),
+`[!]` (blocked by external dependency), `[?]` (waiting on human).
+As of **v8.0.0**, `[!]` and `[?]` MUST carry a free-text reason:
+
+```
+  status: [!] upstream API v3 contract not published yet
+  status: [?] needs security sign-off on token storage
+```
+
+Parsers SHOULD emit a deprecation warning for an unannotated `[!]`/`[?]`
+marker. In **v9.0.0** the missing reason becomes a hard parse error.
+The plain `[ ]`, `[~]`, `[x]`, and `[-]` markers are unchanged.
+
 **Example:**
 ```
 @task
@@ -895,7 +909,7 @@ Declares an external plugin that extends the ALP parser with new capabilities or
 | `version` | String | Yes | Plugin version (semver format) |
 | `description` | String | No | What this plugin provides |
 | `author` | String | No | Author of the plugin |
-| `types` | List[Ref] | No | References to `@type_definition` objects exported by this plugin |
+| `types` | List[Ref] | No | References to `@type` objects exported by this plugin |
 | `dependencies` | List[Obj] | No | Plugins this plugin depends on (v0.6.0+) |
 
 **Example:**
@@ -915,9 +929,9 @@ Declares an external plugin that extends the ALP parser with new capabilities or
 
 ---
 
-## 22. Type Definition — `@type_definition`
+## 22. Type Definition — `@type`
 
-Defines a custom object type that extends the core ALP protocol.
+Defines a custom object type that extends the core ALP protocol. As of v8.0.0, `@type` is the canonical block marker (replacing the deprecated `@type_definition` alias, removed in v9.0.0).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -929,7 +943,7 @@ Defines a custom object type that extends the core ALP protocol.
 
 **Example:**
 ```
-@type_definition
+@type
   id: type-epic
   type_name: epic
   description: "A large body of work that can be broken down into specific tasks (or stories)"
@@ -1001,3 +1015,256 @@ Verification rules nested within a `@task` block. Not a standalone object.
 ```
 
 All `required: true` verifications must pass for the task to be marked `[x]`.
+
+---
+
+## 25. Policy — `@policy` (v4.0.0+, v2 in v8.1.0)
+
+Declarative guardrails that govern what autonomous agents may do. Introduced
+in ALP v4 (The Federation Era) to make unattended swarms safe. Policies are
+evaluated by the Policy Engine before an agent modifies a file or runs a
+command; `deny_*` always takes precedence over `allow_*`.
+
+**v8.1.0 additions (the *Production-Grade* V5 era):**
+- `allow_during` — **time-windows**: an action outside every declared UTC
+  window is denied (a strict, time-scoped least-privilege guard).
+- `require_approval` — **human-in-the-loop escalation**: matching actions are
+  NOT blocked; they are flagged `requires_approval` so a human gate can approve.
+- `proposal` — **signed, auditable action proposals**: verified against a
+  trust root; the engine emits an `audit` record for the MCP-enforcement trail.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Policy identifier |
+| `applies_to` | String \| List | No | Agent id(s) governed. `"*"` (or omit) = all agents |
+| `allow_paths` | List (glob) | No | File paths agents may modify |
+| `deny_paths` | List (glob) | No | File paths agents may never modify (wins over allow) |
+| `allow_commands` | List (prefix) | No | Shell command prefixes agents may run |
+| `deny_commands` | List (prefix) | No | Forbidden command prefixes (wins over allow) |
+| `budgets` | Object | No | `max_iterations`, `max_tokens`, `max_seconds`, `max_cost_usd` |
+| `enforcement` | Enum | No | `strict` (block, default) or `warn` (report only) |
+| `allow_during` | List[Obj] | No | **v8.1.0** time-windows `{ days, start, end }` (UTC); outside every window the action is denied |
+| `require_approval` | List[Obj] | No | **v8.1.0** `{ kind, value }` patterns that escalate to human approval instead of blocking |
+| `proposal` | List[Obj] | No | **v8.1.0** signed action proposals `{ id, action, agent, signed_by, signature }` verified against a trust root |
+
+**Precedence:** `deny_*` beats `allow_*`. If an `allow_*` list is present and
+non-empty, the action must match it. If absent, the action is permitted unless
+explicitly denied.
+
+**Example:**
+```
+@policy
+  id: policy-safe-swarm
+  description: "Baseline safety guardrails for autonomous agents."
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+    - "tests/**"
+  deny_paths:
+    - ".env"
+    - ".alp/**"
+  allow_commands:
+    - "npm test"
+    - "eslint"
+  deny_commands:
+    - "rm -rf"
+    - "git push"
+  budgets:
+    max_iterations: 5
+    max_seconds: 600
+```
+
+**v8.1.0 example — time-windows, approval, signed proposals:**
+```alp
+@policy
+  id: policy-prod-safe
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "src/**"
+  deny_paths:
+    - ".env"
+    - ".alp/**"
+  # Only permit file edits on weekday business hours (UTC).
+  allow_during:
+    - { days: ["monday","tuesday","wednesday","thursday","friday"], start: "09:00", end: "17:00" }
+  # Anything touching secrets escalates to a human gate.
+  require_approval:
+    - { kind: "path", value: "src/secrets/**" }
+  # Signed, auditable deploy proposal (verified vs trust root).
+  proposals:
+    - { id: "prop-deploy-prod", action: "deploy", agent: "agent-devops",
+        signed_by: "release-bot", signature: "ed25519:..." }
+```
+
+Enforced by `alp policy` (check an action), `alp policy --proposal <id> --trust <pem>`
+(verify a signed proposal against a trust root), and by `alp verify`
+(verify commands comply before execution). The engine emits an `audit` record
+on every decision for the V5 MCP-enforcement trail.
+
+## 26. Swarm — `@swarm` (v4.0.0+)
+
+Declares a **networked swarm**: a set of ALP nodes that coordinate through a
+shared coordinator (an `alp serve` instance) instead of running in a single
+process. Introduced in ALP v4 (The Federation Era, Pillar 1) so swarms can span
+machines, containers, and CI runners while still respecting `@policy` and
+`@lock`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Swarm identifier (unique per network) |
+| `coordinator` | URL | No | Base URL of the `alp serve` coordinator (default `http://127.0.0.1:4000`) |
+| `token` | String | No | Shared bearer token for the coordinator (if it requires one) |
+| `node_id` | String | No | This node's name (auto-generated if omitted) |
+| `heartbeat_seconds` | Number | No | How often to report liveness (default 5) |
+| `pull_state` | Boolean | No | Pull merged task state from the coordinator before each claim (default true) |
+| `peers` | List (URL) | No | Known peer coordinators for gossip/roster |
+
+**Coordination model:** every node runs an ordinary `alp run` loop, but claims
+are negotiated through the coordinator's `/api/swarm` endpoint rather than the
+local `LockManager`. A node `join`s (registers + starts heartbeating), `sync`s
+(pulls the merged graph), runs tasks, and `leave`s on shutdown. Locks acquired
+remotely carry the `node_id` so dead nodes can be reaped by the coordinator.
+
+**Example:**
+```
+@swarm
+  id: swarm-ci-fleet
+  coordinator: "http://coordinator.local:4000"
+  token: "${SWARM_TOKEN}"
+  node_id: "ci-runner-3"
+  heartbeat_seconds: 5
+  pull_state: true
+```
+
+Join a networked swarm with `alp run --swarm <id>` or inspect it with
+`alp swarm roster <id>`.
+
+## 27. Timeline — `@timeline` (v8.2.0+)
+
+Declares a scheduled trigger that fires a task on a cron expression or a
+one-shot `at` datetime. Introduced in ALP v8.2.0 so autonomous agents can
+defer, batch, and trigger work without an external cron daemon.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Timeline identifier |
+| `name` | String | No | Human-readable name |
+| `cron` | String | No | Standard 5-field cron expression (`minute hour dom month dow`) |
+| `at` | DateTime | No | One-shot ISO 8601 trigger (e.g. `2026-08-01T09:00:00Z`) |
+| `task` | Ref | Yes | Task to execute when the timeline fires |
+| `agent` | Ref | No | Agent that should own the execution (default: task's `owner`) |
+| `enabled` | Boolean | No | Whether the timeline is active (default: `true`) |
+
+Exactly one of `cron` or `at` MUST be present. An `at` timeline is
+automatically disabled after firing; re-enable it manually to re-trigger.
+
+**Example:**
+```
+@timeline
+  id: tl-daily-standup
+  name: "Daily standup reminder"
+  cron: "0 9 * * 1-5"
+  task: -> task-daily-standup
+  agent: -> agent-facilitator
+
+@timeline
+  id: tl-q3-review
+  name: "Q3 architecture review"
+  at: "2026-09-30T14:00:00Z"
+  task: -> task-q3-review
+  agent: -> agent-architect
+```
+
+Evaluated by `TimelineEngine.evaluate(now)` and by `alp schedule`
+(spec/17).
+
+## 29. Contract — `@contract` (v8.3.0+)
+
+Declares a runtime boundary between two entities (agents, tasks, repos).
+Evaluated by `ContractEngine` at handoff points to enforce least-privilege
+access. Introduced in ALP v8.3.0.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Contract identifier |
+| `name` | String | No | Human-readable name |
+| `from` | Ref | Yes | Source entity (agent, repo, or task) |
+| `to` | Ref | Yes | Destination entity |
+| `type` | String | No | Boundary kind: `api` (default), `data`, `tool`, `repo` |
+| `requires` | String[] | No | Pre-conditions that MUST be true |
+| `allows` | String[] | No | Operations/fields explicitly permitted |
+| `denies` | String[] | No | Operations/fields explicitly blocked |
+| `on_violation` | String | No | Action: `deny` (default), `warn`, `log` |
+
+A contract is satisfied when: (1) every `requires` entry evaluates to `true`,
+and (2) the operation is in `allows` (if non-empty) and not in `denies`.
+
+Evaluated by `ContractEngine.check(contractId, context)`; full semantics in
+spec/18.
+
+## 30. Repo — `@repo` (v4.0.0+)
+
+Declares an **external repository** that participates in cross-repository
+orchestration. Introduced in ALP v4 (The Federation Era, Pillar 2) so a single
+workspace can span multiple Git repositories. A `@repo` is either a local
+path or a Git URL fetched into `.alp/.cache/repos/<id>/`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | Yes | Repo identifier used in `-> repo::object` references |
+| `src` | String | No | Local path or Git URL. Omit (or `.`) for the current workspace |
+| `commit` | String | No | Pin the fetched repo to an exact commit hash (recommended) |
+| `branch` | String | No | Git branch to track when `commit` is not set |
+| `description` | String | No | Role of this repo in the federation |
+
+**Resolution:** `alp repo resolve` discovers `@repo` objects, fetches Git
+repos (pinned to `commit` when given), loads each repo's `.alp` graph, and
+resolves `-> repo::object` references. Cross-repo references are **read-only**:
+an agent may read objects in another repo but must not modify its `.alp/`.
+
+**Example:**
+```
+@repo
+  id: billing
+  src: "git+https://github.com/org/billing.git"
+  commit: "a1b2c3d"
+  description: "Shared billing service consumed by the platform."
+```
+
+A task in the local workspace can then depend on it:
+```
+@task
+  id: task-checkout-flow
+  depends_on:
+    - -> billing::task-stripe-integration | blocks
+```
+
+## 31. Vault — `@vault` (v8.4.0+)
+
+Declares an **encrypted secrets vault** so agents store sensitive values
+without committing plaintext to `.alp/`. Introduced in ALP v8.4.0 (Production-Grade
+Era, V5). The vault is sealed to one or more X25519 recipient keys (age-style
+envelope + AES-256-GCM); the `recipients` list doubles as the registry trust
+root (spec/14 §4.2).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | No | Vault identifier (default `default`) |
+| `recipients` | String[] | Yes | X25519 public-key fingerprints allowed to unseal |
+| `rotation_days` | Int | No | Auto-rotate reminder window (default 90) |
+
+Ciphertext lives in `.alp/.vault/store.jsonl`; only the `@vault` metadata
+(recipients, policy) is declared in `.alp`. Full engine semantics, envelope
+format, and `alp vault` CLI in spec/19.
+
+**Example:**
+```
+@vault
+  id: default
+  recipients:
+    - "age1qlp...frontend-maintainer"
+    - "age1z9x...backend-maintainer"
+  rotation_days: 90
+```

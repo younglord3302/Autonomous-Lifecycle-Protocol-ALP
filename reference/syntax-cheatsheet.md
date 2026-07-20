@@ -1,6 +1,6 @@
 # ALP Syntax Cheatsheet
 
-Quick reference for the `.alp` file format (v2.0.0).
+Quick reference for the `.alp` file format (v3.0.0).
 
 ---
 
@@ -13,7 +13,7 @@ Quick reference for the `.alp` file format (v2.0.0).
 ```
 
 **All block types:**
-`@project` `@workspace` `@feature` `@task` `@workflow` `@agent` `@memory` `@state` `@artifact` `@decision` `@constraint` `@verification` `@dependency` `@resource` `@event` `@goal` `@context` `@rule` `@plugin` `@type_definition`
+`@project` `@workspace` `@feature` `@task` `@workflow` `@agent` `@memory` `@state` `@artifact` `@decision` `@constraint` `@verification` `@dependency` `@resource` `@event` `@goal` `@context` `@rule` `@plugin` `@policy` `@timeline` `@contract` `@vault` `@type` `@macro` `@repo` `@swarm` `@package`
 
 **Nested blocks (inside tasks):**
 `@accept` `@verify` `@artifact`

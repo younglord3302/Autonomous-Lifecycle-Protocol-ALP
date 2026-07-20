@@ -199,4 +199,4 @@ Plugins can depend on other plugins (see [11-plugins.md](11-plugins.md)). The re
 4. If the intersection is empty (e.g., `^1.0.0` and `^2.0.0`), the parser MUST produce a fatal **Version Conflict Error**.
 5. Only ONE version of a plugin can exist in the final resolution graph.
 
-This ensures that custom block markers (like `@epic`) have a single, unambiguous `@type_definition` in the project.
+This ensures that custom block markers (like `@epic`) have a single, unambiguous `@type` in the project.

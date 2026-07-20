@@ -65,7 +65,7 @@ A block marker starts a new protocol object. It MUST appear at column 0 (no inde
 ```
 
 **Rules:**
-- `type` MUST be a valid core protocol object type OR a custom type defined via `@type_definition`
+- `type` MUST be a valid core protocol object type OR a custom type defined via `@type`
 - `inline-id` is optional — a shorthand for setting the `id` property
 - Block markers are case-sensitive and MUST be lowercase
 
@@ -84,9 +84,11 @@ A block marker starts a new protocol object. It MUST appear at column 0 (no inde
 @agent       @memory      @state       @artifact
 @decision    @constraint  @verification @dependency
 @resource    @event       @goal        @context
-@rule        @plugin      @type_definition
+@rule        @plugin      @policy      @timeline
+@contract    @vault       @type        @macro
+@repo        @swarm       @package
 ```
-Plus any custom types defined via `@type_definition`.
+Plus any custom types defined via `@type`.
 
 ### 2.3 Properties — `key: value`
 
@@ -352,6 +354,18 @@ Directives are special instructions that control agent behavior. They appear at 
 | `!priority-override` | Block | Override calculated priority |
 | `!read-only` | File | File should not be modified by agents |
 | `!deprecated` | Block | Object is deprecated, include migration note |
+
+**Implementation status (v6.1.0):** The following directives are actively evaluated by the reference parser:
+
+- `!alp-version` — recorded; does not reject mismatched versions yet.
+- `!if <expr>` — if the boolean expression is false, the **next top-level block** is skipped during parse.
+- `!assert <expr>` — if the boolean expression is false, parsing fails with a `DirectiveError`.
+- `!deprecated: "<msg>"` — records a non-fatal deprecation warning retrievable via `parser.warnings`.
+- `!import <target>` — recognised and warned; full resolution is deferred to the V6.6 federation release.
+
+Expressions (`<expr>`) support literals (`"string"`, `42`, `true`/`false`), identifiers resolved against the current object's scalar properties plus `alp_version`, comparisons (`==`, `!=`, `>`, `<`, `>=`, `<=`), logical `&&`/`||`/`!`, and parentheses. In v6.1.0 these are evaluated at **file scope** (top level); block-level evaluation is reserved for a later release.
+
+The remaining directives (`!context-scope`, `!agent-mode`, `!max-iterations`, `!fail-strategy`, `!retry-delay`, `!timeout`, `!priority-override`, `!read-only`) are reserved and currently ignored by the reference parser (forward-compatible).
 
 ### 2.10 Nested Blocks
 

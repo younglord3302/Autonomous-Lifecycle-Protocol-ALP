@@ -2,7 +2,7 @@
 
 Official SDK packages for integrating ALP into applications. Both the
 TypeScript (`@alp/sdk`) and Python (`alp-sdk`) SDKs are shipped and maintained
-in parity through the Production-Grade Era (V5, toolchain `9.0.0`).
+in parity through the Production-Grade Era (V5/V6, toolchain `10.0.0`).
 
 ## SDKs
 

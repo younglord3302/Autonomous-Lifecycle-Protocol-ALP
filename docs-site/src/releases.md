@@ -12,6 +12,10 @@ ALP versioning tracks two independent axes:
 
 ## Toolchain
 
+### 10.0.0 — Locked Grammar 3.0.0 (V6 — The Governance Era)
+- Formal grammar bumped to **3.0.0**: removed `@type_definition` (deprecated in v8, removed in v9) and added V5 governance objects (`@policy`, `@timeline`, `@contract`, `@vault`) as first-class block types. Promoted `@type` to explicit block status. `repo`, `swarm`, and `package` are now explicit. All parser/SDK version-negotiation references updated from `2.x` to `3.x`.
+- Migration guide: `docs-site/MIGRATION-v10.md`.
+
 ### 9.0.0 — v9 Breaking Changes
 - Removed deprecated `@type_definition` alias — `@type` is now the sole custom-type declaration (spec/11 §2.5).
 - `[!]` (blocked) and `[?]` (human gate) status markers MUST carry a free-text reason; unannotated markers are a hard `SyntaxError` (promoted from v8 deprecation warning, spec/03 §4).

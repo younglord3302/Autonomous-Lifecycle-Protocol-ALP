@@ -303,12 +303,13 @@ Declares an external plugin that extends the ALP parser with new capabilities or
 | `version` | String | Yes | Plugin version (semver format) |
 | `description` | String | No | What this plugin provides |
 | `author` | String | No | Author of the plugin |
-| `types` | List[Ref] | No | References to `@type_definition` objects exported by this plugin |
+| `types` | List[Ref] | No | References to `@type` objects exported by this plugin |
 
 ---
 
-## `@type_definition`
-Defines a custom object type that extends the core ALP protocol.
+## `@type`
+
+Defines a custom object type that extends the core ALP protocol. As of v8.0.0, `@type` is the canonical block marker (replacing the deprecated `@type_definition` alias, removed in v9.0.0).
 
 | Field | Type | Required | Description |
 |---|---|---|---|

@@ -4,9 +4,8 @@ Mirrors the TypeScript ``@alp/parser`` ``PluginResolver``: resolves local
 file-level ``!import`` directives (spec/11 §3.1) relative to the ``.alp/``
 workspace root, remote HTTPS imports with caching + integrity (§3.2-3.4),
 and registry aliases ``@ns/name@version`` (§3.5). Builds a registry of
-custom types declared via the canonical ``@type`` block (v8.0.0+), with
-``@type_definition`` retained as a deprecated alias for one major, and
-validates custom-type instances (§4.1).
+custom types declared via the canonical ``@type`` block (v8.0.0+, sole
+declaration since v9.0.0) and validates custom-type instances (§4.1).
 """
 
 import os
@@ -123,8 +122,6 @@ class PluginResolver:
             elif obj._type == "type":
                 self._register_type(obj, [])
             elif obj._type == "type_definition":
-                # Removed in v9.0.0: `@type_definition` was a deprecated
-                # alias kept for one major (v8.0.0). It is now an error.
                 raise ValidationError(
                     "@type_definition was removed in v9.0.0; declare custom "
                     "types with @type instead."
@@ -344,7 +341,7 @@ class RemoteFetcher:
 def parse_inline_object(literal: Any) -> Dict[str, Any]:
     """Parse a single inline object literal ``{ name: "id", ... }`` into a dict.
 
-    Used for ``@type_definition`` ``properties`` lists that the line-based
+    Used for ``@type`` ``properties`` lists that the line-based
     reader stores as raw strings (mirrors the TS ``parseInlineObject``).
     """
     if not isinstance(literal, str):

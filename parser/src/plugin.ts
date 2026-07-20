@@ -10,9 +10,9 @@ import { RemoteFetcher, FetchOptions } from './remote';
  * Resolves file-level `!import` directives (spec/11): local `.alp` files
  * relative to the `.alp/` workspace root (§3.1), remote HTTPS URLs with
  * caching + integrity (§3.2–3.4), and registry aliases `@ns/name@version`
- * (§3.5). Builds a registry of custom types — declared via the
- * canonical `@type` block (v8.0.0+), with `@type_definition` kept as a
- * deprecated alias for one major — and validates custom-type instances (§4.1).
+ * (§3.5). Builds a registry of custom types declared via the canonical
+ * `@type` block (v8.0.0+, sole declaration since v9.0.0) and validates
+ * custom-type instances (§4.1).
  */
 
 export interface TypeProperty {
@@ -53,7 +53,7 @@ export class PluginResolver {
   /** All objects discovered across the root file + imported files. */
   public objects: AlpObject[] = [];
 
-  /** Non-fatal notices (e.g. deprecated `@type_definition`). */
+  /** Non-fatal notices (e.g. `!deprecated`). */
   public warnings: string[] = [];
 
   private reader = new AlpReader();
@@ -133,8 +133,6 @@ export class PluginResolver {
       } else if (obj._type === 'type') {
         this.registerType(obj, []);
       } else if (obj._type === 'type_definition') {
-        // Removed in v9.0.0: `@type_definition` was a deprecated alias kept
-        // for one major (v8.0.0). It is now an error — use `@type`.
         throw new ValidationError(
           `@type_definition was removed in v9.0.0; declare custom types with @type instead.`
         );
@@ -251,7 +249,7 @@ export class PluginResolver {
       if (key.startsWith('@')) continue;
       if (!known.has(key)) {
         warnings.push(
-          `Unknown property '${key}' in @${obj._type} '${obj.id}' (not in type_definition)`
+          `Unknown property '${key}' in @${obj._type} '${obj.id}' (not in type schema)`
         );
       }
     }
@@ -266,7 +264,7 @@ export class PluginResolver {
 /**
  * Parse a single inline object literal of the form
  * `{ name: "id", type: "String", required: true }` into a plain object.
- * Used for `@type_definition` `properties` / `dependencies` lists that the
+ * Used for `@type` `properties` / `dependencies` lists that the
  * line-based reader stores as raw strings.
  */
 function parseInlineObject(literal: string): Record<string, any> {

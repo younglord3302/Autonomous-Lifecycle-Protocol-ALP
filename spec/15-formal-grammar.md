@@ -1,13 +1,13 @@
 # ALP Specification — Formal Grammar
 
-**Version:** 2.0.0
+**Version:** 3.0.0
 **Status:** Stable
 
 ---
 
 ## 1. Overview
 
-This document provides the formal grammar for the Autonomous Lifecycle Protocol (ALP) version 2.0.0. The grammar is defined using **W3C EBNF** (Extended Backus-Naur Form) notation, as defined in the XML 1.0 specification.
+This document provides the formal grammar for the Autonomous Lifecycle Protocol (ALP) version 3.0.0. The grammar is defined using **W3C EBNF** (Extended Backus-Naur Form) notation, as defined in the XML 1.0 specification.
 
 This grammar serves as the definitive reference for parser implementers. In the event of a discrepancy between this document and the examples in the syntax specification, this document takes precedence.
 
@@ -44,7 +44,8 @@ block_type      ::= "project" | "workspace" | "feature" | "task" | "workflow"
                   | "agent" | "memory" | "state" | "artifact" | "decision" 
                   | "constraint" | "verification" | "dependency" | "resource" 
                   | "event" | "goal" | "context" | "rule" | "plugin" 
-                  | "type_definition" | "macro" | identifier
+                  | "type" | "policy" | "timeline" | "contract" | "vault"
+                  | "macro" | "repo" | "swarm" | "package" | identifier
 ```
 
 ---

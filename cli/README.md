@@ -21,7 +21,7 @@ Autonomous Lifecycle Protocol.
 | `alp export` | Export to YAML/JSON format |
 | `alp policy` | List / evaluate `@policy` guardrails; v8.1.0 adds `--proposal` / `--trust` for signed proposals |
 | `alp schedule` | List / evaluate `@timeline` schedules (v8.2.0) |
-| `alp vault` | Encrypted secrets store (v9.0.0): `set` / `get` / `list` / `rotate` / `audit` |
+| `alp vault` | Encrypted secrets store (v10.0.0): `set` / `get` / `list` / `rotate` / `audit` |
 | `alp serve` | Live state server + hosted registry (V4) |
 | `alp swarm` | Networked swarm membership (V4) |
 | `alp repo` | Cross-repository orchestration (V4) |
@@ -37,7 +37,7 @@ alp run --concurrent 3             # run up to 3 agents in parallel (V3)
 alp policy --path "src/auth/login.ts"
 alp policy --proposal prop-1 --trust maintainer.pub
 alp schedule next                  # show timelines due now (v8.2.0)
-alp vault get db-password --key maintainer.key   # (v9.0.0)
+alp vault get db-password --key maintainer.key   # (v10.0.0)
 ```
 
 ## Technology Stack
@@ -49,7 +49,7 @@ alp vault get db-password --key maintainer.key   # (v9.0.0)
 
 ## Status
 
-✅ **Stable** — Production-Grade Era (V5), toolchain `9.0.0`. The `@alp/cli`
+✅ **Stable** — Production-Grade Era (V5/V6), toolchain `10.0.0`. The `@alp/cli`
 package is not yet published to npm; build from source with
 `npm ci && npm run build --workspace @alp/cli` and invoke it via
 `node cli/dist/index.js`.
