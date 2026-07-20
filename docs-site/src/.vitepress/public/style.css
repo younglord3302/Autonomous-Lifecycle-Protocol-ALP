@@ -1,8 +1,34 @@
 /* ──────────────────────────────────────────────
-   ALP Docs — Cyberpunk / Dark Premium Theme
+   ALP Docs — Cyberpunk Dark + Clean Light Theme
    ────────────────────────────────────────────── */
 
+/* ── Light Mode (default) ── */
 :root {
+  --vp-c-bg: #f8f9fb;
+  --vp-c-bg-soft: #ffffff;
+  --vp-c-bg-mute: #eef0f4;
+  --vp-c-bg-elv: #e2e5eb;
+  --vp-c-text-1: #1a1a2e;
+  --vp-c-text-2: #4a4a5a;
+  --vp-c-text-3: #7a7a8a;
+  --vp-c-border: #d0d3da;
+  --vp-c-brand-1: #0066ff;
+  --vp-c-brand-2: #0052cc;
+  --vp-c-brand-3: #003d99;
+  --vp-c-accent-1: #7c3aed;
+  --vp-c-accent-2: #6d28d9;
+  --vp-c-accent-3: #5b21b6;
+  --vp-c-tip-1: #059669;
+  --vp-c-tip-2: #047857;
+  --vp-c-warning-1: #d97706;
+  --vp-c-danger-1: #dc2626;
+  --vp-c-divider: #e5e7eb;
+  --vp-font-family-base: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ── Dark Mode ── */
+html.dark {
   --vp-c-bg: #06060b;
   --vp-c-bg-soft: #0d0d14;
   --vp-c-bg-mute: #12121c;
@@ -22,21 +48,21 @@
   --vp-c-warning-1: #ffcc00;
   --vp-c-danger-1: #ff3366;
   --vp-c-divider: #1f1f2e;
-  --vp-font-family-base: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
 html {
   background: var(--vp-c-bg);
+  transition: background 0.3s ease;
 }
 
 body {
   background: transparent;
   color: var(--vp-c-text-1);
   font-family: var(--vp-font-family-base);
+  transition: color 0.3s ease;
 }
 
-/* ── Shooting Stars Background ── */
+/* ── Shooting Stars Background (dark mode only) ── */
 
 .stars-container {
   position: fixed;
@@ -44,6 +70,12 @@ body {
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+html.dark .stars-container {
+  opacity: 1;
 }
 
 .star {
@@ -101,7 +133,7 @@ body {
   }
 }
 
-/* ── Grid Overlay ── */
+/* ── Grid Overlay (dark mode only) ── */
 
 .stars-container::before {
   content: '';
@@ -112,6 +144,12 @@ body {
     linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
   background-size: 60px 60px;
   mask-image: radial-gradient(ellipse at center, black 40%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+html.dark .stars-container::before {
+  opacity: 1;
 }
 
 /* ── VitePress Overrides ── */
@@ -135,9 +173,15 @@ body {
 
 /* Navbar */
 .VPNav {
-  background: rgba(6, 6, 11, 0.85) !important;
+  background: rgba(248, 249, 251, 0.85) !important;
   backdrop-filter: blur(12px) saturate(140%);
   border-bottom: 1px solid var(--vp-c-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+html.dark .VPNav {
+  background: rgba(6, 6, 11, 0.85) !important;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
@@ -147,9 +191,13 @@ body {
 
 .VPNavBarTitle .title {
   color: var(--vp-c-brand-1);
-  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
   font-weight: 700;
   letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+html.dark .VPNavBarTitle .title {
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
 }
 
 .VPNavBarMenuLink {
@@ -164,9 +212,15 @@ body {
 
 /* Sidebar */
 .VPSidebar {
-  background: rgba(13, 13, 20, 0.8) !important;
+  background: rgba(248, 249, 251, 0.8) !important;
   backdrop-filter: blur(10px) saturate(140%);
   border-right: 1px solid var(--vp-c-border);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+html.dark .VPSidebar {
+  background: rgba(13, 13, 20, 0.8) !important;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
@@ -184,6 +238,10 @@ body {
   color: var(--vp-c-brand-1);
   font-weight: 600;
   border-right: 2px solid var(--vp-c-brand-1);
+  background: rgba(0, 102, 255, 0.05);
+}
+
+html.dark .VPSidebarItem .link.active {
   background: rgba(0, 240, 255, 0.05);
 }
 
@@ -193,14 +251,21 @@ body {
 }
 
 .VPDocContent {
-  background: rgba(13, 13, 20, 0.6);
+  background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-border);
   border-radius: 12px;
   backdrop-filter: blur(8px) saturate(140%);
   box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+
+html.dark .VPDocContent {
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  padding: 24px;
 }
 
 /* Typography */
@@ -223,10 +288,13 @@ h1 {
 h2 {
   font-size: 1.6rem;
   color: var(--vp-c-brand-1);
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
   border-bottom: 1px solid var(--vp-c-border);
   padding-bottom: 0.3em;
   margin-top: 1.8em;
+}
+
+html.dark h2 {
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
 }
 
 h3 {
@@ -249,9 +317,14 @@ a:hover {
 
 /* Code blocks */
 div[class*="language-"] {
-  background: #0a0a14 !important;
+  background: var(--vp-c-bg-soft) !important;
   border: 1px solid var(--vp-c-border);
   border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+html.dark div[class*="language-"] {
+  background: #0a0a14 !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
@@ -259,17 +332,25 @@ div[class*="language-"] code {
   color: var(--vp-c-text-1);
   font-family: var(--vp-font-family-mono);
   font-size: 0.9em;
+}
+
+html.dark div[class*="language-"] code {
   text-shadow: 0 0 4px rgba(0, 240, 255, 0.15);
 }
 
 /* Inline code */
 code {
-  background: rgba(0, 240, 255, 0.08);
+  background: rgba(0, 102, 255, 0.08);
   color: var(--vp-c-brand-1);
   padding: 2px 6px;
   border-radius: 4px;
   font-family: var(--vp-font-family-mono);
   font-size: 0.9em;
+  border: 1px solid rgba(0, 102, 255, 0.15);
+}
+
+html.dark code {
+  background: rgba(0, 240, 255, 0.08);
   border: 1px solid rgba(0, 240, 255, 0.15);
 }
 
@@ -287,7 +368,7 @@ th, td {
 }
 
 th {
-  background: rgba(0, 240, 255, 0.06);
+  background: rgba(0, 102, 255, 0.06);
   color: var(--vp-c-brand-1);
   font-weight: 600;
   text-transform: uppercase;
@@ -295,26 +376,42 @@ th {
   letter-spacing: 0.08em;
 }
 
+html.dark th {
+  background: rgba(0, 240, 255, 0.06);
+}
+
 tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+html.dark tr:nth-child(even) {
   background: rgba(255, 255, 255, 0.02);
 }
 
 /* Blockquotes */
 blockquote {
   border-left: 3px solid var(--vp-c-accent-1);
-  background: rgba(255, 0, 255, 0.04);
+  background: rgba(124, 58, 237, 0.04);
   padding: 12px 20px;
   margin: 1em 0;
   border-radius: 0 8px 8px 0;
   color: var(--vp-c-text-2);
+}
+
+html.dark blockquote {
+  background: rgba(255, 0, 255, 0.04);
   box-shadow: 0 0 20px rgba(255, 0, 255, 0.06);
 }
 
 /* Callouts / custom containers */
 .VPBlockquote {
   border-left-color: var(--vp-c-accent-1);
-  background: rgba(255, 0, 255, 0.04);
+  background: rgba(124, 58, 237, 0.04);
   border-radius: 0 8px 8px 0;
+}
+
+html.dark .VPBlockquote {
+  background: rgba(255, 0, 255, 0.04);
 }
 
 .VPBlockquote > div {
@@ -324,18 +421,18 @@ blockquote {
 /* Custom container tips */
 .custom-block.tip {
   border-color: var(--vp-c-tip-1);
-  background: rgba(0, 255, 157, 0.05);
+  background: rgba(5, 150, 105, 0.05);
   color: var(--vp-c-text-1);
 }
 
 .custom-block.warning {
   border-color: var(--vp-c-warning-1);
-  background: rgba(255, 204, 0, 0.05);
+  background: rgba(217, 119, 6, 0.05);
 }
 
 .custom-block.danger {
   border-color: var(--vp-c-danger-1);
-  background: rgba(255, 51, 102, 0.05);
+  background: rgba(220, 38, 38, 0.05);
 }
 
 /* Scrollbar */
@@ -359,20 +456,29 @@ blockquote {
 
 /* Selection */
 ::selection {
-  background: rgba(0, 240, 255, 0.25);
+  background: rgba(0, 102, 255, 0.25);
   color: #fff;
+}
+
+html.dark ::selection {
+  background: rgba(0, 240, 255, 0.25);
 }
 
 /* Footer */
 .VPFooter {
-  background: rgba(6, 6, 11, 0.9) !important;
+  background: var(--vp-c-bg-soft) !important;
   border-top: 1px solid var(--vp-c-border);
   backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
 }
 
-/* ── Cyberpunk Glitch Hover for Nav ── */
+html.dark .VPFooter {
+  background: rgba(6, 6, 11, 0.9) !important;
+}
 
-.VPNavBarMenuLink:hover {
+/* ── Cyberpunk Effects (dark mode only) ── */
+
+html.dark .VPNavBarMenuLink:hover {
   animation: glitch 0.3s infinite;
 }
 
@@ -385,8 +491,28 @@ blockquote {
   100% { transform: translate(0); }
 }
 
-/* ── Neon Glow for Active Sidebar ── */
-
-.VPSidebarItem .link.active {
+html.dark .VPSidebarItem .link.active {
   box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);
+}
+
+/* ── Light Mode Enhancements ── */
+
+:root .VPNavBarTitle .title {
+  text-shadow: 0 0 8px rgba(0, 102, 255, 0.2);
+}
+
+:root .VPNavBarMenuLink:hover {
+  text-shadow: 0 0 6px rgba(0, 102, 255, 0.2);
+}
+
+:root .VPSidebarItem .link:hover {
+  text-shadow: 0 0 6px rgba(0, 102, 255, 0.2);
+}
+
+:root .VPSidebarItem .link.active {
+  box-shadow: 0 0 12px rgba(0, 102, 255, 0.1);
+}
+
+:root a:hover {
+  text-shadow: 0 0 8px rgba(0, 102, 255, 0.3);
 }
