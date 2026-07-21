@@ -28,6 +28,8 @@ export * from './autonomy';
 export * from './crdt';
 export * from './author';
 export * from './migration';
+export * from './cost-optimizer';
+export * from './bridge';
 export { AlpObject, AlpReader };
 
 export class AlpParser {

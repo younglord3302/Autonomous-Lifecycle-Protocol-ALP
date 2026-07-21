@@ -29,12 +29,13 @@ import { visualizeCommand } from './commands/visualize';
 import { pluginCommand } from './commands/plugin';
 import { costCommand } from './commands/cost';
 import { debugCommand } from './commands/debug';
+import { bridgeCommand } from './commands/bridge';
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('10.2.0');
+  .version('16.0.0');
 
 program
   .command('init')
@@ -239,7 +240,8 @@ program
   .command('cost')
   .description('Show token usage and compute cost for a task (v10.7.0 Resource Metering)')
   .argument('[task-id]', 'Task ID to inspect (defaults to latest metered task)')
-  .action((taskId) => costCommand(taskId));
+  .option('--workflow <id>', 'Optimize a workflow and show cost savings (v16.0.0)')
+  .action((taskId, opts) => costCommand(taskId, opts));
 
 program
   .command('debug')
@@ -249,6 +251,13 @@ program
   .option('--to-stage <name>', 'Jump to the snapshot matching this engine stage')
   .option('--diff <a> <b>', 'Diff two snapshot ids')
   .action((runId, opts) => debugCommand(runId, opts));
+
+program
+  .command('bridge')
+  .description('Export/import ALP workflows to/from OpenAPI, GraphQL, gRPC, or AsyncAPI (v17.0.0)')
+  .argument('<format>', 'Target format: openapi, graphql, grpc, asyncapi')
+  .argument('[file]', 'Import from a JSON spec file instead of exporting the local workflow')
+  .action((format, file) => bridgeCommand(format, file));
 
 program.parse(process.argv);
 
