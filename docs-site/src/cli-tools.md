@@ -417,3 +417,124 @@ alp visualize --format mermaid --out docs/wf.mmd
 | `[id]` | Optional workflow id (all workflows if omitted) |
 | `--format <fmt>` | `mermaid` (default), `dot`, or `json` |
 | `--out <file>` | Write to a file instead of stdout |
+
+## Cost Optimization (`alp cost --workflow`) — *v16.0.0*
+
+Analyze a workflow graph and get AI-driven cost optimization suggestions.
+`alp cost` already shows per-task token usage and compute cost; the new
+`--workflow` flag analyzes the full workflow for savings opportunities.
+
+```bash
+# Show cost for a single task (historical)
+alp cost task-login-ui
+
+# Optimize a workflow and show savings
+alp cost --workflow wf-standard
+```
+
+Output:
+```
+🔍 Cost Optimization for Workflow: wf-standard
+==========================================
+  Current cost:      $0.036000
+  Optimized cost:    $0.018000
+  Savings:           $0.018000 (50.0%)
+  Suggestions:
+    - [parallelization] Parallelize 1 independent step groups (saves $0.006000, confidence 80%)
+    - [caching] Cache results for 2 deterministic steps (saves $0.012000, confidence 60%)
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `[task-id]` | Task ID to inspect (defaults to latest metered task) |
+| `--workflow <id>` | *v16.0.0.* Optimize a workflow and show cost savings (parallelization, caching, agent reassignment) |
+
+## Universal Protocol Bridge (`alp bridge`) — *v17.0.0*
+
+Export ALP workflows to external protocol descriptions, or import them back.
+
+```bash
+# Export the first @workflow in .alp/workflows.alp to OpenAPI 3.0
+alp bridge openapi
+
+# Import an OpenAPI spec back to an ALP workflow
+alp bridge openapi --import api-spec.json
+
+# Export to GraphQL SDL
+alp bridge graphql
+
+# Export to gRPC proto
+alp bridge grpc
+
+# Export to AsyncAPI
+alp bridge asyncapi
+```
+
+Supported formats: `openapi`, `graphql`, `grpc`, `asyncapi`.
+
+| Argument | Description |
+| :--- | :--- |
+| `<format>` | Target format: `openapi`, `graphql`, `grpc`, or `asyncapi` |
+| `[file]` | Import from a JSON spec file instead of exporting the local workflow |
+
+## Self-Sovereign Identity (`alp identity`) — *v18.0.0*
+
+*New in V14 — The Sovereign Era.* W3C DID-based agent identity without a
+central authority. Each agent owns a verifiable identity; the trust registry
+maps DIDs to permission scopes.
+
+```bash
+# Generate a new DID + keypair
+alp identity create agent-1
+
+# Register a DID in the trust registry with scopes
+alp identity register did:alp:agent-1:abc123 --scopes read,write --trust-level standard
+
+# Verify a presentation
+alp identity verify presentation.json --public-key ./agent.pub
+
+# List registered DIDs
+alp identity list
+
+# Revoke a DID
+alp identity revoke did:alp:agent-1:abc123
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `create <agent-id>` | Generate a DID + keypair for an agent |
+| `register <did>` | Register a DID with scopes and trust level |
+| `verify <file>` | Verify a verifiable presentation against the trust registry |
+| `list` | List all registered DIDs |
+| `revoke <did>` | Revoke a DID from the trust registry |
+
+## Decentralized Coordination (`alp p2p`) — *v18.1.0*
+
+*New in V14 — The Sovereign Era.* P2P swarm coordination without a central
+coordinator. Agents discover each other via DHT, negotiate directly, and form
+ad-hoc federations using gossip-based state sync.
+
+```bash
+# Join the swarm
+alp p2p join --node n1 --agent agent-1 --capabilities build,test
+
+# Leave the swarm
+alp p2p leave --agent agent-1
+
+# Gossip a message to peers
+alp p2p gossip --topic task.assign --payload '{"task_id":"t1"}'
+
+# Discover agents by capability
+alp p2p discover build
+
+# List all known peers
+alp p2p peers
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `join` | Register this node in the DHT and start gossiping |
+| `leave` | Deregister from the DHT |
+| `gossip` | Spread a message to fanout peers (best-effort rumor spreading) |
+| `discover <capability>` | Find agents advertising a capability |
+| `peers` | List all known peers and their capabilities |
