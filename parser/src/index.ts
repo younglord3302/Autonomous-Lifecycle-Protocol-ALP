@@ -30,6 +30,8 @@ export * from './author';
 export * from './migration';
 export * from './cost-optimizer';
 export * from './bridge';
+export * from './identity';
+export * from './p2p';
 export { AlpObject, AlpReader };
 
 export class AlpParser {
