@@ -32,6 +32,8 @@ export * from './cost-optimizer';
 export * from './bridge';
 export * from './identity';
 export * from './p2p';
+export * from './healing';
+export * from './resilience';
 export { AlpObject, AlpReader };
 
 export class AlpParser {
