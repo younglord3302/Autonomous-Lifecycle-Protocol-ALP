@@ -197,7 +197,9 @@ are authoritative in the table in §7; this section captures intent.
 | V8 — The Cognitive Era | 12.0.0–12.x | AI-native planning & reasoning: goal decomposition, reflective self-critique, replan-on-failure, memory-augmented inference |
 | V9 — The Collaborative Era | 13.0.0–13.x | Multi-agent negotiation, contracts-as-protocol, reputation & trust scoring, composable agent teams, capability marketplace |
 | V10 — The Verifiable Era | 14.0.0–14.x | End-to-end provenance, signed execution traces, zero-knowledge policy proofs, tamper-evident audit ledger, agent Verifiable Credentials |
-| V11 — The Ambient Era | 15.0.0–15.x | Fully autonomous long-running swarms, safe self-modifying workflows, environment-adaptive execution, edge-native runtime, human oversight |
+| V11 — The Ambient Era | 15.0.0–15.x | Fully autonomous long-running swarms, safe self-modifying workflows, environment-adaptive execution, edge-native runtime, live upgrade & migration |
+| V12 — The Sentinel Era | 16.0.0–16.x | Immutable execution traces, self-healing workflows, predictive governance, swarm resilience, cost optimization |
+| V13 — The Universal Era | 17.0.0–17.x | Cross-protocol interoperability (OpenAPI, GraphQL, gRPC, AsyncAPI), universal adapters, bidirectional sync with external systems |
 
 | Version | Theme | Planned Features |
 |---|---|---|
@@ -217,10 +219,14 @@ are authoritative in the table in §7; this section captures intent.
 
 ### Next major versions (planned)
 
-All planned versions from the original roadmap have now been delivered.
-`15.2.0` (V11 — The Ambient Era) is the latest shipped major version.
+`17.0.0` (V13 — The Universal Era) is the latest implemented version.
+The next planned era is **V14 — The Sovereign Era** (18.0.0–18.x).
 
 | Version | Theme | Planned Features |
 |---|---|
-| `15.2.0` | Live Upgrade & Migration (delivered) | `MigrationEngine` performs cross-major-version in-place migration using `UpgradeManifest` with pluggable strategies (`blue_green`, `rolling`, `canary`, `big_bang`); dry-run validation, automatic rollback on failure, version locks, and checkpoint persistence to `.alp/migrations/`. Implemented in `parser/src/migration.ts` and `sdk/python/alp_sdk/migration.py`; tests in `parser/tests/migration.test.ts` and `sdk/python/tests/test_migration.py`. |
-| `15.1.0` | Edge-Native Runtime (delivered) | Consolidates 10.10.0 CRDT edge nodes into a first-class `EdgeRuntime`: offline-first execution, resync on reconnect, locality-aware task placement. Implemented in `parser/src/crdt.ts` and `sdk/python/alp_sdk/crdt.py`. |
+| `17.0.0` | Universal Protocol Bridge (delivered) | `ProtocolBridge` adapts ALP objects to and from OpenAPI 3.0, GraphQL SDL, gRPC proto, and AsyncAPI specs. Implemented in `sdk/python/alp_sdk/bridge.py`; tests in `sdk/python/tests/test_bridge.py`. |
+| `18.0.0` | Self-Sovereign Identity (V14 — The Sovereign Era) | W3C DID-based agent identity: agents own verifiable identities without a central authority. `AgentIdentity` creates/manages DIDs, `IdentityResolver` verifies presentations, and `TrustRegistry` maps DIDs to permission scopes. New `sdk/python/alp_sdk/identity.py`; tests in `sdk/python/tests/test_identity.py`. |
+| `18.1.0` | Decentralized Coordination (V14 — The Sovereign Era) | P2P swarm coordination without a central coordinator: agents discover each other via DHT, negotiate directly, and form ad-hoc federations. `P2PSwarm` replaces `ResilientSwarm`'s central coordinator with gossip-based state sync. New `sdk/python/alp_sdk/p2p.py`; tests in `sdk/python/tests/test_p2p.py`. |
+| `18.2.0` | Multi-Tenant Isolation (V14 — The Sovereign Era) | Cryptographic workspace boundaries: each tenant's `.alp/` directory is sealed with a tenant-specific key, preventing cross-tenant data leakage. `TenantVault` extends `Vault` with namespace isolation; `alp tenant create` / `alp tenant switch` commands. New `sdk/python/alp_sdk/tenant.py`; tests in `sdk/python/tests/test_tenant.py`. |
+| `18.3.0` | Autonomous Governance (V14 — The Sovereign Era) | Agents vote on policy changes: `PolicyBallot` collects signed votes from qualified agents, `GovernanceEngine` tallies results and enforces quorum rules. Immutable ballot records stored in `ProvenanceStore`. New `sdk/python/alp_sdk/governance.py`; tests in `sdk/python/tests/test_governance.py`. |
+| `18.4.0` | Cross-Domain Trust (V14 — The Sovereign Era) | Trust bootstrapping between sovereign domains: `DomainTrustAnchor` exchanges signed trust roots with foreign domains, enabling cross-domain agent authentication without a global CA. `alp trust link <domain>` establishes bilateral trust. New `sdk/python/alp_sdk/domain_trust.py`; tests in `sdk/python/tests/test_domain_trust.py`. |

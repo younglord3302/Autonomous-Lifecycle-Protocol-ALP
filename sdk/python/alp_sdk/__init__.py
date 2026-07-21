@@ -8,9 +8,15 @@ from .analytics import compute_analytics, PredictiveEstimator
 from .planner import GoalDecomposer, Planner, Reflector, Plan, PlanNode, Lesson
 from .negotiate import Negotiator, ReputationStore, TeamComposer, Offer, ContractDraft, NegotiationResult, Capability
 from .provenance import TraceSigner, ProvenanceStore, AuditLedger, VerifiableCredential
+from .trace import TraceEntry, TraceStore, MerkleTree, verify_trace_integrity
 from .graph import AlpGraph, GraphNode, GraphEdge
 from .memory import MemoryStore, MemoryEntry, MemoryQuery
 from .policy import PolicyEngine, PolicyDecision, PolicyQuery, PolicySuggestion, PolicyVersion, PolicyRollback
+from .predictive_policy import (
+    PredictivePolicyEngine,
+    AnomalyScore,
+    BaselineProfile,
+)
 from .schedule import TimelineEngine, TimelineResult
 from .contract import ContractEngine, ContractResult, ContractViolation, ContractObject
 from .vault import Vault, SealedSecret, VaultAuditEntry
@@ -76,6 +82,61 @@ from .observ import (
     runtime_dir,
     runtime_log_path,
 )
+from .cost_optimizer import (
+    CostOptimizer,
+    CostEstimator,
+    OptimizationPlan,
+    OptimizationSuggestion,
+    AutoScaleRecommendation,
+)
+from .bridge import (
+    ProtocolBridge,
+    BridgeExportResult,
+    BridgeImportResult,
+    BridgeError,
+    SUPPORTED_FORMATS,
+)
+from .identity import (
+    AgentIdentity,
+    VerifiablePresentation,
+    TrustRegistry,
+    IdentityResolver,
+    AgentKeyStore,
+    create_did,
+    generate_keypair as generate_identity_keypair,
+)
+from .p2p import (
+    P2PSwarm,
+    P2PReport,
+    P2PNode,
+    GossipMessage,
+    GossipProtocol,
+    DHT,
+    AgentStatus,
+)
+from .tenant import (
+    TenantVault,
+    TenantContext,
+    TenantManager,
+    TenantIsolationError,
+    create_tenant_key,
+)
+from .governance import (
+    PolicyBallot,
+    GovernanceEngine,
+    BallotRecord,
+    GovernanceReport,
+    Vote,
+    VoteValue,
+)
+from .domain_trust import (
+    DomainTrustAnchor,
+    DomainTrustManager,
+    TrustRoot,
+    DomainLink,
+    TrustStatus,
+    create_domain_keypair,
+)
 from .debug import (
     EngineSnapshot,
     SnapshotStore,
@@ -106,7 +167,16 @@ from .formal import (
     ComplianceCertifier,
 )
 from .autonomy import WorkflowMutator, AdaptiveEngine, AutonomyController, EditProposal
+from .healing import HealingEngine, HealingReport, HealingAction, HealingContext, HealingStrategy, CircuitBreaker
 from .crdt import LWWRegister, ORSet, EdgeRuntime
+from .resilience import (
+    ResilientSwarm,
+    ResilienceReport,
+    AgentNode,
+    TaskAssignment,
+    QuorumConsensus,
+    AgentStatus,
+)
 from .migration import MigrationEngine, UpgradeManifest, MigrationRecord, MigrationStatus, UpgradeStrategy
 
 __all__ = [
@@ -135,6 +205,10 @@ __all__ = [
     "ProvenanceStore",
     "AuditLedger",
     "VerifiableCredential",
+    "TraceEntry",
+    "TraceStore",
+    "MerkleTree",
+    "verify_trace_integrity",
     "AlpGraph",
     "GraphNode",
     "GraphEdge",
@@ -147,6 +221,9 @@ __all__ = [
     "PolicySuggestion",
     "PolicyVersion",
     "PolicyRollback",
+    "PredictivePolicyEngine",
+    "AnomalyScore",
+    "BaselineProfile",
     "AlpelError",
     "build_context",
     "evaluate",
@@ -206,6 +283,11 @@ __all__ = [
     "RUNTIME_EVENT_TYPES",
     "runtime_dir",
     "runtime_log_path",
+    "CostOptimizer",
+    "CostEstimator",
+    "OptimizationPlan",
+    "OptimizationSuggestion",
+    "AutoScaleRecommendation",
     "EngineSnapshot",
     "SnapshotStore",
     "DiffResult",
@@ -242,12 +324,59 @@ __all__ = [
     "AdaptiveEngine",
     "AutonomyController",
     "EditProposal",
+    "HealingEngine",
+    "HealingReport",
+    "HealingAction",
+    "HealingContext",
+    "HealingStrategy",
+    "CircuitBreaker",
     "LWWRegister",
     "ORSet",
     "EdgeRuntime",
+    "ResilientSwarm",
+    "ResilienceReport",
+    "AgentNode",
+    "TaskAssignment",
+    "QuorumConsensus",
+    "AgentStatus",
     "MigrationEngine",
     "UpgradeManifest",
     "MigrationRecord",
     "MigrationStatus",
     "UpgradeStrategy",
+    "ProtocolBridge",
+    "BridgeExportResult",
+    "BridgeImportResult",
+    "BridgeError",
+    "SUPPORTED_FORMATS",
+    "AgentIdentity",
+    "VerifiablePresentation",
+    "TrustRegistry",
+    "IdentityResolver",
+    "AgentKeyStore",
+    "create_did",
+    "generate_identity_keypair",
+    "P2PSwarm",
+    "P2PReport",
+    "P2PNode",
+    "GossipMessage",
+    "GossipProtocol",
+    "DHT",
+    "TenantVault",
+    "TenantContext",
+    "TenantManager",
+    "TenantIsolationError",
+    "create_tenant_key",
+    "PolicyBallot",
+    "GovernanceEngine",
+    "BallotRecord",
+    "GovernanceReport",
+    "Vote",
+    "VoteValue",
+    "DomainTrustAnchor",
+    "DomainTrustManager",
+    "TrustRoot",
+    "DomainLink",
+    "TrustStatus",
+    "create_domain_keypair",
 ]
