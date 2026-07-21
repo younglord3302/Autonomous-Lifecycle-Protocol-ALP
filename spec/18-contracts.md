@@ -1,6 +1,6 @@
 # ALP Specification — Contracts
 
-**Version:** 8.3.0
+**Version:** 10.9.0
 **Status:** Stable
 
 ---
@@ -72,7 +72,91 @@ function check(contract, context):
 
 ---
 
-## 4. Examples
+## 4. Formal Precondition Checking
+
+### 4.1 Overview
+
+ALP v10.9.0 introduces **formal model-checking** for `@policy` safety properties
+and **precondition verification** for `@contract` objects. These checks run
+without executing any side effects, producing a `VerificationProof` that lists
+each checked invariant and an optional `CounterexampleTrace` when a property
+fails.
+
+### 4.2 Policy Model Checker
+
+`PolicyModelChecker` evaluates lightweight safety invariants over a parsed
+workspace:
+
+| Invariant | Description |
+|---|---|
+| `valid_enforcement` | `enforcement` is either `strict` or `warn`. |
+| `no_path_contradiction` | No path appears in both `allow_paths` and `deny_paths`. |
+| `no_command_contradiction` | No command appears in both `allow_commands` and `deny_commands`. |
+| `valid_time_windows` | Every `allow_during` entry has non-empty `days` and `start < end`. |
+| `valid_scope` | `applies_to` is a wildcard, a `-> agent` reference, or a non-empty list. |
+
+### 4.3 Contract Invariant Checker
+
+`ContractInvariant` verifies structural safety properties for `@contract` objects:
+
+| Invariant | Description |
+|---|---|
+| `valid_on_violation` | `on_violation` is `deny`, `warn`, or `log`. |
+| `valid_type` | `type` is one of `api`, `data`, `tool`, or `repo`. |
+| `satisfiable_requires` | Every `requires` expression is structurally satisfiable. |
+| `no_full_allow_deny_overlap` | The `allows` list is not a strict subset of `denies`. |
+
+### 4.4 `VerificationProof` Shape
+
+```
+type VerificationProof = {
+  policyId: string
+  passed: boolean
+  checkedAt: string          // ISO-8601 timestamp
+  properties: VerificationProperty[]
+  counterexample?: CounterexampleTrace
+}
+
+type VerificationProperty = {
+  name: string
+  passed: boolean
+  message: string
+}
+
+type CounterexampleTrace = {
+  contractId: string
+  invariant: string          // comma-separated failed invariant names
+  input: Record<string, unknown>
+  trace: string[]            // human-readable failure messages
+}
+```
+
+### 4.5 CLI Usage
+
+```
+alp verify --formal <policy-id>
+```
+
+Loads the `.alp` workspace, instantiates `PolicyModelChecker`, and prints
+each invariant result. Exits non-zero with the counterexample trace if any
+invariant fails.
+
+### 4.6 API Usage
+
+```typescript
+import { PolicyModelChecker, ContractInvariant } from '@alp/parser';
+
+const checker = new PolicyModelChecker(objects);
+const proof = checker.verify('policy-safe');
+console.log(proof.passed); // true | false
+
+const invariant = new ContractInvariant(objects);
+const contractProof = invariant.verifyContract('contract-api');
+```
+
+---
+
+## 5. Examples
 
 ```alp
 !alp-version: 8.3.0
@@ -122,7 +206,7 @@ if (!result.ok) {
 
 ---
 
-## 5. Cross-Repo Handoff Contracts
+## 6. Cross-Repo Handoff Contracts
 
 When a task in repo **A** hands off to repo **B**, the handoff must be covered
 by a contract whose `from` is a task in repo A and `to` is a task in repo B.
@@ -142,7 +226,7 @@ stage 4: handoff
 
 ---
 
-## 6. MCP Tool Boundary
+## 7. MCP Tool Boundary
 
 MCP tool calls between agents are also subject to contracts:
 

@@ -36,12 +36,11 @@ import { AlpParser, AlpObject } from '@alp/parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// ─── Connection Setup ───────────────────────────────────────────────────────
+// ─── Connection Setup ────────────────────────────────────────────────────────
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 // ─── Workspace Index ────────────────────────────────────────────────────────
-// Maps object IDs to their location (file URI + line number)
 interface SymbolEntry {
   id: string;
   type: string;
@@ -53,11 +52,55 @@ interface SymbolEntry {
 let workspaceIndex: Map<string, SymbolEntry> = new Map();
 let workspaceRoot: string = '';
 
-// ─── Initialization ─────────────────────────────────────────────────────────
+// ─── Block Type Registry ─────────────────────────────────────────────────────
+const BLOCK_TYPES: Record<string, string> = {
+  project: 'Defines the top-level project configuration, including goals, features, and metadata.',
+  task: 'A unit of work that can be assigned to an agent. Has dependencies, acceptance criteria, and verification steps.',
+  feature: 'A high-level product capability composed of multiple tasks.',
+  workflow: 'Defines the step-by-step process agents follow (e.g., standard development lifecycle).',
+  agent: 'An autonomous role with defined capabilities, permissions, and responsibilities.',
+  memory: 'A piece of persistent knowledge stored across agent sessions.',
+  state: 'Tracks the current state of the project, including active workflows and recent changes.',
+  artifact: 'A tangible output produced by a task or workflow (e.g., a document, binary, or deployment).',
+  decision: 'A recorded architectural decision with context, alternatives, and rationale.',
+  constraint: 'An immutable rule that restricts how the system can evolve.',
+  verification: 'A testable acceptance criterion for a task or feature.',
+  dependency: 'Declares a hard or soft dependency on another object.',
+  resource: 'A shared resource (API endpoint, database, service) consumed by tasks.',
+  event: 'A lifecycle event emitted by the runtime or an agent.',
+  goal: 'A high-level objective the project is working toward.',
+  context: 'A scoped set of variables and rules available to a workflow or agent.',
+  rule: 'An architectural constraint that must always be satisfied.',
+  plugin: 'An extension module that adds custom object types or tool integrations.',
+  policy: 'A governance rule that controls which actions are allowed, denied, or warned.',
+  timeline: 'A declarative schedule for triggering events or actions using cron or one-shot triggers.',
+  contract: 'A runtime boundary contract defining least-privilege access between two entities.',
+  vault: 'An encrypted secrets store with recipient-scoped X25519 envelope + AES-256-GCM.',
+  type: 'Declares a custom object type with custom properties and validation.',
+  macro: 'A dynamic object generator that produces objects from templates.',
+  repo: 'A remote Git repository used for cross-repository orchestration.',
+  swarm: 'A coordinated group of agents executing tasks concurrently.',
+  package: 'A distributable plugin package with versioned dependencies.',
+  plan: 'A structured execution plan with ranked steps and dependencies.',
+  lesson: 'A post-run self-critique record capturing what went wrong and how to improve.',
+  offer: 'A negotiation offer from one agent to another with terms and constraints.',
+  trace: 'A signed execution trace for end-to-end provenance tracking.',
+  migration: 'A live upgrade manifest defining steps and rollback procedures for version migration.',
+};
+
+const DIRECTIVE_DESCRIPTIONS: Record<string, string> = {
+  '!alp-version': 'Declares the ALP specification version this file conforms to (e.g., `!alp-version: 3.0.0`).',
+  '!import': 'Imports another `.alp` file or remote URL into the current workspace.',
+  '!deprecated': 'Marks the following object as deprecated with a migration note (V8+).',
+  '!assert': 'Declares a boolean precondition that must hold true or parsing fails (fail-closed since V9).',
+  '!if': 'Conditionally includes the next top-level object based on an ALPEL boolean expression.',
+  '!integrity': 'Declares a SHA-256 integrity hash for a remote import, verified on load.',
+};
+
+// ─── Initialization ──────────────────────────────────────────────────────────
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   if (params.workspaceFolders && params.workspaceFolders.length > 0) {
     workspaceRoot = new URL(params.workspaceFolders[0].uri).pathname;
-    // Fix Windows paths (remove leading slash from /C:/...)
     if (workspaceRoot.match(/^\/[A-Za-z]:\//)) {
       workspaceRoot = workspaceRoot.substring(1);
     }
@@ -122,11 +165,9 @@ function indexFile(filePath: string) {
 
     for (const obj of objects) {
       if (obj.id) {
-        // Find the line number where this object's @type marker appears
         let objLine = 0;
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].trim() === `@${obj._type}`) {
-            // Check if the next few lines contain this id
             for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
               if (lines[j].trim().startsWith('id:') && lines[j].includes(obj.id)) {
                 objLine = i;
@@ -200,6 +241,26 @@ function validateDocument(doc: TextDocument) {
         });
       }
     }
+
+    // Check for status markers missing reasons (V9+)
+    const blockedMatch = lines[i].match(/\[\!\](?!\s+\S)/);
+    if (blockedMatch && blockedMatch.index !== undefined) {
+      diagnostics.push({
+        severity: DiagnosticSeverity.Error,
+        range: Range.create(i, blockedMatch.index, i, blockedMatch.index + 3),
+        message: "Status marker '[!]' requires a reason (e.g. '[!] waiting for review'). Mandatory since v9.0.0.",
+        source: 'ALP',
+      });
+    }
+    const humanGateMatch = lines[i].match(/\[\?\](?!\s+\S)/);
+    if (humanGateMatch && humanGateMatch.index !== undefined) {
+      diagnostics.push({
+        severity: DiagnosticSeverity.Error,
+        range: Range.create(i, humanGateMatch.index, i, humanGateMatch.index + 3),
+        message: "Status marker '[?]' requires a reason (e.g. '[?] awaiting human approval'). Mandatory since v9.0.0.",
+        source: 'ALP',
+      });
+    }
   }
 
   connection.sendDiagnostics({ uri: doc.uri, diagnostics });
@@ -212,7 +273,6 @@ connection.onDefinition((params: DefinitionParams): Location | null => {
 
   const line = doc.getText(Range.create(params.position.line, 0, params.position.line, Number.MAX_SAFE_INTEGER));
 
-  // Match `-> some-id` references
   const refMatch = line.match(/->\s+([a-zA-Z0-9_-]+)/);
   if (refMatch) {
     const targetId = refMatch[1];
@@ -247,6 +307,7 @@ connection.onHover((params: HoverParams): Hover | null => {
         entry.properties.description ? entry.properties.description : '',
         entry.properties.status ? `Status: \`${entry.properties.status}\`` : '',
         entry.properties.owner ? `Owner: \`${entry.properties.owner}\`` : '',
+        entry.properties.priority ? `Priority: \`${entry.properties.priority}\`` : '',
       ].filter(Boolean).join('\n');
 
       return { contents: { kind: 'markdown', value: details } };
@@ -256,22 +317,18 @@ connection.onHover((params: HoverParams): Hover | null => {
   // Hover over @type block markers
   const blockMatch = line.match(/^@([a-z_]+)$/);
   if (blockMatch) {
-    const typeDescriptions: Record<string, string> = {
-      project: 'Defines the top-level project configuration, including goals, features, and metadata.',
-      task: 'A unit of work that can be assigned to an agent. Has dependencies, acceptance criteria, and verification steps.',
-      feature: 'A high-level product capability composed of multiple tasks.',
-      workflow: 'Defines the step-by-step process agents follow (e.g., standard development lifecycle).',
-      agent: 'An autonomous role with defined capabilities, permissions, and responsibilities.',
-      memory: 'A piece of persistent knowledge stored across agent sessions.',
-      state: 'Tracks the current state of the project, including active workflows and recent changes.',
-      goal: 'A high-level objective the project is working toward.',
-      rule: 'An architectural constraint that must always be satisfied.',
-      decision: 'A recorded architectural decision with context, alternatives, and rationale.',
-      plugin: 'An extension module that adds custom object types or tool integrations.',
-    };
-    const desc = typeDescriptions[blockMatch[1]];
+    const desc = BLOCK_TYPES[blockMatch[1]];
     if (desc) {
       return { contents: { kind: 'markdown', value: `**@${blockMatch[1]}**\n\n${desc}` } };
+    }
+  }
+
+  // Hover over directives
+  const directiveMatch = line.match(/^\\s+(![a-zA-Z_][a-zA-Z0-9_-]*)/);
+  if (directiveMatch) {
+    const desc = DIRECTIVE_DESCRIPTIONS[directiveMatch[1]];
+    if (desc) {
+      return { contents: { kind: 'markdown', value: `**${directiveMatch[1]}**\n\n${desc}` } };
     }
   }
 
@@ -302,7 +359,12 @@ connection.onCompletion((params: CompletionParams): CompletionItem[] => {
     // Suggest block markers
     const blockTypes = [
       'project', 'task', 'feature', 'workflow', 'agent',
-      'memory', 'state', 'goal', 'rule', 'decision', 'plugin',
+      'memory', 'state', 'artifact', 'decision', 'constraint',
+      'verification', 'dependency', 'resource', 'event', 'goal',
+      'context', 'rule', 'plugin', 'policy', 'timeline',
+      'contract', 'vault', 'type', 'macro', 'repo',
+      'swarm', 'package', 'plan', 'lesson', 'offer',
+      'trace', 'migration',
     ];
     for (const t of blockTypes) {
       items.push({
@@ -312,12 +374,25 @@ connection.onCompletion((params: CompletionParams): CompletionItem[] => {
         insertText: `${t}\n  id: `,
       });
     }
+  } else if (textBeforeCursor.match(/^\\s+!$/)) {
+    // Suggest directives
+    const directives = [
+      '!alp-version', '!import', '!deprecated', '!assert', '!if', '!integrity',
+    ];
+    for (const d of directives) {
+      items.push({
+        label: d,
+        kind: CompletionItemKind.Keyword,
+        detail: 'ALP Directive',
+        insertText: d,
+      });
+    }
   }
 
   return items;
 });
 
-// ─── Rename ─────────────────────────────────────────────────────────────────
+// ─── Rename ──────────────────────────────────────────────────────────────────
 connection.onRenameRequest((params: RenameParams): WorkspaceEdit | null => {
   const doc = documents.get(params.textDocument.uri);
   if (!doc) return null;
@@ -328,7 +403,7 @@ connection.onRenameRequest((params: RenameParams): WorkspaceEdit | null => {
   if (refMatch && params.position.character >= line.indexOf(refMatch[1])) {
     oldId = refMatch[1];
   } else {
-    let idMatch = line.match(/id:\s*([a-zA-Z0-9_-]+)/);
+    let idMatch = line.match(/id:\\s*([a-zA-Z0-9_-]+)/);
     if (idMatch && params.position.character >= line.indexOf(idMatch[1])) {
       oldId = idMatch[1];
     }
@@ -348,8 +423,8 @@ connection.onRenameRequest((params: RenameParams): WorkspaceEdit | null => {
         if (entry.isDirectory()) walk(fullPath);
         else if (fullPath.endsWith('.alp')) {
           const content = fs.readFileSync(fullPath, 'utf8');
-          const lines = content.split('\n');
-          const uri = 'file:///' + fullPath.replace(/\\/g, '/');
+          const lines = content.split('\\n');
+          const uri = 'file:///' + fullPath.replace(/\\\\/g, '/');
           const edits: TextEdit[] = [];
           
           for (let i = 0; i < lines.length; i++) {
@@ -407,7 +482,7 @@ connection.onDocumentSymbol((params: DocumentSymbolParams): DocumentSymbol[] => 
         id,
         `@${entry.type}`,
         SymbolKind.Object,
-        Range.create(entry.line, 0, entry.line + 5, 0), // approximate range
+        Range.create(entry.line, 0, entry.line + 5, 0),
         Range.create(entry.line, 0, entry.line, id.length)
       ));
     }
@@ -420,22 +495,27 @@ connection.languages.semanticTokens.on((params: SemanticTokensParams): SemanticT
   const builder = new SemanticTokensBuilder();
   const doc = documents.get(params.textDocument.uri);
   if (doc) {
-    const lines = doc.getText().split('\n');
+    const lines = doc.getText().split('\\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const typeMatch = line.match(/^@([a-z_]+)$/);
       if (typeMatch) {
-        builder.push(i, 0, typeMatch[0].length, 0, 0); // keyword
+        builder.push(i, 0, typeMatch[0].length, 0, 0);
       }
-      const propMatch = line.match(/^(\s*)([a-z_!][a-z0-9_-]*):\s*(.*)$/);
+      const propMatch = line.match(/^(\\s*)([a-z_!][a-z0-9_-]*):\\s*(.*)$/);
       if (propMatch) {
-        builder.push(i, propMatch[1].length, propMatch[2].length, 4, 0); // property
+        const propName = propMatch[2];
+        if (propName.startsWith('!')) {
+          builder.push(i, propMatch[1].length, propName.length, 3, 0);
+        } else {
+          builder.push(i, propMatch[1].length, propName.length, 4, 0);
+        }
       }
-      const refRegex = /(->\s+)([a-zA-Z0-9_-]+)/g;
+      const refRegex = /(->\\s+)([a-zA-Z0-9_-]+)/g;
       let refMatch;
       while ((refMatch = refRegex.exec(line)) !== null) {
-         builder.push(i, refMatch.index, 2, 0, 0); // keyword for `->`
-         builder.push(i, refMatch.index + refMatch[1].length, refMatch[2].length, 2, 0); // variable for ID
+         builder.push(i, refMatch.index, 2, 0, 0);
+         builder.push(i, refMatch.index + refMatch[1].length, refMatch[2].length, 2, 0);
       }
     }
   }
@@ -472,7 +552,7 @@ connection.onCodeAction((params: CodeActionParams): CodeAction[] => {
   return actions;
 });
 
-// ─── File Watcher (re-index when .alp files change) ─────────────────────────
+// ─── File Watcher (re-index when .alp files change) ──────────────────────────
 documents.onDidSave(() => {
   indexWorkspace();
 });

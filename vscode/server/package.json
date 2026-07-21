@@ -1,6 +1,6 @@
 {
   "name": "alp-language-server",
-  "version": "2.0.0",
+  "version": "15.2.0",
   "description": "ALP Language Server providing Go-to-Definition and IntelliSense",
   "main": "dist/server.js",
   "scripts": {

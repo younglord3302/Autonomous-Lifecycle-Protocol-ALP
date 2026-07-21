@@ -75,7 +75,9 @@ export default defineConfig({
           { text: '16. Compliance', link: '/spec/16-compliance' },
           { text: '17. Scheduling', link: '/spec/17-scheduling' },
           { text: '18. Contracts', link: '/spec/18-contracts' },
-          { text: '19. Encrypted Vault', link: '/spec/19-vault' }
+          { text: '19. Encrypted Vault', link: '/spec/19-vault' },
+          { text: '20. Event Sourcing', link: '/spec/20-event-sourcing' },
+          { text: '21. Workflow Visualization', link: '/spec/21-workflow-visualization' }
         ]
       }
     ],

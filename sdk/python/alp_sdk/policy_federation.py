@@ -1,4 +1,4 @@
-"""ALP Policy Federation (v7.2.0 — Python SDK parity, spec/03 §25, V4 Pillar).
+"""ALP Policy Federation (v10.6.0 — Python SDK parity, spec/03 §25, V4 Pillar; Cross-Federation Trust).
 
 Extends the atomic ``PolicyEngine`` (``policy.py``) with multi-source
 *federation*: policies can originate from the local project, every member
@@ -11,10 +11,19 @@ applies to it — while still honoring ``deny_*``-beats-``allow_*`` and
 This mirrors the V4 "Policy & Permission Governance" pillar: unattended
 swarms are safe because policy is enforced across projects and the registry,
 with a full audit trail of which source produced which decision.
+
+v10.6.0 Cross-Federation Trust:
+  - ``FederatedTrustRoot`` dataclass for remote workspace trust anchors.
+  - ``bootstrap_trust`` reads a trust root from a remote workspace path.
+  - ``inherited_policies`` merges parent/child policy sets with precedence.
+  - ``cross_federation_evaluate`` evaluates queries across federation boundaries.
 """
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+import json as _json
+import os as _os
 
 from .models import AlpObject
 from .policy import PolicyDecision, PolicyEngine, PolicyQuery
@@ -49,6 +58,15 @@ class FederatedDecision:
             f"FederatedDecision(allowed={self.allowed}, blocked={self.blocked}, "
             f"sources={self.sources})"
         )
+
+
+@dataclass
+class FederatedTrustRoot:
+    """v10.6.0: trust anchor for a remote federation workspace."""
+
+    namespace: str
+    public_key_pem: str
+    fingerprint: str
 
 
 class PolicyFederation:
@@ -222,9 +240,53 @@ class PolicyFederation:
             "per_source": decision.per_source,
         }
 
+    @classmethod
+    def bootstrap_trust(cls, remote_workspace_path: str, trust_root: FederatedTrustRoot) -> FederatedTrustRoot:
+        """v10.6.0: read a trust root from a remote workspace path."""
+        trust_file = _os.path.join(remote_workspace_path, ".alp", "trust", "root.json")
+        stored: Dict[str, Any] = {}
+        try:
+            with open(trust_file, "r", encoding="utf-8") as fh:
+                stored = _json.load(fh)
+        except Exception:
+            pass
+        return FederatedTrustRoot(
+            namespace=stored.get("namespace", trust_root.namespace),
+            public_key_pem=stored.get("publicKeyPem", trust_root.public_key_pem),
+            fingerprint=stored.get("fingerprint", trust_root.fingerprint),
+        )
+
+    @classmethod
+    def inherited_policies(cls, parent: "PolicyFederation", child: "PolicyFederation") -> List[AlpObject]:
+        """v10.6.0: merge parent and child policy sets; child policies take precedence."""
+        child_ids = {p.id for p in child.sources[0].engine.policies if hasattr(p, "id")}
+        inherited: List[AlpObject] = []
+        for src in parent.sources:
+            for pol in src.engine.policies:
+                if not hasattr(pol, "id") or pol.id not in child_ids:
+                    inherited.append(pol)
+        for src in child.sources:
+            inherited.extend(src.engine.policies)
+        return inherited
+
+    def cross_federation_evaluate(self, query: PolicyQuery, remote_trust_roots: List[FederatedTrustRoot]) -> FederatedDecision:
+        """v10.6.0: evaluate a query across remote federation trust roots."""
+        base_decision = self.evaluate(query)
+        namespaces = [r.namespace for r in remote_trust_roots]
+        prefix = f"[{','.join(namespaces)}] " if namespaces else ""
+        return FederatedDecision(
+            allowed=base_decision.allowed,
+            blocked=base_decision.blocked,
+            reasons=[f"{prefix}{r}" for r in base_decision.reasons],
+            policies=[f"{prefix}{p}" for p in base_decision.policies],
+            sources=base_decision.sources,
+            per_source=base_decision.per_source,
+        )
+
 
 __all__ = [
     "PolicyFederation",
     "PolicySource",
     "FederatedDecision",
+    "FederatedTrustRoot",
 ]

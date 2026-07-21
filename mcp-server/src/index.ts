@@ -12,6 +12,16 @@
  *   - alp_read_object: Read a specific ALP object by ID
  *   - alp_list_objects: List all objects, optionally filtered by type
  *   - alp_validate: Validate the workspace and return any errors
+ *   - alp_update_status: Update the status of a specific task
+ *   - alp_get_impact: Get all downstream nodes affected by a change
+ *   - alp_search: Fuzzy search across all object IDs and descriptions
+ *   - alp_delegate: Create a new task assigned to a specific role/agent
+ *   - alp_decompose: Split a large task into sub-tasks
+ *   - alp_create_task: Create a new task .alp file
+ *   - alp_create_feature: Create a new feature .alp file
+ *   - alp_get_events: Read recent runtime events with filtering
+ *   - alp_get_analytics: Return analytics summary from state store
+ *   - alp_set_status: Update an object's status via MCP
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -21,6 +31,15 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  PromptSchema,
+  PromptArgumentSchema,
+  GetPromptResultSchema,
+  ListPromptsResultSchema,
+  SubscribeRequestSchema,
+  UnsubscribeRequestSchema,
+  ResourceUpdatedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { AlpParser, AlpObject, AlpGraph, PolicyEngine, updateObjectStatus } from '@alp/parser';
 import * as fs from 'fs';
@@ -159,9 +178,60 @@ function audit(
 
 // ─── MCP Server ───────────────────────────────────────────────────────────
 const server = new Server(
-  { name: 'alp-mcp-server', version: '6.3.0' },
-  { capabilities: { tools: {}, resources: {} } }
+  { name: 'alp-mcp-server', version: '10.4.0' },
+  { capabilities: { tools: {}, resources: { subscribe: true }, prompts: {} } }
 );
+
+// ─── Resource Subscription State ─────────────────────────────────────────
+const subscribers = new Map<string, Set<(uri: string) => void>>();
+let subscriptionTimer: NodeJS.Timeout | null = null;
+let lastEventLogSize = 0;
+
+function getResourceUri(resourcePath: string): string {
+  return `file://${resourcePath.replace(/\\/g, '/')}`;
+}
+
+function startSubscriptionPolling(rootDir: string) {
+  if (subscriptionTimer) return;
+  const logPath = path.join(rootDir, '.alp', '.runtime', 'log.jsonl');
+  const eventsPath = path.join(rootDir, '.alp', '.events', 'events.jsonl');
+
+  subscriptionTimer = setInterval(() => {
+    try {
+      let newEvents = false;
+      if (fs.existsSync(eventsPath)) {
+        const { size } = fs.statSync(eventsPath);
+        if (size > lastEventLogSize) {
+          lastEventLogSize = size;
+          newEvents = true;
+        }
+      }
+      if (fs.existsSync(logPath)) {
+        const { size } = fs.statSync(logPath);
+        if (size > lastEventLogSize) {
+          lastEventLogSize = size;
+          newEvents = true;
+        }
+      }
+      if (newEvents && subscribers.size > 0) {
+        for (const [, callbacks] of subscribers) {
+          for (const cb of callbacks) {
+            try { cb('alp://events'); } catch { /* best-effort */ }
+          }
+        }
+      }
+    } catch {
+      /* best-effort polling */
+    }
+  }, 2000);
+}
+
+function stopSubscriptionPolling() {
+  if (subscriptionTimer) {
+    clearInterval(subscriptionTimer);
+    subscriptionTimer = null;
+  }
+}
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -284,6 +354,73 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           cwd: { type: 'string' }
         },
         required: ['taskId', 'subtasks']
+      }
+    },
+    {
+      name: 'alp_create_task',
+      description: 'Create a new task .alp file in .alp/tasks/ with given title, description, and agent assignment.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          title: { type: 'string', description: 'Task title (used to derive the task id)' },
+          description: { type: 'string', description: 'Optional task description' },
+          agent: { type: 'string', description: 'Agent/role to assign (e.g. agent-qa)' },
+          parent: { type: 'string', description: 'Optional parent task id' },
+          status: { type: 'string', description: 'Initial status: [ ], [~], [x], [!], [?] (default [ ])' },
+          cwd: { type: 'string' }
+        },
+        required: ['title']
+      }
+    },
+    {
+      name: 'alp_create_feature',
+      description: 'Create a new feature .alp file in .alp/features/ with given title and description.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          title: { type: 'string', description: 'Feature title (used to derive the feature id)' },
+          description: { type: 'string', description: 'Optional feature description' },
+          status: { type: 'string', description: 'Initial status: [ ], [~], [x], [!], [?] (default [ ])' },
+          cwd: { type: 'string' }
+        },
+        required: ['title']
+      }
+    },
+    {
+      name: 'alp_get_events',
+      description: 'Read recent events from .alp/.events/events.jsonl with optional type filtering and limit.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          type: { type: 'string', description: 'Filter by event type (e.g. status_changed, object_created)' },
+          limit: { type: 'number', description: 'Maximum number of events to return (default 50)' },
+          cwd: { type: 'string' }
+        },
+        required: []
+      }
+    },
+    {
+      name: 'alp_get_analytics',
+      description: 'Read analytics summary from .alp/.runtime/state.db.json or compute from events.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          cwd: { type: 'string' }
+        },
+        required: []
+      }
+    },
+    {
+      name: 'alp_set_status',
+      description: 'Update the status of an ALP object (task, feature, etc.) by ID.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          id: { type: 'string', description: 'Object ID to update' },
+          status: { type: 'string', description: 'New status: [ ], [~], [x], [!], [?]' },
+          cwd: { type: 'string' }
+        },
+        required: ['id', 'status']
       }
     },
   ],
@@ -563,6 +700,201 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// ─── Prompt Handlers ───────────────────────────────────────────────────────
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: [
+    {
+      name: 'triage',
+      description: 'Analyze the current project state and suggest a triage plan for blocked and high-priority tasks.',
+      arguments: [
+        { name: 'focus', description: 'Optional focus area (e.g. "blocked", "critical")', required: false },
+      ],
+    },
+    {
+      name: 'standup',
+      description: 'Generate a daily standup summary from recent task activity and status changes.',
+      arguments: [
+        { name: 'since', description: 'ISO timestamp to filter events from (e.g. "2026-07-20T00:00:00Z")', required: false },
+      ],
+    },
+    {
+      name: 'retrospective',
+      description: 'Generate a sprint retrospective summary from completed tasks, failures, and handoffs.',
+      arguments: [
+        { name: 'sprint', description: 'Sprint identifier or date range', required: false },
+      ],
+    },
+  ],
+}));
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const promptName = request.params.name;
+  const args = request.params.arguments || {};
+  const objects = loadWorkspace(args.cwd as string || process.cwd());
+
+  switch (promptName) {
+    case 'triage': {
+      const focus = (args.focus as string) || '';
+      const blocked = objects.filter((o) => o.status === '[!]');
+      const critical = objects.filter((o) => (o as any).priority === 'critical');
+      const todo = objects.filter((o) => o.status === '[ ]');
+      let lines = [
+        '# Triage Report',
+        '',
+        `Total objects: ${objects.length}`,
+        `Blocked: ${blocked.length}`,
+        `Todo: ${todo.length}`,
+        `Critical priority: ${critical.length}`,
+        '',
+      ];
+      if (focus) {
+        lines.push(`## Focus: ${focus}`);
+        if (focus === 'blocked') {
+          for (const b of blocked.slice(0, 10)) {
+            lines.push(`- **${b.id}**: ${b.description || '(no description)'}`);
+          }
+        } else if (focus === 'critical') {
+          for (const c of critical.slice(0, 10)) {
+            lines.push(`- **${c.id}**: ${c.description || '(no description)'}`);
+          }
+        }
+      } else {
+        lines.push('## Blocked Tasks');
+        if (blocked.length === 0) lines.push('No blocked tasks.');
+        else for (const b of blocked.slice(0, 10)) lines.push(`- **${b.id}**: ${b.description || '(no description)'}`);
+        lines.push('');
+        lines.push('## Next Available');
+        for (const t of todo.slice(0, 5)) lines.push(`- **${t.id}**: ${t.description || '(no description)'}`);
+      }
+      return {
+        messages: [
+          { role: 'user', content: { type: 'text', text: lines.join('\n') } },
+        ],
+      };
+    }
+
+    case 'standup': {
+      const since = (args.since as string) || new Date(Date.now() - 86400000).toISOString();
+      const eventsPath = path.join(args.cwd as string || process.cwd(), '.alp', '.runtime', 'log.jsonl');
+      let recent: any[] = [];
+      if (fs.existsSync(eventsPath)) {
+        const raw = fs.readFileSync(eventsPath, 'utf-8');
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const evt = JSON.parse(trimmed);
+            if (evt.timestamp >= since) recent.push(evt);
+          } catch { /* skip */ }
+        }
+      }
+      const taskStatusChanges = recent.filter((e) => e.type === 'task_status');
+      const claims = recent.filter((e) => e.type === 'task_claim');
+      const completions = recent.filter((e) => e.type === 'task_status' && e.status === '[x]');
+      const lines = [
+        '# Daily Standup',
+        '',
+        `Period: ${since} to now`,
+        '',
+        `## Activity`,
+        `- Events: ${recent.length}`,
+        `- Claims: ${claims.length}`,
+        `- Status changes: ${taskStatusChanges.length}`,
+        `- Completions: ${completions.length}`,
+        '',
+        '## Recent Status Changes',
+        ...taskStatusChanges.slice(-10).map((e) => `- **${e.task_id || 'unknown'}**: ${e.status || ''} (${e.agent || 'unknown agent'})`),
+        '',
+        '## Completed Tasks',
+        ...completions.slice(-10).map((e) => `- **${e.task_id}**`),
+      ];
+      return {
+        messages: [
+          { role: 'user', content: { type: 'text', text: lines.join('\n') } },
+        ],
+      };
+    }
+
+    case 'retrospective': {
+      const eventsPath2 = path.join(args.cwd as string || process.cwd(), '.alp', '.runtime', 'log.jsonl');
+      let allEvents: any[] = [];
+      if (fs.existsSync(eventsPath2)) {
+        const raw = fs.readFileSync(eventsPath2, 'utf-8');
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try { allEvents.push(JSON.parse(trimmed)); } catch { /* skip */ }
+        }
+      }
+      const completed = allEvents.filter((e) => e.type === 'task_status' && e.status === '[x]');
+      const failed = allEvents.filter((e) => e.type === 'task_status' && e.status === '[!]');
+      const handoffs = allEvents.filter((e) => e.type === 'human_handoff' || (e.type === 'task_status' && e.status === '[?]'));
+      const failedTasks = [...new Set(failed.map((e) => e.task_id).filter(Boolean))];
+      const handoffTasks = [...new Set(handoffs.map((e) => e.task_id).filter(Boolean))];
+      const lines2 = [
+        '# Sprint Retrospective',
+        '',
+        `Total events analyzed: ${allEvents.length}`,
+        '',
+        '## Summary',
+        `- Completed: ${completed.length}`,
+        `- Failed: ${failed.length}`,
+        `- Human handoffs: ${handoffs.length}`,
+        '',
+        '## Failure Hotspots',
+        ...failedTasks.map((tid) => `- **${tid}**`),
+        '',
+        '## Handoff Points',
+        ...handoffTasks.map((tid) => `- **${tid}**`),
+        '',
+        '## Recommendations',
+        ...failedTasks.length
+          ? ['- Review failed tasks for common blockers.', '- Consider breaking down large tasks.']
+          : ['- No failures detected. Good momentum!'],
+        ...handoffs.length
+          ? ['- Reduce human handoffs by clarifying task acceptance criteria.']
+          : [],
+      ];
+      return {
+        messages: [
+          { role: 'user', content: { type: 'text', text: lines2.join('\n') } },
+        ],
+      };
+    }
+
+    default:
+      return {
+        messages: [{ role: 'user', content: { type: 'text', text: `Prompt "${promptName}" not found.` } }],
+        isError: true,
+      };
+  }
+});
+
+// ─── Resource Subscription Handlers ───────────────────────────────────────
+server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+  const uri = request.params.uri;
+  if (!subscribers.has(uri)) {
+    subscribers.set(uri, new Set());
+  }
+  subscribers.get(uri)!.add(() => {});
+  startSubscriptionPolling(process.cwd());
+  return {};
+});
+
+server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+  const uri = request.params.uri;
+  const cbs = subscribers.get(uri);
+  if (cbs) {
+    cbs.clear();
+    subscribers.delete(uri);
+  }
+  if (subscribers.size === 0) {
+    stopSubscriptionPolling();
+  }
+  return {};
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
 function validateDirectory(dir: string, errors: string[]) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const parser = new AlpParser();

@@ -1,9 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { AlpParser, AlpObject, PolicyEngine, updateObjectStatus } from '@alp/parser';
+import {
+  AlpParser,
+  AlpObject,
+  PolicyEngine,
+  PolicyModelChecker,
+  ContractInvariant,
+  updateObjectStatus,
+} from '@alp/parser';
 
-export function verifyCommand(taskId: string) {
+export interface VerifyOptions {
+  formal?: string;
+}
+
+export function verifyCommand(taskId: string, options?: VerifyOptions) {
   const alpDir = path.resolve(process.cwd(), '.alp');
   if (!fs.existsSync(alpDir)) {
     console.error('Error: .alp directory not found. Run `alp init` first.');
@@ -51,6 +62,11 @@ export function verifyCommand(taskId: string) {
     process.exit(1);
   }
 
+  if (options?.formal) {
+    runFormalVerification(options.formal, allObjects);
+    return;
+  }
+
   if (!targetObj.verify || !Array.isArray(targetObj.verify) || targetObj.verify.length === 0) {
     console.log(`✅ Task '${taskId}' has no verification gates defined. Considering it verified.`);
     writeTaskStatus(targetFile, taskId, '[x]');
@@ -60,8 +76,6 @@ export function verifyCommand(taskId: string) {
   console.log(`\n🔍 Verifying Task: ${taskId}`);
   console.log(`   Running ${targetObj.verify.length} quality gate(s)...\n`);
 
-  // Policy governance: verify commands run shell code, so they must comply
-  // with any @policy guardrails before execution.
   const policyEngine = new PolicyEngine(allObjects);
   const owner = typeof targetObj.owner === 'string'
     ? targetObj.owner.replace(/^->\s*/, '').trim()
@@ -93,7 +107,7 @@ export function verifyCommand(taskId: string) {
     } catch (err) {
       console.error(`   ❌ Failed\n`);
       allPassed = false;
-      break; // Stop at first failure
+      break;
     }
   }
 
@@ -105,6 +119,30 @@ export function verifyCommand(taskId: string) {
     writeTaskStatus(targetFile, taskId, '[!]');
     process.exit(1);
   }
+}
+
+function runFormalVerification(policyId: string, objects: AlpObject[]) {
+  const checker = new PolicyModelChecker(objects);
+  const proof = checker.verify(policyId);
+
+  console.log(`\n🔬 Formal Verification: ${policyId}`);
+  console.log(`   Passed: ${proof.passed}`);
+  console.log(`   Checked at: ${proof.checkedAt}\n`);
+
+  for (const prop of proof.properties) {
+    const icon = prop.passed ? '✅' : '❌';
+    console.log(`   ${icon} ${prop.name}: ${prop.message}`);
+  }
+
+  if (proof.counterexample) {
+    console.log(`\n   Counterexample trace:`);
+    for (const line of proof.counterexample.trace) {
+      console.log(`      - ${line}`);
+    }
+    process.exit(1);
+  }
+
+  console.log('\n🎉 All formal invariants passed.');
 }
 
 /**

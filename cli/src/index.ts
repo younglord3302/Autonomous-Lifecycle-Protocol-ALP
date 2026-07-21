@@ -24,12 +24,17 @@ import { repoCommand } from './commands/repo';
 import { registryCommand } from './commands/registry';
 import { keysCommand } from './commands/keys';
 import { testHarnessCommand } from './commands/test-harness';
+import { replayCommand } from './commands/replay';
+import { visualizeCommand } from './commands/visualize';
+import { pluginCommand } from './commands/plugin';
+import { costCommand } from './commands/cost';
+import { debugCommand } from './commands/debug';
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('10.0.0');
+  .version('10.2.0');
 
 program
   .command('init')
@@ -51,6 +56,7 @@ program
   .command('verify')
   .description('Execute quality gates and verification scripts for a task')
   .argument('<taskId>', 'The ID of the task to verify')
+  .option('--formal <policyId>', 'Run formal model-checking verification for a policy (v10.9.0)')
   .action(verifyCommand);
 
 program
@@ -205,12 +211,44 @@ program
   .action((opts) => testHarnessCommand(opts));
 
 program
+  .command('replay')
+  .description('Replay the immutable event log of workspace mutations (v10.1.0 Event Sourcing)')
+  .option('--from <iso>', 'Replay events at or after this ISO timestamp')
+  .option('--to <iso>', 'Replay events at or before this ISO timestamp')
+  .option('--type <types>', 'Comma-separated event types to include (e.g. status_changed,object_created)')
+  .option('--object-id <id>', 'Only events whose payload references this object id')
+  .action((opts) => replayCommand(opts));
+
+program
+  .command('visualize')
+  .description('Generate a diagram from @workflow objects (v10.2.0 Workflow Visualization)')
+  .argument('[id]', 'Workflow id to visualize (all workflows if omitted)')
+  .option('--format <format>', 'Output format: mermaid, dot, json (default mermaid)')
+  .option('--out <file>', 'Write output to a file instead of stdout')
+  .action((id, opts) => visualizeCommand(id, opts));
+
+program
   .command('export')
   .description('Export the ALP workspace to a unified JSON or YAML file')
   .option('--format <format>', 'Export format: json or yaml', 'json')
   .option('--out <file>', 'Output file path (prints to stdout if omitted)')
   .option('--minified', 'Minify JSON output (only applies to json format)')
   .action(exportCommand);
+
+program
+  .command('cost')
+  .description('Show token usage and compute cost for a task (v10.7.0 Resource Metering)')
+  .argument('[task-id]', 'Task ID to inspect (defaults to latest metered task)')
+  .action((taskId) => costCommand(taskId));
+
+program
+  .command('debug')
+  .description('Time-travel debug a run via snapshots (v10.8.0)')
+  .argument('<run-id>', 'Run identifier')
+  .option('--step <n>', 'Step forward (positive) or backward (negative) by N snapshots', parseInt)
+  .option('--to-stage <name>', 'Jump to the snapshot matching this engine stage')
+  .option('--diff <a> <b>', 'Diff two snapshot ids')
+  .action((runId, opts) => debugCommand(runId, opts));
 
 program.parse(process.argv);
 

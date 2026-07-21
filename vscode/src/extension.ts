@@ -11,7 +11,7 @@ let client: LanguageClient;
 let diagnosticCollection: vscode.DiagnosticCollection;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('ALP Language Support v2.0 is now active.');
+  console.log('ALP Language Support v15.2.0 is now active.');
 
   // ─── Language Server ────────────────────────────────────────────────
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));

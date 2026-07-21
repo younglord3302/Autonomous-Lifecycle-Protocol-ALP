@@ -52,10 +52,73 @@ class PolicyQuery:
 class PolicyEngine:
     def __init__(self, objects: List[AlpObject]):
         self.policies = [o for o in objects if o._type == "policy"]
+        self._versions: Dict[str, List[PolicyVersion]] = {}
+        self._rollbacks: List[PolicyRollback] = []
 
     @property
     def count(self) -> int:
         return len(self.policies)
+
+    def suggest(self, query: PolicyQuery) -> List[PolicySuggestion]:
+        """V7.0.0: return structured suggestions for warn-mode violations."""
+        decision = self._evaluate_internal(query, False)
+        suggestions: List[PolicySuggestion] = []
+        for pid in decision.policies:
+            policy = next((p for p in self.policies if p.id == pid), None)
+            if not policy:
+                continue
+            strict = policy.properties.get("enforcement", "strict") == "strict"
+            if strict:
+                continue
+            for reason in decision.reasons:
+                if pid in reason:
+                    suggestions.append(
+                        PolicySuggestion(
+                            suggestion_id=f"sugg-{len(suggestions)+1}",
+                            policy_id=pid,
+                            action_kind=query.kind,
+                            action_value=query.value,
+                            reason=reason,
+                            confidence=0.5,
+                        )
+                    )
+        return suggestions
+
+    def version_policy(self, policy_id: str, version: str) -> Optional[PolicyVersion]:
+        """V7.2.0: snapshot the current policy definition under a version tag."""
+        policy = next((p for p in self.policies if p.id == policy_id), None)
+        if not policy:
+            return None
+        pv = PolicyVersion(version=version, policy=policy.properties, created_at=datetime.now(timezone.utc).isoformat())
+        self._versions.setdefault(policy_id, []).append(pv)
+        return pv
+
+    def rollback(self, policy_id: str, to_version: str) -> Optional[PolicyRollback]:
+        """V7.2.0: roll a policy back to a previously snapshot version."""
+        versions = self._versions.get(policy_id, [])
+        target = next((v for v in versions if v.version == to_version), None)
+        if not target:
+            return None
+        policy = next((p for p in self.policies if p.id == policy_id), None)
+        if not policy:
+            return None
+        from_version = policy.properties.get("version", "unknown")
+        policy.properties = dict(target.policy)
+        rolled_at = datetime.now(timezone.utc).isoformat()
+        rollback = PolicyRollback(
+            policy_id=policy_id,
+            from_version=from_version,
+            to_version=to_version,
+            rolled_back_at=rolled_at,
+        )
+        self._rollbacks.append(rollback)
+        return rollback
+
+    def get_versions(self, policy_id: str) -> List[PolicyVersion]:
+        return list(self._versions.get(policy_id, []))
+
+    def get_rollbacks(self, policy_id: str) -> List[PolicyRollback]:
+        return [r for r in self._rollbacks if r.policy_id == policy_id]
 
     def _governs(self, policy: Dict[str, Any], agent: Optional[str]) -> bool:
         target = policy.get("applies_to")
@@ -290,3 +353,82 @@ def glob_to_regexp(glob: str) -> "re.Pattern[str]":
             out.append(c)
         i += 1
     return re.compile("^" + "".join(out) + "$")
+
+
+class PolicySuggestion:
+    """V7.0.0: structured suggestion emitted when a policy is in ``warn`` mode.
+
+    Carries the proposed action, the triggering policy, and a confidence
+    score so callers can decide whether to auto-apply or escalate.
+    """
+
+    def __init__(
+        self,
+        suggestion_id: str,
+        policy_id: str,
+        action_kind: str,
+        action_value: str,
+        reason: str,
+        confidence: float = 0.5,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        self.suggestion_id = suggestion_id
+        self.policy_id = policy_id
+        self.action_kind = action_kind
+        self.action_value = action_value
+        self.reason = reason
+        self.confidence = max(0.0, min(1.0, confidence))
+        self.metadata = metadata or {}
+        self.created_at = datetime.now(timezone.utc).isoformat()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "suggestion_id": self.suggestion_id,
+            "policy_id": self.policy_id,
+            "action_kind": self.action_kind,
+            "action_value": self.action_value,
+            "reason": self.reason,
+            "confidence": self.confidence,
+            "metadata": self.metadata,
+            "created_at": self.created_at,
+        }
+
+    def __repr__(self) -> str:
+        return (
+            f"PolicySuggestion(id={self.suggestion_id}, policy={self.policy_id}, "
+            f"confidence={self.confidence})"
+        )
+
+
+class PolicyVersion:
+    """V7.2.0: immutable snapshot of a policy definition for versioning."""
+
+    def __init__(self, version: str, policy: Dict[str, Any], created_at: str):
+        self.version = version
+        self.policy = dict(policy)
+        self.created_at = created_at
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": self.version,
+            "policy": self.policy,
+            "created_at": self.created_at,
+        }
+
+
+class PolicyRollback:
+    """V7.2.0: describes a rollback operation from one policy version to another."""
+
+    def __init__(self, policy_id: str, from_version: str, to_version: str, rolled_back_at: str):
+        self.policy_id = policy_id
+        self.from_version = from_version
+        self.to_version = to_version
+        self.rolled_back_at = rolled_back_at
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "policy_id": self.policy_id,
+            "from_version": self.from_version,
+            "to_version": self.to_version,
+            "rolled_back_at": self.rolled_back_at,
+        }

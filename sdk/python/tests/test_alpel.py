@@ -12,6 +12,8 @@ from alp_sdk import (
     evaluate,
     evaluate_bool,
     interpolate,
+    register_module,
+    import_module,
 )
 
 
@@ -138,6 +140,125 @@ class TestAlpelBuiltins(unittest.TestCase):
     def test_unknown_function_raises(self):
         with self.assertRaises(AlpelError):
             evaluate("bogus(1)", {})
+
+
+class TestAlpelDateBuiltins(unittest.TestCase):
+    def test_now_returns_iso_string(self):
+        result = evaluate("date.now()", {})
+        self.assertIsInstance(result, str)
+        self.assertRegex(result, r"^\d{4}-\d{2}-\d{2}T")
+
+    def test_format_date_iso(self):
+        self.assertEqual(
+            evaluate("date.formatDate('2024-01-15T10:30:00Z', 'iso')", {}),
+            "2024-01-15T10:30:00Z",
+        )
+
+    def test_format_date_date(self):
+        self.assertEqual(
+            evaluate("date.formatDate('2024-01-15T10:30:00Z', 'date')", {}),
+            "2024-01-15",
+        )
+
+    def test_format_date_time(self):
+        self.assertEqual(
+            evaluate("date.formatDate('2024-01-15T10:30:00Z', 'time')", {}),
+            "10:30:00",
+        )
+
+    def test_parse_date(self):
+        result = evaluate("date.parseDate('2024-01-15T10:30:00Z')", {})
+        self.assertIsInstance(result, str)
+
+    def test_add_days(self):
+        result = evaluate("date.addDays('2024-01-15T10:30:00Z', 5)", {})
+        self.assertEqual(result, "2024-01-20T10:30:00+00:00")
+
+
+class TestAlpelMathBuiltins(unittest.TestCase):
+    def test_round(self):
+        self.assertEqual(evaluate("math.round(3.7)", {}), 4)
+        self.assertEqual(evaluate("math.round(3.2)", {}), 3)
+
+    def test_floor(self):
+        self.assertEqual(evaluate("math.floor(3.7)", {}), 3)
+        self.assertEqual(evaluate("math.floor(3.2)", {}), 3)
+
+    def test_ceil(self):
+        self.assertEqual(evaluate("math.ceil(3.1)", {}), 4)
+        self.assertEqual(evaluate("math.ceil(3.0)", {}), 3)
+
+    def test_min_max(self):
+        self.assertEqual(evaluate("math.min(3, 7)", {}), 3)
+        self.assertEqual(evaluate("math.max(3, 7)", {}), 7)
+
+    def test_abs(self):
+        self.assertEqual(evaluate("math.abs(-5)", {}), 5)
+        self.assertEqual(evaluate("math.abs(5)", {}), 5)
+
+
+class TestAlpelCryptoBuiltins(unittest.TestCase):
+    def test_sha256(self):
+        result = evaluate("crypto.sha256('hello')", {})
+        self.assertIsInstance(result, str)
+        self.assertEqual(len(result), 64)
+        self.assertRegex(result, r"^[0-9a-f]+$")
+
+    def test_base64(self):
+        self.assertEqual(evaluate("crypto.base64('hello')", {}), "aGVsbG8=")
+
+    def test_base64_decode(self):
+        self.assertEqual(evaluate("crypto.base64Decode('aGVsbG8=')", {}), "hello")
+
+
+class TestAlpelStringBuiltins(unittest.TestCase):
+    def test_trim(self):
+        self.assertEqual(evaluate("string.trim('  hi  ')", {}), "hi")
+
+    def test_replace(self):
+        self.assertEqual(
+            evaluate("string.replace('hello world', 'world', 'universe')", {}),
+            "hello universe",
+        )
+
+    def test_split(self):
+        self.assertEqual(
+            evaluate("string.split('a,b,c', ',')", {}),
+            ["a", "b", "c"],
+        )
+
+    def test_join(self):
+        self.assertEqual(
+            evaluate("string.join(['a', 'b'], '-')", {}),
+            "a-b",
+        )
+
+    def test_ends_with(self):
+        self.assertTrue(evaluate_bool("string.endsWith('file.txt', 'txt')", {}))
+        self.assertFalse(evaluate_bool("string.endsWith('file.txt', 'csv')", {}))
+        self.assertTrue(evaluate_bool("string.endsWith('file.txt', '')", {}))
+
+
+class TestAlpelModules(unittest.TestCase):
+    def test_import_shared_module(self):
+        register_module("helpers", {
+            "VERSION": "1.2.3",
+            "GREETING": "hi",
+            "POINTS": [1, 2, 3],
+        })
+        self.assertEqual(evaluate("import('helpers').VERSION", {}), "1.2.3")
+        self.assertEqual(evaluate("import('helpers').POINTS.size", {}), 3)
+        self.assertTrue(evaluate_bool("string.endsWith(import('helpers').GREETING, 'i')", {}))
+
+    def test_import_missing_raises(self):
+        with self.assertRaises(AlpelError):
+            evaluate("import('missing').x", {})
+
+    def test_import_module_api(self):
+        register_module("cfg", {"a": 1})
+        self.assertEqual(import_module("cfg")["a"], 1)
+        with self.assertRaises(AlpelError):
+            import_module("nope")
 
 
 class TestAlpelInterpolation(unittest.TestCase):

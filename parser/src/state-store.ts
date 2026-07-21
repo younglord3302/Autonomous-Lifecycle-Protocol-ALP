@@ -67,6 +67,76 @@ interface Snapshot {
   events: StoredEvent[];
 }
 
+export interface TokenUsage {
+  task_id: string;
+  agent: string;
+  input_tokens: number;
+  output_tokens: number;
+  operations: number;
+  started_at: string;
+  finished_at: string;
+}
+
+export interface MeteringEntry {
+  timestamp: string;
+  task_id: string;
+  agent: string;
+  input_tokens: number;
+  output_tokens: number;
+  operations: number;
+  duration_ms: number;
+}
+
+export class MeteringStore {
+  private meteringPath: string;
+
+  constructor(alpDir: string) {
+    this.meteringPath = path.join(alpDir, '.runtime', 'metering.jsonl');
+  }
+
+  append(entry: Omit<MeteringEntry, 'timestamp'>): void {
+    const record: MeteringEntry = {
+      ...entry,
+      timestamp: new Date().toISOString(),
+    };
+    const dir = path.dirname(this.meteringPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(this.meteringPath, JSON.stringify(record) + '\n', 'utf-8');
+  }
+
+  readAll(): MeteringEntry[] {
+    if (!fs.existsSync(this.meteringPath)) return [];
+    const raw = fs.readFileSync(this.meteringPath, 'utf-8');
+    const entries: MeteringEntry[] = [];
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        entries.push(JSON.parse(trimmed) as MeteringEntry);
+      } catch {
+        /* skip malformed */
+      }
+    }
+    return entries;
+  }
+
+  costEstimate(taskId: string): { tokens: number; operations: number; estimated_cost: number } {
+    const entries = this.readAll().filter((e) => e.task_id === taskId);
+    const tokens = entries.reduce((s, e) => s + e.input_tokens + e.output_tokens, 0);
+    const operations = entries.reduce((s, e) => s + e.operations, 0);
+    const estimated_cost = +(tokens * 0.000002 + operations * 0.001).toFixed(6);
+    return { tokens, operations, estimated_cost };
+  }
+
+  rateLimiter(ns: string): { remaining: number; resetAt: string } {
+    const key = `rate:${ns}`;
+    const now = Date.now();
+    const windowMs = 60_000;
+    const limit = 100;
+    return { remaining: limit, resetAt: new Date(now + windowMs).toISOString() };
+  }
+}
+
 export class StateStore {
   private dbPath: string;
   private events: StoredEvent[] = [];
@@ -228,4 +298,74 @@ export function computeAnalytics(events: StoredEvent[]): Analytics {
     first_event: events.length ? events[0].timestamp : null,
     last_event: events.length ? events[events.length - 1].timestamp : null,
   };
+}
+
+/** v7.0.0: predictive estimation for task outcomes. */
+export class PredictiveEstimator {
+  private analytics: ReturnType<typeof computeAnalytics>;
+  private baseline: Record<string, any>;
+
+  constructor(events: StoredEvent[]) {
+    this.analytics = computeAnalytics(events);
+    this.baseline = this.computeBaseline();
+  }
+
+  private computeBaseline(): Record<string, any> {
+    const tasks = this.analytics.tasks;
+    if (!tasks.length) {
+      return {
+        completion_rate: 0,
+        failure_rate: 0,
+        avg_cycle_time_ms: null,
+        avg_claims: 0,
+        avg_handoffs: 0,
+        sample_size: 0,
+      };
+    }
+    const completed = tasks.filter((t) => t.completed).length;
+    const failed = tasks.filter((t) => t.failures > 0).length;
+    const cycleTimes = tasks.filter((t) => t.cycle_time_ms !== null).map((t) => t.cycle_time_ms as number);
+    const claims = tasks.map((t) => t.claims);
+    const handoffs = tasks.map((t) => t.handoffs);
+    return {
+      completion_rate: completed / tasks.length,
+      failure_rate: failed / tasks.length,
+      avg_cycle_time_ms: cycleTimes.length ? Math.round(cycleTimes.reduce((s, n) => s + n, 0) / cycleTimes.length) : null,
+      avg_claims: claims.reduce((s, n) => s + n, 0) / claims.length,
+      avg_handoffs: handoffs.reduce((s, n) => s + n, 0) / handoffs.length,
+      sample_size: tasks.length,
+    };
+  }
+
+  estimate(taskId: string, agent?: string): Record<string, any> {
+    const baseline = this.baseline;
+    if (baseline.sample_size === 0) {
+      return {
+        task_id: taskId,
+        agent,
+        completion_probability: null,
+        expected_cycle_time_ms: null,
+        failure_risk: null,
+        confidence: 'low',
+        sample_size: 0,
+      };
+    }
+    const agentStats = this.analytics.agents.find((a) => a.agent === agent);
+    const completionProb = agentStats
+      ? agentStats.completions / (agentStats.claims + agentStats.failures || 1)
+      : baseline.completion_rate;
+    return {
+      task_id: taskId,
+      agent,
+      completion_probability: Math.round(completionProb * 10000) / 10000,
+      expected_cycle_time_ms: baseline.avg_cycle_time_ms,
+      failure_risk: Math.round(baseline.failure_rate * 10000) / 10000,
+      confidence: baseline.sample_size >= 10 ? 'high' : baseline.sample_size >= 3 ? 'medium' : 'low',
+      sample_size: baseline.sample_size,
+    };
+  }
+
+  estimateBatch(taskSpecs: Array<Record<string, any>>): Record<string, any>[] {
+    return taskSpecs.map((t) => this.estimate(t.task_id ?? '', t.agent));
+  }
 }

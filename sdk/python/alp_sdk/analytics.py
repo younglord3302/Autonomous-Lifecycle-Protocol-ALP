@@ -142,3 +142,81 @@ def _parse_ts(ts: Optional[str]) -> Optional[int]:
         return int(dt.timestamp() * 1000)
     except Exception:
         return None
+
+
+class PredictiveEstimator:
+    """V7.0.0: predictive estimation for task outcomes.
+
+    Uses historical event data to estimate completion probability,
+    expected cycle time, and failure risk for a proposed task.
+    """
+
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+        self.analytics = compute_analytics(events)
+        self._baseline = self._compute_baseline()
+
+    def _compute_baseline(self) -> Dict[str, Any]:
+        tasks = self.analytics.get("tasks", [])
+        if not tasks:
+            return {
+                "completion_rate": 0.0,
+                "failure_rate": 0.0,
+                "avg_cycle_time_ms": None,
+                "avg_claims": 0.0,
+                "avg_handoffs": 0.0,
+                "sample_size": 0,
+            }
+        completed = sum(1 for t in tasks if t.get("completed"))
+        failed = sum(1 for t in tasks if t.get("failures", 0) > 0)
+        cycle_times = [t["cycle_time_ms"] for t in tasks if t.get("cycle_time_ms") is not None]
+        claims = [t.get("claims", 0) for t in tasks]
+        handoffs = [t.get("handoffs", 0) for t in tasks]
+        return {
+            "completion_rate": completed / len(tasks),
+            "failure_rate": failed / len(tasks),
+            "avg_cycle_time_ms": int(sum(cycle_times) / len(cycle_times)) if cycle_times else None,
+            "avg_claims": sum(claims) / len(claims),
+            "avg_handoffs": sum(handoffs) / len(handoffs),
+            "sample_size": len(tasks),
+        }
+
+    def estimate(self, task_id: str, agent: Optional[str] = None) -> Dict[str, Any]:
+        """Return a prediction dict for a proposed task."""
+        baseline = self._baseline
+        if baseline["sample_size"] == 0:
+            return {
+                "task_id": task_id,
+                "agent": agent,
+                "completion_probability": None,
+                "expected_cycle_time_ms": None,
+                "failure_risk": None,
+                "confidence": "low",
+                "sample_size": 0,
+            }
+        agent_stats = next(
+            (a for a in self.analytics.get("agents", []) if a.get("agent") == agent),
+            None,
+        )
+        if agent_stats:
+            total = agent_stats.get("claims", 0) + agent_stats.get("failures", 0)
+            agent_completion = agent_stats.get("completions", 0) / total if total > 0 else baseline["completion_rate"]
+            completion_prob = agent_completion
+        else:
+            completion_prob = baseline["completion_rate"]
+
+        failure_risk = baseline["failure_rate"]
+        expected_cycle = baseline["avg_cycle_time_ms"]
+        confidence = "high" if baseline["sample_size"] >= 10 else "medium" if baseline["sample_size"] >= 3 else "low"
+        return {
+            "task_id": task_id,
+            "agent": agent,
+            "completion_probability": round(completion_prob, 4),
+            "expected_cycle_time_ms": expected_cycle,
+            "failure_risk": round(failure_risk, 4),
+            "confidence": confidence,
+            "sample_size": baseline["sample_size"],
+        }
+
+    def estimate_batch(self, task_specs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [self.estimate(t.get("task_id", ""), t.get("agent")) for t in task_specs]

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { AlpParser, PolicyEngine, globToRegExp } from '../src/index';
+import { AlpParser, PolicyEngine, globToRegExp, FederatedTrustRoot } from '../src/index';
+import { mkdtempSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 const SRC = `
 @policy
@@ -158,5 +161,146 @@ describe('PolicyEngine v8.1.0', () => {
     // Trusted signer -> allowed.
     const good = engine.evaluateProposal('prop-1', { alice: 'key-alice' });
     expect(good.allowed).toBe(true);
+  });
+});
+
+describe('PolicyEngine v10.6.0 Cross-Federation Trust', () => {
+  const PARENT_SRC = `
+@policy
+  id: policy-parent
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "shared/**"
+  deny_paths:
+    - "shared/secret"
+`;
+  const CHILD_SRC = `
+@policy
+  id: policy-child
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "child/**"
+  deny_paths:
+    - "child/secret"
+`;
+
+  it('constructs a FederatedTrustRoot with required fields', () => {
+    const root: FederatedTrustRoot = {
+      namespace: 'ns-a',
+      publicKeyPem: '-----BEGIN PUBLIC KEY-----\nABCD\n-----END PUBLIC KEY-----',
+      fingerprint: 'aa:bb:cc',
+    };
+    expect(root.namespace).toBe('ns-a');
+    expect(root.publicKeyPem).toContain('BEGIN PUBLIC KEY');
+    expect(root.fingerprint).toBe('aa:bb:cc');
+  });
+
+  it('bootstrapTrust returns the provided root when the file does not exist', () => {
+    const root: FederatedTrustRoot = {
+      namespace: 'ns-b',
+      publicKeyPem: 'pem-b',
+      fingerprint: 'ff-b',
+    };
+    const result = PolicyEngine.bootstrapTrust('/nonexistent/path', root);
+    expect(result.namespace).toBe('ns-b');
+    expect(result.publicKeyPem).toBe('pem-b');
+    expect(result.fingerprint).toBe('ff-b');
+  });
+
+  it('bootstrapTrust reads and merges from a file when it exists', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'alp-trust-'));
+    const trustDir = join(dir, '.alp', 'trust');
+    try {
+      const { mkdirSync } = require('fs');
+      mkdirSync(trustDir, { recursive: true });
+      writeFileSync(join(trustDir, 'root.json'), JSON.stringify({
+        namespace: 'ns-file',
+        publicKeyPem: 'pem-file',
+        fingerprint: 'ff-file',
+      }));
+      const provided: FederatedTrustRoot = {
+        namespace: 'ns-provided',
+        publicKeyPem: 'pem-provided',
+        fingerprint: 'ff-provided',
+      };
+      const result = PolicyEngine.bootstrapTrust(dir, provided);
+      expect(result.namespace).toBe('ns-file');
+      expect(result.publicKeyPem).toBe('pem-file');
+      expect(result.fingerprint).toBe('ff-file');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('inheritedPolicies merges parent and child policies', () => {
+    const parent = engineFrom(PARENT_SRC);
+    const child = engineFrom(CHILD_SRC);
+    const merged = PolicyEngine.inheritedPolicies(parent, child);
+    const ids = merged.map((p) => p.id);
+    expect(ids).toContain('policy-parent');
+    expect(ids).toContain('policy-child');
+    expect(merged.length).toBe(2);
+  });
+
+  it('inheritedPolicies child policies override parent policies with the same id', () => {
+    const overrideSrc = `
+@policy
+  id: policy-parent
+  applies_to: "*"
+  enforcement: strict
+  allow_paths:
+    - "child-only/**"
+`;
+    const parent = engineFrom(PARENT_SRC);
+    const child = engineFrom(overrideSrc);
+    const merged = PolicyEngine.inheritedPolicies(parent, child);
+    const ids = merged.map((p) => p.id);
+    expect(ids).toContain('policy-parent');
+    expect(merged.length).toBe(1);
+    const parentPolicy = merged.find((p) => p.id === 'policy-parent');
+    expect(parentPolicy?.allow_paths).toContain('child-only/**');
+  });
+
+  it('crossFederationEvaluate with empty trust roots returns the base decision', () => {
+    const engine = engineFrom(SRC);
+    const d = engine.crossFederationEvaluate({ kind: 'path', value: 'src/auth/login.ts' }, []);
+    expect(d.allowed).toBe(true);
+    expect(d.blocked).toBe(false);
+    expect(d.reasons.length).toBe(0);
+  });
+
+  it('crossFederationEvaluate prefixes reasons with namespace', () => {
+    const engine = engineFrom(SRC);
+    const roots: FederatedTrustRoot[] = [
+      { namespace: 'ns-a', publicKeyPem: 'pem-a', fingerprint: 'ff-a' },
+      { namespace: 'ns-b', publicKeyPem: 'pem-b', fingerprint: 'ff-b' },
+    ];
+    const d = engine.crossFederationEvaluate({ kind: 'path', value: '.env' }, roots);
+    expect(d.allowed).toBe(false);
+    expect(d.reasons.length).toBeGreaterThan(0);
+    expect(d.reasons.every((r) => r.startsWith('[ns-a,ns-b]'))).toBe(true);
+  });
+
+  it('crossFederationEvaluate prefixes policies with namespace', () => {
+    const engine = engineFrom(SRC);
+    const roots: FederatedTrustRoot[] = [
+      { namespace: 'ns-x', publicKeyPem: 'pem-x', fingerprint: 'ff-x' },
+    ];
+    const d = engine.crossFederationEvaluate({ kind: 'path', value: '.env' }, roots);
+    expect(d.policies.length).toBeGreaterThan(0);
+    expect(d.policies.every((p) => p.startsWith('[ns-x]'))).toBe(true);
+  });
+
+  it('crossFederationEvaluate preserves base audit fields', () => {
+    const engine = engineFrom(SRC);
+    const roots: FederatedTrustRoot[] = [
+      { namespace: 'ns-a', publicKeyPem: 'pem-a', fingerprint: 'ff-a' },
+    ];
+    const d = engine.crossFederationEvaluate({ kind: 'path', value: '.env', agent: 'agent-1' }, roots);
+    expect(d.audit?.agent).toBe('agent-1');
+    expect(d.audit?.decision).toBe('block');
+    expect(typeof d.audit?.timestamp).toBe('string');
   });
 });

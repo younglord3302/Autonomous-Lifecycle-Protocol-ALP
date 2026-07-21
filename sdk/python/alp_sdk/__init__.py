@@ -4,10 +4,13 @@ from .models import AlpObject
 from .error import AlpError, SyntaxError, IndentationError, ValidationError, DirectiveError
 from .reader import load_workspace, AlpReader, AlpParser
 from .validator import validate_object, verify_workspace
-from .analytics import compute_analytics
+from .analytics import compute_analytics, PredictiveEstimator
+from .planner import GoalDecomposer, Planner, Reflector, Plan, PlanNode, Lesson
+from .negotiate import Negotiator, ReputationStore, TeamComposer, Offer, ContractDraft, NegotiationResult, Capability
+from .provenance import TraceSigner, ProvenanceStore, AuditLedger, VerifiableCredential
 from .graph import AlpGraph, GraphNode, GraphEdge
 from .memory import MemoryStore, MemoryEntry, MemoryQuery
-from .policy import PolicyEngine, PolicyDecision, PolicyQuery
+from .policy import PolicyEngine, PolicyDecision, PolicyQuery, PolicySuggestion, PolicyVersion, PolicyRollback
 from .schedule import TimelineEngine, TimelineResult
 from .contract import ContractEngine, ContractResult, ContractViolation, ContractObject
 from .vault import Vault, SealedSecret, VaultAuditEntry
@@ -17,6 +20,8 @@ from .alpel import (
     evaluate,
     evaluate_bool,
     interpolate,
+    register_module,
+    import_module,
 )
 from .workspace import (
     WorkspaceLoader,
@@ -59,19 +64,50 @@ from .signing import (
     verify,
     resolve_public_key,
 )
+from .author import WorkflowAuthor, AuthoringError
+from .anomaly import AnomalyDetector
 from .compliance import run_suite, HarnessResult
 from .observ import (
     RuntimeLog,
     StateStore,
+    MeteringLog,
+    CostAnalyzer,
     RUNTIME_EVENT_TYPES,
     runtime_dir,
     runtime_log_path,
+)
+from .debug import (
+    EngineSnapshot,
+    SnapshotStore,
+    DiffResult,
+    DebugSession,
 )
 from .policy_federation import (
     PolicyFederation,
     PolicySource,
     FederatedDecision,
+    FederatedTrustRoot,
 )
+from .event_store import Event, EventStore, EVENT_SCHEMA_VERSION
+from .visualize import (
+    WorkflowVisualizer,
+    ParsedWorkflow,
+    WorkflowStep,
+    DiagramFormat,
+    read_workflow,
+)
+from .formal import (
+    PolicyModelChecker,
+    ContractInvariant,
+    VerificationProof,
+    VerificationProperty,
+    CounterexampleTrace,
+    ZKPolicyProof,
+    ComplianceCertifier,
+)
+from .autonomy import WorkflowMutator, AdaptiveEngine, AutonomyController, EditProposal
+from .crdt import LWWRegister, ORSet, EdgeRuntime
+from .migration import MigrationEngine, UpgradeManifest, MigrationRecord, MigrationStatus, UpgradeStrategy
 
 __all__ = [
     "AlpObject",
@@ -81,6 +117,24 @@ __all__ = [
     "validate_object",
     "verify_workspace",
     "compute_analytics",
+    "PredictiveEstimator",
+    "GoalDecomposer",
+    "Planner",
+    "Reflector",
+    "Plan",
+    "PlanNode",
+    "Lesson",
+    "Negotiator",
+    "ReputationStore",
+    "TeamComposer",
+    "Offer",
+    "ContractDraft",
+    "NegotiationResult",
+    "Capability",
+    "TraceSigner",
+    "ProvenanceStore",
+    "AuditLedger",
+    "VerifiableCredential",
     "AlpGraph",
     "GraphNode",
     "GraphEdge",
@@ -90,11 +144,16 @@ __all__ = [
     "PolicyEngine",
     "PolicyDecision",
     "PolicyQuery",
+    "PolicySuggestion",
+    "PolicyVersion",
+    "PolicyRollback",
     "AlpelError",
     "build_context",
     "evaluate",
     "evaluate_bool",
     "interpolate",
+    "register_module",
+    "import_module",
     "WorkspaceLoader",
     "WorkspaceError",
     "ProjectEntry",
@@ -136,16 +195,25 @@ __all__ = [
     "IndentationError",
     "ValidationError",
     "DirectiveError",
+    "WorkflowAuthor",
+    "AnomalyDetector",
     "run_suite",
     "HarnessResult",
     "RuntimeLog",
     "StateStore",
+    "MeteringLog",
+    "CostAnalyzer",
     "RUNTIME_EVENT_TYPES",
     "runtime_dir",
     "runtime_log_path",
+    "EngineSnapshot",
+    "SnapshotStore",
+    "DiffResult",
+    "DebugSession",
     "PolicyFederation",
     "PolicySource",
     "FederatedDecision",
+    "FederatedTrustRoot",
     "TimelineEngine",
     "TimelineResult",
     "ContractEngine",
@@ -155,4 +223,31 @@ __all__ = [
     "Vault",
     "SealedSecret",
     "VaultAuditEntry",
+    "Event",
+    "EventStore",
+    "EVENT_SCHEMA_VERSION",
+    "WorkflowVisualizer",
+    "ParsedWorkflow",
+    "WorkflowStep",
+    "DiagramFormat",
+    "read_workflow",
+    "PolicyModelChecker",
+    "ContractInvariant",
+    "VerificationProof",
+    "VerificationProperty",
+    "CounterexampleTrace",
+    "ZKPolicyProof",
+    "ComplianceCertifier",
+    "WorkflowMutator",
+    "AdaptiveEngine",
+    "AutonomyController",
+    "EditProposal",
+    "LWWRegister",
+    "ORSet",
+    "EdgeRuntime",
+    "MigrationEngine",
+    "UpgradeManifest",
+    "MigrationRecord",
+    "MigrationStatus",
+    "UpgradeStrategy",
 ]

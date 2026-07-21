@@ -4,6 +4,10 @@
   "patterns": [
     { "include": "#version-directive" },
     { "include": "#import-directive" },
+    { "include": "#deprecated-directive" },
+    { "include": "#assert-directive" },
+    { "include": "#if-directive" },
+    { "include": "#integrity-directive" },
     { "include": "#comments" },
     { "include": "#separator" },
     { "include": "#block-marker" },
@@ -27,6 +31,34 @@
       "match": "^(!import):\\s*(.+)$",
       "captures": {
         "1": { "name": "keyword.control.import.alp" },
+        "2": { "name": "string.quoted.double.alp" }
+      }
+    },
+    "deprecated-directive": {
+      "match": "^\\s+(!deprecated):\\s*(.*)$",
+      "captures": {
+        "1": { "name": "keyword.control.deprecated.alp" },
+        "2": { "name": "string.unquoted.alp" }
+      }
+    },
+    "assert-directive": {
+      "match": "^\\s+(!assert):\\s*(.*)$",
+      "captures": {
+        "1": { "name": "keyword.control.assert.alp" },
+        "2": { "name": "string.unquoted.alp" }
+      }
+    },
+    "if-directive": {
+      "match": "^\\s+(!if):\\s*(.*)$",
+      "captures": {
+        "1": { "name": "keyword.control.if.alp" },
+        "2": { "name": "string.unquoted.alp" }
+      }
+    },
+    "integrity-directive": {
+      "match": "^\\s+(!integrity):\\s*(.+)$",
+      "captures": {
+        "1": { "name": "keyword.control.integrity.alp" },
         "2": { "name": "string.quoted.double.alp" }
       }
     },
@@ -72,6 +104,10 @@
         {
           "match": "\\[-\\]",
           "name": "markup.deleted.status.cancelled.alp"
+        },
+        {
+          "match": "\\[\\?\\]",
+          "name": "comment.question.status.human-gate.alp"
         }
       ]
     },

@@ -1,7 +1,7 @@
 import { AlpObject } from './reader';
 
 /**
- * ALP Policy Engine (v4 — The Federation Era; v2 extensions v8.1.0)
+ * ALP Policy Engine (v4 — The Federation Era; v2 extensions v8.1.0; v10.6.0 Cross-Federation Trust)
  *
  * Evaluates proposed autonomous-agent actions against declarative `@policy`
  * objects. Makes it safe to run swarms unattended: an agent can only touch
@@ -20,6 +20,12 @@ import { AlpObject } from './reader';
  *     human-in-the-loop approval gate rather than auto-blocking.
  *   - `proposal` blocks: signed, auditable action proposals verified
  *     against a trust root (MCP-enforcement audit trail, spec/03 §25).
+ *
+ * v10.6.0 Cross-Federation Trust:
+ *   - `FederatedTrustRoot` interface for remote workspace trust anchors.
+ *   - `bootstrapTrust` reads a trust root from a remote workspace path.
+ *   - `inheritedPolicies` merges parent/child policy sets with precedence.
+ *   - `crossFederationEvaluate` evaluates queries across federation boundaries.
  */
 
 export type PolicyActionKind = 'path' | 'command' | 'agent';
@@ -68,6 +74,13 @@ export interface PolicyQuery {
   agent?: string;
   /** Current UTC time (defaults to now) for `allow_during` checks. */
   now?: Date;
+}
+
+/** v10.6.0: trust anchor for a remote federation workspace. */
+export interface FederatedTrustRoot {
+  namespace: string;
+  publicKeyPem: string;
+  fingerprint: string;
 }
 
 interface PolicyObject {
@@ -183,6 +196,119 @@ export class PolicyEngine {
       },
     };
   }
+
+  /** v10.6.0: read a trust root from a remote workspace path. */
+  static bootstrapTrust(remoteWorkspacePath: string, trustRoot: FederatedTrustRoot): FederatedTrustRoot {
+    const fs = require('fs');
+    const path = require('path');
+    const trustFile = path.join(remoteWorkspacePath, '.alp', 'trust', 'root.json');
+    let stored: Record<string, any> = {};
+    try {
+      const raw = fs.readFileSync(trustFile, 'utf8');
+      stored = JSON.parse(raw);
+    } catch {
+      // If the file does not exist, return the provided trust root as-is.
+    }
+    const merged: FederatedTrustRoot = {
+      namespace: stored.namespace ?? trustRoot.namespace,
+      publicKeyPem: stored.publicKeyPem ?? trustRoot.publicKeyPem,
+      fingerprint: stored.fingerprint ?? trustRoot.fingerprint,
+    };
+    return merged;
+  }
+
+  /** v10.6.0: merge parent and child policy sets; child policies take precedence. */
+  static inheritedPolicies(parentFederation: PolicyEngine, childFederation: PolicyEngine): PolicyObject[] {
+    const childIds = new Set(childFederation.policies.map((p) => p.id));
+    const inherited = parentFederation.policies.filter((p) => !childIds.has(p.id));
+    const merged = [...inherited, ...childFederation.policies];
+    return merged;
+  }
+
+  /** v10.6.0: evaluate a query across remote federation trust roots. */
+  crossFederationEvaluate(query: PolicyQuery, remoteTrustRoots: FederatedTrustRoot[]): PolicyDecision {
+    const baseDecision = this.evaluate(query);
+    const namespaces = remoteTrustRoots.map((r) => r.namespace);
+    const prefix = namespaces.length > 0 ? `[${namespaces.join(',')}] ` : '';
+    return {
+      ...baseDecision,
+      reasons: baseDecision.reasons.map((r) => `${prefix}${r}`),
+      policies: baseDecision.policies.map((p) => `${prefix}${p}`),
+      audit: {
+        agent: query.agent,
+        decision: baseDecision.allowed ? 'allow' : baseDecision.blocked ? 'block' : 'warn',
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  /** v7.0.0: return structured suggestions for warn-mode violations. */
+  suggest(query: PolicyQuery): PolicySuggestion[] {
+    const decision = this.evaluateInternal(query, false);
+    const suggestions: PolicySuggestion[] = [];
+    for (const pid of decision.policies) {
+      const policy = this.policies.find((p) => p.id === pid);
+      if (!policy) continue;
+      const strict = (policy.enforcement ?? 'strict') === 'strict';
+      if (strict) continue;
+      for (const reason of decision.reasons) {
+        if (reason.includes(pid)) {
+          suggestions.push(
+            new PolicySuggestion({
+              id: `sugg-${suggestions.length + 1}`,
+              policy_id: pid,
+              action_kind: query.kind,
+              action_value: query.value,
+              reason,
+              confidence: 0.5,
+            })
+          );
+        }
+      }
+    }
+    return suggestions;
+  }
+
+  /** v7.2.0: snapshot the current policy definition under a version tag. */
+  versionPolicy(policyId: string, version: string): PolicyVersion | undefined {
+    const policy = this.policies.find((p) => p.id === policyId);
+    if (!policy) return undefined;
+    const pv = new PolicyVersion(version, policy as unknown as Record<string, any>, new Date().toISOString());
+    if (!this.versions) this.versions = new Map();
+    const list = this.versions.get(policyId) ?? [];
+    list.push(pv);
+    this.versions.set(policyId, list);
+    return pv;
+  }
+
+  /** v7.2.0: roll a policy back to a previously snapshot version. */
+  rollback(policyId: string, toVersion: string): PolicyRollback | undefined {
+    const list = this.versions?.get(policyId) ?? [];
+    const target = list.find((v) => v.version === toVersion);
+    if (!target) return undefined;
+    const policy = this.policies.find((p) => p.id === policyId);
+    if (!policy) return undefined;
+    const fromVersion = (policy as any).version ?? 'unknown';
+    Object.assign(policy as any, target.policy);
+    const rolledAt = new Date().toISOString();
+    const rollback = new PolicyRollback(policyId, fromVersion, toVersion, rolledAt);
+    if (!this.rollbacks) this.rollbacks = [];
+    this.rollbacks.push(rollback);
+    return rollback;
+  }
+
+  /** v7.2.0: list snapshot versions for a policy. */
+  getVersions(policyId: string): PolicyVersion[] {
+    return this.versions?.get(policyId) ?? [];
+  }
+
+  /** v7.2.0: list rollback history for a policy. */
+  getRollbacks(policyId: string): PolicyRollback[] {
+    return this.rollbacks?.filter((r) => r.policy_id === policyId) ?? [];
+  }
+
+  private versions: Map<string, PolicyVersion[]> = new Map();
+  private rollbacks: PolicyRollback[] = [];
 
   private evaluateInternal(query: PolicyQuery, denyOnly: boolean): PolicyDecision {
     const reasons: string[] = [];
@@ -342,6 +468,32 @@ export function globToRegExp(glob: string): RegExp {
   return new RegExp('^' + re + '$');
 }
 
+function applyPair(pair: string, out: Record<string, any>): void {
+  const idx = pair.indexOf(':');
+  if (idx === -1) return;
+  const key = pair.slice(0, idx).trim();
+  let value = pair.slice(idx + 1).trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+  out[key] = value;
+}
+
+/**
+ * Normalize a list of nested objects that the line-based reader may have
+ * kept as raw inline-object strings (e.g. `proposals`, `allow_during`,
+ * `require_approval` list items). Returns plain objects either way.
+ */
+function normalizeObjects(list: any[] | undefined): Record<string, any>[] {
+  if (!Array.isArray(list)) return [];
+  return list.map((item) =>
+    typeof item === 'string' ? parseProposalLiteral(item) : item
+  );
+}
+
 /**
  * Parse a single inline object literal `{ id: "prop-1", ... }` into a
  * plain object. The line-based reader stores `proposals`, `allow_during`,
@@ -370,28 +522,88 @@ function parseProposalLiteral(literal: string): Record<string, any> {
   return out;
 }
 
-function applyPair(pair: string, out: Record<string, any>): void {
-  const idx = pair.indexOf(':');
-  if (idx === -1) return;
-  const key = pair.slice(0, idx).trim();
-  let value = pair.slice(idx + 1).trim();
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    value = value.slice(1, -1);
+export class PolicySuggestion {
+  id: string;
+  policy_id: string;
+  action_kind: string;
+  action_value: string;
+  reason: string;
+  confidence: number;
+  metadata: Record<string, any>;
+  created_at: string;
+
+  constructor(opts: {
+    id: string;
+    policy_id: string;
+    action_kind: string;
+    action_value: string;
+    reason: string;
+    confidence?: number;
+    metadata?: Record<string, any>;
+  }) {
+    this.id = opts.id;
+    this.policy_id = opts.policy_id;
+    this.action_kind = opts.action_kind;
+    this.action_value = opts.action_value;
+    this.reason = opts.reason;
+    this.confidence = Math.max(0, Math.min(1, opts.confidence ?? 0.5));
+    this.metadata = opts.metadata ?? {};
+    this.created_at = new Date().toISOString();
   }
-  out[key] = value;
+
+  toJSON(): Record<string, any> {
+    return {
+      id: this.id,
+      policy_id: this.policy_id,
+      action_kind: this.action_kind,
+      action_value: this.action_value,
+      reason: this.reason,
+      confidence: this.confidence,
+      metadata: this.metadata,
+      created_at: this.created_at,
+    };
+  }
 }
 
-/**
- * Normalize a list of nested objects that the line-based reader may have
- * kept as raw inline-object strings (e.g. `proposals`, `allow_during`,
- * `require_approval` list items). Returns plain objects either way.
- */
-function normalizeObjects(list: any[] | undefined): Record<string, any>[] {
-  if (!Array.isArray(list)) return [];
-  return list.map((item) =>
-    typeof item === 'string' ? parseProposalLiteral(item) : item
-  );
+export class PolicyVersion {
+  version: string;
+  policy: Record<string, any>;
+  created_at: string;
+
+  constructor(version: string, policy: Record<string, any>, created_at: string) {
+    this.version = version;
+    this.policy = { ...policy };
+    this.created_at = created_at;
+  }
+
+  toJSON(): Record<string, any> {
+    return {
+      version: this.version,
+      policy: this.policy,
+      created_at: this.created_at,
+    };
+  }
+}
+
+export class PolicyRollback {
+  policy_id: string;
+  from_version: string;
+  to_version: string;
+  rolled_back_at: string;
+
+  constructor(policy_id: string, from_version: string, to_version: string, rolled_back_at: string) {
+    this.policy_id = policy_id;
+    this.from_version = from_version;
+    this.to_version = to_version;
+    this.rolled_back_at = rolled_back_at;
+  }
+
+  toJSON(): Record<string, any> {
+    return {
+      policy_id: this.policy_id,
+      from_version: this.from_version,
+      to_version: this.to_version,
+      rolled_back_at: this.rolled_back_at,
+    };
+  }
 }

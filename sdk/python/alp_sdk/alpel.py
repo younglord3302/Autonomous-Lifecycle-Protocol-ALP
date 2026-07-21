@@ -1,4 +1,4 @@
-"""ALP Expression Language (ALPEL, spec/12) — v6.6.0 Python SDK parity.
+"""ALP Expression Language (ALPEL, spec/12) — v10.3.0 Python SDK parity.
 
 Mirrors the TypeScript ``@alp/parser`` ``alpel.ts``. ALPEL is a secure,
 sandboxed, read-only expression language for conditional logic (``!if``,
@@ -13,9 +13,13 @@ Supported:
   - Math: + - * /
   - Collection: in, contains
   - Built-ins: length, toUpper, toLower, startsWith, size, isEmpty, hasStatus
+  - Namespace built-ins (v10.3.0): date.*, math.*, crypto.*, string.*
   - Interpolation: ``${ expr }`` within string values
 """
 
+import hashlib
+import base64 as _base64
+import datetime
 from typing import Any, Dict, List, Optional, Union
 
 AlpelValue = Union[str, int, float, bool, None, List[Any], Dict[str, Any]]
@@ -23,6 +27,8 @@ AlpelValue = Union[str, int, float, bool, None, List[Any], Dict[str, Any]]
 EvalContext = Dict[str, Any]
 
 CONTEXT_KEYS = ["project", "task", "feature", "agent", "env", "state"]
+NS_PREFIX = "__ALPEL_NS__:"
+NAMESPACE_NAMES = ["date", "math", "crypto", "string"]
 
 
 class AlpelError(Exception):
@@ -190,6 +196,13 @@ def _parse_expr(tokens: List[_Token]) -> ExprFn:
             nxt()
             inner = parse_unary()
             return lambda c, inner=inner: not _truthy(inner(c))
+        if peek() and peek()["t"] == "op" and peek()["v"] == "-":
+            nxt()
+            inner = parse_unary()
+            return lambda c, inner=inner: _neg(inner(c))
+        if peek() and peek()["t"] == "op" and peek()["v"] == "+":
+            nxt()
+            return parse_unary()
         return parse_postfix()
 
     def parse_postfix() -> ExprFn:
@@ -208,6 +221,7 @@ def _parse_expr(tokens: List[_Token]) -> ExprFn:
                 name = ident["v"]
                 node = lambda c, base=base, name=name: _get_prop(base(c), name)
                 node.__id = name  # type: ignore[attr-defined]
+                node.__base = base  # type: ignore[attr-defined]
                 is_name = True
             elif t["t"] == "lb":
                 nxt()
@@ -233,6 +247,7 @@ def _parse_expr(tokens: List[_Token]) -> ExprFn:
                 else:
                     nxt()
                     fn_name = node.__id
+                    base = getattr(node, "__base", None)
                     args: List[ExprFn] = []
                     if not peek() or peek()["t"] != "rp":
                         args.append(parse_or())
@@ -243,7 +258,10 @@ def _parse_expr(tokens: List[_Token]) -> ExprFn:
                         raise AlpelError("ALPEL: expected )")
                     nxt()
                     fargs = args
-                    node = lambda c, fn_name=fn_name, fargs=fargs: _call_fn(fn_name, [a(c) for a in fargs])
+                    if base is not None:
+                        node = lambda c, fn_name=fn_name, fargs=fargs, base=base: _call_fn(fn_name, [base(c)] + [a(c) for a in fargs])
+                    else:
+                        node = lambda c, fn_name=fn_name, fargs=fargs: _call_fn(fn_name, [a(c) for a in fargs])
                 is_name = False
             else:
                 break
@@ -372,6 +390,12 @@ def _in_op(a: AlpelValue, b: AlpelValue) -> bool:
     return False
 
 
+def _neg(v: AlpelValue) -> AlpelValue:
+    if isinstance(v, (int, float)):
+        return -v
+    raise AlpelError("ALPEL: unary - requires a number")
+
+
 def _get_prop(base: AlpelValue, key: Any) -> AlpelValue:
     if base is None:
         return None
@@ -396,6 +420,8 @@ def _get_prop(base: AlpelValue, key: Any) -> AlpelValue:
 def _resolve_id(ctx: EvalContext, name: str) -> AlpelValue:
     if name in ctx:
         return ctx[name]
+    if name in NAMESPACE_NAMES:
+        return NS_PREFIX + name
     for k in CONTEXT_KEYS:
         c = ctx.get(k)
         if isinstance(c, dict) and name in c:
@@ -421,8 +447,139 @@ def _raise_zero_div():
     raise AlpelError("ALPEL: division by zero")
 
 
+def _call_ns_fn(ns: str, name: str, args: List[AlpelValue]) -> AlpelValue:
+    if ns == "date":
+        return _call_date_fn(name, args)
+    if ns == "math":
+        return _call_math_fn(name, args)
+    if ns == "crypto":
+        return _call_crypto_fn(name, args)
+    if ns == "string":
+        return _call_string_fn(name, args)
+    raise AlpelError(f"ALPEL: unknown namespace '{ns}'")
+
+
+def _call_date_fn(name: str, args: List[AlpelValue]) -> AlpelValue:
+    if name == "now":
+        return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if name == "formatDate":
+        d = args[0] if args else None
+        fmt = args[1] if len(args) > 1 else None
+        if not isinstance(d, str) or not isinstance(fmt, str):
+            return ""
+        if fmt == "iso":
+            return d
+        try:
+            dt = datetime.datetime.fromisoformat(d.replace("Z", "+00:00"))
+        except Exception:
+            return d
+        pad = lambda n: str(n).zfill(2)
+        if fmt == "date":
+            return f"{dt.year}-{pad(dt.month)}-{pad(dt.day)}"
+        if fmt == "time":
+            return f"{pad(dt.hour)}:{pad(dt.minute)}:{pad(dt.second)}"
+        return d
+    if name == "parseDate":
+        s = args[0] if args else None
+        if not isinstance(s, str):
+            return ""
+        try:
+            dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+            return dt.isoformat()
+        except Exception:
+            return s
+    if name == "addDays":
+        d = args[0] if args else None
+        n = args[1] if len(args) > 1 else 0
+        if not isinstance(d, str) or not isinstance(n, (int, float)):
+            return ""
+        try:
+            dt = datetime.datetime.fromisoformat(d.replace("Z", "+00:00"))
+            dt = dt + datetime.timedelta(days=int(n))
+            return dt.isoformat()
+        except Exception:
+            return d
+    raise AlpelError(f"ALPEL: date.{name} is undefined")
+
+
+def _call_math_fn(name: str, args: List[AlpelValue]) -> AlpelValue:
+    a = args[0] if args else 0
+    b = args[1] if len(args) > 1 else 0
+    if name == "round":
+        return round(a)
+    if name == "floor":
+        return __import__("math").floor(a)
+    if name == "ceil":
+        return __import__("math").ceil(a)
+    if name == "min":
+        return min(a, b)
+    if name == "max":
+        return max(a, b)
+    if name == "abs":
+        return abs(a)
+    raise AlpelError(f"ALPEL: math.{name} is undefined")
+
+
+def _call_crypto_fn(name: str, args: List[AlpelValue]) -> AlpelValue:
+    s = str(args[0] if args else "")
+    if name == "sha256":
+        return hashlib.sha256(s.encode("utf-8")).hexdigest()
+    if name == "base64":
+        return _base64.b64encode(s.encode("utf-8")).decode("utf-8")
+    if name == "base64Decode":
+        return _base64.b64decode(s.encode("utf-8")).decode("utf-8")
+    raise AlpelError(f"ALPEL: crypto.{name} is undefined")
+
+
+def _call_string_fn(name: str, args: List[AlpelValue]) -> AlpelValue:
+    a = args[0] if args else None
+    if name == "trim":
+        return a.strip() if isinstance(a, str) else str(a)
+    if name == "replace":
+        s = a if isinstance(a, str) else str(a)
+        old = args[1] if len(args) > 1 else ""
+        new = args[2] if len(args) > 2 else ""
+        return s.replace(str(old), str(new))
+    if name == "split":
+        s = a if isinstance(a, str) else str(a)
+        delim = args[1] if len(args) > 1 else ""
+        return s.split(str(delim))
+    if name == "join":
+        arr = a if isinstance(a, list) else []
+        delim = args[1] if len(args) > 1 else ""
+        return str(delim).join(str(x) for x in arr)
+    if name == "endsWith":
+        s = a if isinstance(a, str) else str(a)
+        suf = args[1] if len(args) > 1 else ""
+        return s.endswith(str(suf))
+    raise AlpelError(f"ALPEL: string.{name} is undefined")
+
+
+# ── Module imports (v10.3.0): shared ALPEL snippets ──
+
+_MODULES: Dict[str, Dict[str, Any]] = {}
+
+
+def register_module(name: str, defs: Dict[str, Any]) -> None:
+    """Register a named module of reusable constants/snippets for ALPEL ``import()``."""
+    _MODULES[name] = defs
+
+
+def import_module(name: str) -> Dict[str, Any]:
+    """Retrieve a registered module object (property-accessible in ALPEL)."""
+    if name not in _MODULES:
+        raise AlpelError(f"ALPEL: module '{name}' is not registered")
+    return _MODULES[name]
+
+
 def _call_fn(name: str, args: List[AlpelValue]) -> AlpelValue:
     a = args[0] if args else None
+    if name == "import":
+        mod_name = a if isinstance(a, str) else ""
+        return import_module(mod_name)
+    if isinstance(a, str) and a.startswith(NS_PREFIX):
+        ns = a[len(NS_PREFIX):]
+        return _call_ns_fn(ns, name, args[1:])
     if name == "length":
         if isinstance(a, str):
             return len(a)

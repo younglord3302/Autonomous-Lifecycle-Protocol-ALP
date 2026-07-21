@@ -367,3 +367,53 @@ This compiles your entire `.alp` graph into a single, structured YAML or JSON fi
 ## Protocol Upgrades (`alp upgrade`)
 
 As the ALP specification evolves, run `alp upgrade` to safely migrate your legacy `.alp` files (e.g. from `v1.0.0`) to the latest syntax conventions and update their `!alp-version` directives.
+
+## Event Sourcing (`alp replay`)
+
+*New in `10.1.0`.* Inspect the immutable event log of workspace mutations.
+Every status change, task claim, file mutation, and policy evaluation is
+recorded at `.alp/.events/events.jsonl` with a schema-versioned payload so
+you can replay history for incident forensics or audit.
+
+```bash
+alp replay
+alp replay --type status_changed,object_created
+alp replay --object-id task-login-ui
+alp replay --from 2026-07-20T00:00:00Z --to 2026-07-20T23:59:59Z
+```
+
+Output:
+```
+📼 ALP Event Replay
+===================
+Total events:    42
+Replayed:        12
+Skipped:         30
+
+[2026-07-20T09:00:00Z] status_changed(abc123-...) object_id=task-login-ui, old=[ ], new=[x]
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--from <iso>` | Only events at or after this ISO timestamp |
+| `--to <iso>` | Only events at or before this ISO timestamp |
+| `--type <csv>` | Comma-separated event types to include |
+| `--object-id <id>` | Only events whose payload references this object id |
+
+## Workflow Visualization (`alp visualize`)
+
+*New in `15.2.0`.* Render `@workflow` objects as Mermaid, Graphviz DOT, or
+JSON diagrams. Visualize a single workflow or all workflows in the workspace.
+
+```bash
+alp visualize
+alp visualize wf-standard
+alp visualize --format dot --out docs/wf.dot
+alp visualize --format mermaid --out docs/wf.mmd
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `[id]` | Optional workflow id (all workflows if omitted) |
+| `--format <fmt>` | `mermaid` (default), `dot`, or `json` |
+| `--out <file>` | Write to a file instead of stdout |

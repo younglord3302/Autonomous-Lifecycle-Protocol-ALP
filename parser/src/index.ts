@@ -10,12 +10,24 @@ export * from './plugin';
 export * from './alpel';
 export * from './remote';
 export * from './state-store';
+export * from './debug';
 export * from './swarm-client';
 export * from './repo-resolver';
 export * from './status';
 export * from './schedule';
 export * from './contract';
+export * from './formal';
 export * from './vault';
+export * from './event-store';
+export * from './visualize';
+export * from './anomaly';
+export * from './planner';
+export * from './negotiate';
+export * from './provenance';
+export * from './autonomy';
+export * from './crdt';
+export * from './author';
+export * from './migration';
 export { AlpObject, AlpReader };
 
 export class AlpParser {
