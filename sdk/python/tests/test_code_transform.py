@@ -1,19 +1,19 @@
-import pytest
+import unittest
 from alp_sdk.code_transform import (
     CodeTransformEngine,
     CodeTransformConfig,
     CodeTransformResult,
 )
 
-class TestCodeTransformConfig:
+class TestCodeTransformConfig(unittest.TestCase):
     def test_default_values(self):
         config = CodeTransformConfig("t1", "rename_symbol", "app.py")
-        assert config.id == "t1"
-        assert config.transform_type == "rename_symbol"
-        assert config.target_file == "app.py"
-        assert config.status == "pending"
+        self.assertEqual(config.id, "t1")
+        self.assertEqual(config.transform_type, "rename_symbol")
+        self.assertEqual(config.target_file, "app.py")
+        self.assertEqual(config.status, "pending")
 
-class TestCodeTransformEngine:
+class TestCodeTransformEngine(unittest.TestCase):
     def test_rename_symbol_transform(self):
         engine = CodeTransformEngine()
         source = "def old_fn(): return 42"
@@ -26,11 +26,11 @@ class TestCodeTransformEngine:
             new_symbol="new_fn",
         )
 
-        assert isinstance(result, CodeTransformResult)
-        assert result.id == "t1"
-        assert "new_fn" in result.transformed_code
-        assert "old_fn" not in result.transformed_code
-        assert result.status == "applied"
+        self.assertIsInstance(result, CodeTransformResult)
+        self.assertEqual(result.id, "t1")
+        self.assertIn("new_fn", result.transformed_code)
+        self.assertNotIn("old_fn", result.transformed_code)
+        self.assertEqual(result.status, "applied")
 
     def test_migration_rewrite_transform(self):
         engine = CodeTransformEngine()
@@ -41,14 +41,14 @@ class TestCodeTransformEngine:
             target_file="legacy.js",
             source_code=source,
         )
-        assert "let x = 10;" in result.transformed_code
-        assert "var " not in result.transformed_code
+        self.assertIn("let x = 10;", result.transformed_code)
+        self.assertNotIn("var ", result.transformed_code)
 
     def test_revert_transform(self):
         engine = CodeTransformEngine()
         source = "var item = 1;"
         engine.apply_transform("t3", "migration_rewrite", "test.js", source)
         reverted = engine.revert_transform("t3")
-        assert reverted is not None
-        assert reverted.status == "reverted"
-        assert reverted.transformed_code == source
+        self.assertIsNotNone(reverted)
+        self.assertEqual(reverted.status, "reverted")
+        self.assertEqual(reverted.transformed_code, source)

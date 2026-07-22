@@ -1,19 +1,19 @@
-import pytest
+import unittest
 from alp_sdk.prompt_optimizer import (
     PromptOptimizerEngine,
     PromptOptimizerConfig,
     PromptOptimizationResult,
 )
 
-class TestPromptOptimizerConfig:
+class TestPromptOptimizerConfig(unittest.TestCase):
     def test_default_values(self):
         config = PromptOptimizerConfig("opt-1", "agent-x", "base prompt text")
-        assert config.id == "opt-1"
-        assert config.target_agent == "agent-x"
-        assert config.base_prompt == "base prompt text"
-        assert config.strategy == "chain_of_thought"
+        self.assertEqual(config.id, "opt-1")
+        self.assertEqual(config.target_agent, "agent-x")
+        self.assertEqual(config.base_prompt, "base prompt text")
+        self.assertEqual(config.strategy, "chain_of_thought")
 
-class TestPromptOptimizerEngine:
+class TestPromptOptimizerEngine(unittest.TestCase):
     def test_optimize_prompt_chain_of_thought(self):
         engine = PromptOptimizerEngine()
         result = engine.optimize_prompt(
@@ -24,14 +24,14 @@ class TestPromptOptimizerEngine:
             baseline_score=0.70,
         )
 
-        assert isinstance(result, PromptOptimizationResult)
-        assert result.id == "opt-1"
-        assert result.target_agent == "coder-agent"
-        assert result.strategy == "chain_of_thought"
-        assert "Think step by step" in result.optimized_prompt
-        assert result.new_score > 0.70
-        assert result.score_improvement == 0.15
-        assert result.iteration == 1
+        self.assertIsInstance(result, PromptOptimizationResult)
+        self.assertEqual(result.id, "opt-1")
+        self.assertEqual(result.target_agent, "coder-agent")
+        self.assertEqual(result.strategy, "chain_of_thought")
+        self.assertIn("Think step by step", result.optimized_prompt)
+        self.assertGreater(result.new_score, 0.70)
+        self.assertEqual(result.score_improvement, 0.15)
+        self.assertEqual(result.iteration, 1)
 
     def test_track_history(self):
         engine = PromptOptimizerEngine()
@@ -39,11 +39,11 @@ class TestPromptOptimizerEngine:
         engine.optimize_prompt("o2", "agent-a", "P2", "few_shot")
 
         history = engine.get_history("agent-a")
-        assert len(history) == 2
-        assert history[1].iteration == 2
-        assert history[1].strategy == "few_shot"
+        self.assertEqual(len(history), 2)
+        self.assertEqual(history[1].iteration, 2)
+        self.assertEqual(history[1].strategy, "few_shot")
 
     def test_max_score_cap(self):
         engine = PromptOptimizerEngine()
         result = engine.optimize_prompt("o-max", "agent-b", "P", "auto_dpo", baseline_score=0.95)
-        assert result.new_score == 1.0
+        self.assertEqual(result.new_score, 1.0)

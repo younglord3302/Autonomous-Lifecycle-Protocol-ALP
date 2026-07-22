@@ -1,4 +1,4 @@
-import pytest
+import unittest
 from alp_sdk.consensus_vote import (
     ConsensusVoteEngine,
     ConsensusVoteConfig,
@@ -6,30 +6,30 @@ from alp_sdk.consensus_vote import (
     ConsensusTallyResult,
 )
 
-class TestConsensusVoteConfig:
+class TestConsensusVoteConfig(unittest.TestCase):
     def test_default_values(self):
         config = ConsensusVoteConfig("v1", "Test Proposal")
-        assert config.id == "v1"
-        assert config.proposal == "Test Proposal"
-        assert config.voting_strategy == "majority"
-        assert config.quorum == 0.5
+        self.assertEqual(config.id, "v1")
+        self.assertEqual(config.proposal, "Test Proposal")
+        self.assertEqual(config.voting_strategy, "majority")
+        self.assertEqual(config.quorum, 0.5)
 
-class TestConsensusVoteEngine:
+class TestConsensusVoteEngine(unittest.TestCase):
     def test_create_and_tally_majority_vote(self):
         engine = ConsensusVoteEngine()
         config = engine.create_proposal("v1", "Deploy v33.0.0", "majority", 0.5)
-        assert config.id == "v1"
+        self.assertEqual(config.id, "v1")
 
         engine.cast_vote("v1", "agent-1", "approve")
         engine.cast_vote("v1", "agent-2", "approve")
         engine.cast_vote("v1", "agent-3", "reject")
 
         result = engine.tally_consensus("v1", eligible_voters_count=4)
-        assert isinstance(result, ConsensusTallyResult)
-        assert result.passed is True
-        assert result.winning_choice == "approve"
-        assert result.vote_breakdown["approve"] == 2.0
-        assert result.vote_breakdown["reject"] == 1.0
+        self.assertIsInstance(result, ConsensusTallyResult)
+        self.assertTrue(result.passed)
+        self.assertEqual(result.winning_choice, "approve")
+        self.assertEqual(result.vote_breakdown["approve"], 2.0)
+        self.assertEqual(result.vote_breakdown["reject"], 1.0)
 
     def test_unanimous_failure_on_split(self):
         engine = ConsensusVoteEngine()
@@ -39,10 +39,10 @@ class TestConsensusVoteEngine:
         engine.cast_vote("v-unan", "a2", "reject")
 
         result = engine.tally_consensus("v-unan", eligible_voters_count=2)
-        assert result.passed is False
+        self.assertFalse(result.passed)
 
     def test_unknown_vote_session(self):
         engine = ConsensusVoteEngine()
         result = engine.tally_consensus("unknown")
-        assert result.passed is False
-        assert result.winning_choice == "NONE"
+        self.assertFalse(result.passed)
+        self.assertEqual(result.winning_choice, "NONE")
