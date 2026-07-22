@@ -15,6 +15,7 @@ v8.1.0 extensions:
 * ``proposal`` blocks — signed, auditable action proposals verified
   against a trust root (MCP-enforcement audit trail, spec/03 §25).
 """
+from __future__ import annotations
 
 import re
 from datetime import datetime, timezone

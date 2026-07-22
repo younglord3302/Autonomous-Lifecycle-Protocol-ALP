@@ -9,6 +9,7 @@ Agents vote on policy changes:
 Mirrors the planned ``parser/src/governance.ts`` surface; tests live in
 ``sdk/python/tests/test_governance.py``.
 """
+from __future__ import annotations
 
 import hashlib
 import json

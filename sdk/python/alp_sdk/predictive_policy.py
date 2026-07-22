@@ -8,6 +8,7 @@ they reach policy evaluation. ``AnomalyScore`` is attached to every
 Mirrors the planned ``parser/src/predictive_policy.ts`` surface; tests live
 in ``sdk/python/tests/test_predictive_policy.py``.
 """
+from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
