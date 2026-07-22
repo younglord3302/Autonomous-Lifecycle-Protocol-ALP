@@ -10,6 +10,8 @@ sealed with a tenant-specific key, preventing cross-tenant data leakage.
 Mirrors the planned ``parser/src/tenant.ts`` surface; tests live in
 ``sdk/python/tests/test_tenant.py``.
 """
+from __future__ import annotations
+
 
 import hashlib
 import json

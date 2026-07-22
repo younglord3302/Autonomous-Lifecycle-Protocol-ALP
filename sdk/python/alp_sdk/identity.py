@@ -10,6 +10,8 @@ W3C DID-based agent identity without a central authority:
 Mirrors the planned ``parser/src/identity.ts`` surface; tests live in
 ``sdk/python/tests/test_identity.py``.
 """
+from __future__ import annotations
+
 
 import hashlib
 import json

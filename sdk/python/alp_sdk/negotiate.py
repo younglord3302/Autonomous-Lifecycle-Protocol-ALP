@@ -5,6 +5,8 @@ Provides:
 - ReputationStore: tracks per-agent trust scores from fulfilled/breached contracts.
 - TeamComposer: assembles composable agent teams from a capability query.
 """
+from __future__ import annotations
+
 
 import math
 from typing import Any, Dict, List, Optional

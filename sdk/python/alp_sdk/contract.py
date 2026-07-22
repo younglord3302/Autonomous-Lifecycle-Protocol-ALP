@@ -5,6 +5,8 @@ context satisfies a ``@contract`` object's ``requires``, ``allows``, and
 ``denies`` rules. Returns a ``ContractResult`` indicating pass/fail and an
 optional ``ContractViolation``.
 """
+from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union

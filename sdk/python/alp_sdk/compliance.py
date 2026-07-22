@@ -6,6 +6,8 @@ reader+validator and asserts correct categorization. ``valid`` fixtures MUST
 parse without error; ``invalid`` fixtures MUST raise. Supports an optional
 external parser executable and a custom ``--suite`` directory (spec/16 §5).
 """
+from __future__ import annotations
+
 
 import os
 import subprocess

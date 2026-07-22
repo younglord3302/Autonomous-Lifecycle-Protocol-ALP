@@ -5,6 +5,8 @@ Provides:
 - AutonomyController: runs long-lived swarms with safe self-modifying workflows.
 - AdaptiveEngine: re-tunes execution from environment signals.
 """
+from __future__ import annotations
+
 
 import copy
 import time

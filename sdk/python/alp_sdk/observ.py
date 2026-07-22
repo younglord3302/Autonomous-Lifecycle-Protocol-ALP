@@ -12,6 +12,8 @@ The HTTP dashboard (``alp serve``) and failure-telemetry CLI (``alp evolve``)
 live in the TypeScript CLI; this module provides the SDK-level primitives so
 the Python SDK can emit and analyze the same event stream.
 """
+from __future__ import annotations
+
 
 import json
 import os

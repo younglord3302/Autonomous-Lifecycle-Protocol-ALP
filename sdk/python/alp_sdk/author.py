@@ -5,6 +5,8 @@ objects. Uses a lightweight rule-based compiler so it works without an
 external LLM; when an LLM endpoint is configured, it delegates
 decomposition to the model for richer plans.
 """
+from __future__ import annotations
+
 
 import re
 from typing import Any, Dict, List, Optional

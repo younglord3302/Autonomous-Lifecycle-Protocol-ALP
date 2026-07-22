@@ -14,6 +14,8 @@ Typical use::
     meta = client.get_meta("@community/scrum-master")
     client.install("@community/scrum-master", ".alp", "^1.0.0")
 """
+from __future__ import annotations
+
 
 import os
 import re

@@ -3,6 +3,8 @@
 Mirrors ``parser/src/debug.ts``: stores engine-state snapshots and provides
 a ``DebugSession`` that can step forward/backward and diff snapshots.
 """
+from __future__ import annotations
+
 
 import json
 import os

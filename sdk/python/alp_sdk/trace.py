@@ -8,6 +8,8 @@ Provides:
 Mirrors the planned ``parser/src/trace.ts`` surface; tests live in
 ``sdk/python/tests/test_trace.py``.
 """
+from __future__ import annotations
+
 
 import hashlib
 import json

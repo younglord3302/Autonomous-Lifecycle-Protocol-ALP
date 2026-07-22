@@ -7,6 +7,8 @@ projects (local ``path``, Git ``url`` cached into ``.alp/.cache/projects``,
 and fully-qualified ``-> ws::project::object`` cross-workspace references,
 and builds the cross-project dependency supergraph (spec/13 §4–§5, §9).
 """
+from __future__ import annotations
+
 
 import os
 import re

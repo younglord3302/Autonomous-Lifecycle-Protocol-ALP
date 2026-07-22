@@ -11,6 +11,8 @@ None of these execute code themselves; they manage state transitions,
 evaluate ALPEL conditions, and emit structured results/events. The actual
 work is performed by the agent or tooling that consumes ALP.
 """
+from __future__ import annotations
+
 
 import time
 from dataclasses import dataclass, field

@@ -20,6 +20,8 @@ Typical use::
     sig = sign(priv, signing_payload(name="x", version="1.0.0", entry="p.alp", entry_hash="...", dependencies={}))
     verify(pub, payload, sig)  # -> True
 """
+from __future__ import annotations
+
 
 import base64
 import hashlib

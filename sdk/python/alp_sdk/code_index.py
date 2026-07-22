@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import math
 from datetime import datetime, timezone

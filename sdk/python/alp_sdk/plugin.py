@@ -7,6 +7,8 @@ and registry aliases ``@ns/name@version`` (§3.5). Builds a registry of
 custom types declared via the canonical ``@type`` block (v8.0.0+, sole
 declaration since v9.0.0) and validates custom-type instances (§4.1).
 """
+from __future__ import annotations
+
 
 import os
 import re

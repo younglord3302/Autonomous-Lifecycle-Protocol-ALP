@@ -8,6 +8,8 @@ fault tolerance for consensus.
 Mirrors the planned ``parser/src/resilience.ts`` surface; tests live in
 ``sdk/python/tests/test_resilience.py``.
 """
+from __future__ import annotations
+
 
 import time
 import uuid

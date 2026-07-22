@@ -10,6 +10,8 @@ Indentation contract (spec/16.4):
     properties by exactly 4.
   * Odd levels (1, 3) and even levels beyond 4 are rejected.
 """
+from __future__ import annotations
+
 
 import os
 import re

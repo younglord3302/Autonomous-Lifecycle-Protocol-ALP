@@ -3,6 +3,8 @@
 Provides lightweight model-checking for ``@policy`` safety properties
 and precondition checking for ``@contract`` objects.
 """
+from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

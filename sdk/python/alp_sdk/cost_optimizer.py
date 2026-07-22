@@ -11,6 +11,8 @@ Extends ``observ.py`` ``CostAnalyzer`` with workflow-level optimization:
 Mirrors the planned ``parser/src/cost-optimizer.ts`` surface; tests live
 in ``sdk/python/tests/test_cost_optimizer.py``.
 """
+from __future__ import annotations
+
 
 import math
 from dataclasses import dataclass, field

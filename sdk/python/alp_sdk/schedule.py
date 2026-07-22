@@ -5,6 +5,8 @@ against a reference time and returns the set of tasks that are due.
 Supports standard 5-field cron expressions and one-shot ISO 8601 ``at``
 triggers.
 """
+from __future__ import annotations
+
 
 import re
 from datetime import datetime, timezone

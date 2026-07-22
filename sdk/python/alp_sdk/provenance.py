@@ -6,6 +6,8 @@ Provides:
 - AuditLedger: tamper-evident append-only audit log.
 - VerifiableCredential: W3C Verifiable Credential issued by a trust root.
 """
+from __future__ import annotations
+
 
 import hashlib
 import json

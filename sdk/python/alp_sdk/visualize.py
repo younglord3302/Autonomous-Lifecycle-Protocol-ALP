@@ -4,6 +4,8 @@ Mirrors ``parser/src/visualize.ts``: parse ``@workflow`` objects into a
 structured form and render them as Mermaid, Graphviz DOT, or JSON so users can
 see their execution plans (``alp visualize``).
 """
+from __future__ import annotations
+
 
 from typing import Any, Dict, List, Optional
 

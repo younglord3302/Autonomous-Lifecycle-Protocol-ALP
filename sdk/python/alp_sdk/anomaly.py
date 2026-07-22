@@ -3,6 +3,8 @@
 Detects statistical anomalies in agent and task behavior using
 baseline profiles computed from historical event data.
 """
+from __future__ import annotations
+
 
 import math
 from typing import Any, Dict, List, Optional

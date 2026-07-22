@@ -18,6 +18,8 @@ v10.6.0 Cross-Federation Trust:
   - ``inherited_policies`` merges parent/child policy sets with precedence.
   - ``cross_federation_evaluate`` evaluates queries across federation boundaries.
 """
+from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional

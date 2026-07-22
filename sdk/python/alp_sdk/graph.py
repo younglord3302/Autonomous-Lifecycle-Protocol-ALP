@@ -4,6 +4,8 @@ Mirrors the TypeScript ``@alp/parser`` ``AlpGraph``: builds a DAG from parsed
 ALP objects, resolves ``-> ref`` edges, detects cycles, and supports
 topological sort plus impact/blocker queries.
 """
+from __future__ import annotations
+
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 

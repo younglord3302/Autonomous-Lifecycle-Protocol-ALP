@@ -12,6 +12,8 @@ Enables cross-domain agent authentication without a global CA.
 Mirrors the planned ``parser/src/domain_trust.ts`` surface; tests live in
 ``sdk/python/tests/test_domain_trust.py``.
 """
+from __future__ import annotations
+
 
 import hashlib
 import json

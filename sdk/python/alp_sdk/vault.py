@@ -11,6 +11,8 @@ mirroring the optional signing dependency (spec/08). The rest of the
 (zero-dependency) SDK still imports cleanly. The TS SDK uses Node's built-in
 ``crypto`` so encryption is always available there (spec/19).
 """
+from __future__ import annotations
+
 
 import base64
 import json

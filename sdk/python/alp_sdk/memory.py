@@ -3,6 +3,8 @@
 Mirrors the TypeScript ``@alp/parser`` ``MemoryStore``: persistent,
 scoped key-value storage backed by ``.alp/.memory.json``.
 """
+from __future__ import annotations
+
 
 import json
 import os

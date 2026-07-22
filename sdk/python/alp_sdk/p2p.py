@@ -10,6 +10,8 @@ P2P swarm coordination without a central coordinator:
 Mirrors the planned ``parser/src/p2p.ts`` surface; tests live in
 ``sdk/python/tests/test_p2p.py``.
 """
+from __future__ import annotations
+
 
 import hashlib
 import json

@@ -16,6 +16,8 @@ Supported:
   - Namespace built-ins (v10.3.0): date.*, math.*, crypto.*, string.*
   - Interpolation: ``${ expr }`` within string values
 """
+from __future__ import annotations
+
 
 import hashlib
 import base64 as _base64

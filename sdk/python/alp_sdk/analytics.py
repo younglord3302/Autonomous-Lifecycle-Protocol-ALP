@@ -4,6 +4,8 @@ Mirrors parser/src/state-store.ts: a dependency-free analytics computation
 over runtime events. Kept pure (no I/O) so it runs against a raw JSONL tail
 or a persisted snapshot interchangeably.
 """
+from __future__ import annotations
+
 
 from typing import Any, Dict, List, Optional
 

@@ -4,6 +4,8 @@ Mirrors ``parser/src/event-store.ts``: an append-only, schema-versioned JSONL
 event log recording every workspace mutation so the execution history can be
 inspected and replayed deterministically via ``alp replay``.
 """
+from __future__ import annotations
+
 
 import json
 import os

@@ -9,6 +9,8 @@ Provides:
 Mirrors the planned ``parser/src/healing.ts`` surface; tests live in
 ``sdk/python/tests/test_healing.py``.
 """
+from __future__ import annotations
+
 
 import json
 import os

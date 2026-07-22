@@ -5,6 +5,8 @@ Provides:
 - ORSet: observed-remove set for CRDT state sync.
 - EdgeRuntime: offline-first execution, resync on reconnect, locality-aware task placement.
 """
+from __future__ import annotations
+
 
 import time
 from typing import Any, Dict, List, Optional

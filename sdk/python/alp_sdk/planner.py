@@ -5,6 +5,8 @@ Provides:
 - Planner: scores and ranks candidate plans using historical baselines.
 - Reflector: post-run self-critique that emits reusable lessons.
 """
+from __future__ import annotations
+
 
 import re
 from typing import Any, Dict, List, Optional

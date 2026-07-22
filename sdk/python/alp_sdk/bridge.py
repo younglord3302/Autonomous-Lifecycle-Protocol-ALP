@@ -11,6 +11,8 @@ Adapts ALP objects to and from external protocol descriptions:
 ``alp bridge import`` are the planned CLI commands. Tests live in
 ``sdk/python/tests/test_bridge.py``.
 """
+from __future__ import annotations
+
 
 import json
 import textwrap
