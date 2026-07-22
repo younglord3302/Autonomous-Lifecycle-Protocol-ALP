@@ -206,6 +206,12 @@ from .collaboration import (
     PresenceInfo,
     CollabBranch,
 )
+from .memory_mesh import (
+    MemoryMeshEngine,
+    MemoryNode,
+    MemoryQueryResult,
+    MemoryMeshStats,
+)
 
 __all__ = [
     "AlpObject",

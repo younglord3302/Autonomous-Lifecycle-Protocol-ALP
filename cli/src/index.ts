@@ -60,6 +60,7 @@ import { registerEventMeshCommand } from './commands/event-mesh';
 import { registerSwarmMarketplaceCommand } from './commands/swarm-marketplace';
 import { registerMacroCommand } from './commands/macro';
 import { registerCollabCommand } from './commands/collab';
+import { registerMemoryMeshCommand } from './commands/memory-mesh';
 const program = new Command();
 
 program
@@ -351,6 +352,7 @@ registerEventMeshCommand(program);
 registerSwarmMarketplaceCommand(program);
 registerMacroCommand(program);
 registerCollabCommand(program);
+registerMemoryMeshCommand(program);
 
 program.parse(process.argv);
 

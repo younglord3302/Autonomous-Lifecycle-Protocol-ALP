@@ -59,6 +59,7 @@ export * from './event-mesh';
 export * from './swarm-marketplace';
 export * from './macro';
 export * from './collaboration';
+export * from './memory-mesh';
 export { AlpObject, AlpReader };
 
 export class AlpParser {
