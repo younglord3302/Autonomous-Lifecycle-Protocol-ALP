@@ -57,6 +57,8 @@ export * from './consensus-vote';
 export * from './code-transform';
 export * from './event-mesh';
 export * from './swarm-marketplace';
+export * from './macro';
+export * from './collaboration';
 export { AlpObject, AlpReader };
 
 export class AlpParser {

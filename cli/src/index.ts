@@ -58,6 +58,8 @@ import { registerConsensusVoteCommand } from './commands/consensus-vote';
 import { registerCodeTransformCommand } from './commands/code-transform';
 import { registerEventMeshCommand } from './commands/event-mesh';
 import { registerSwarmMarketplaceCommand } from './commands/swarm-marketplace';
+import { registerMacroCommand } from './commands/macro';
+import { registerCollabCommand } from './commands/collab';
 const program = new Command();
 
 program
@@ -347,6 +349,8 @@ registerConsensusVoteCommand(program);
 registerCodeTransformCommand(program);
 registerEventMeshCommand(program);
 registerSwarmMarketplaceCommand(program);
+registerMacroCommand(program);
+registerCollabCommand(program);
 
 program.parse(process.argv);
 

@@ -198,6 +198,14 @@ from .resilience import (
     AgentStatus,
 )
 from .migration import MigrationEngine, UpgradeManifest, MigrationRecord, MigrationStatus, UpgradeStrategy
+from .macro import MacroEngine, MacroDefinition
+from .collaboration import (
+    CollaborationEngine,
+    CollabSession,
+    CollabOperation,
+    PresenceInfo,
+    CollabBranch,
+)
 
 __all__ = [
     "AlpObject",
