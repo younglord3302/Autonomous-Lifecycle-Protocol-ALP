@@ -1,11 +1,11 @@
-export type EventType = 'state_change' | 'task_update' | 'agent_broadcast' | 'alert';
+export type MeshEventType = 'state_change' | 'task_update' | 'agent_broadcast' | 'alert';
 
 export interface MeshEvent {
   id: string;
   topic: string;
   senderAgent: string;
   payload: string;
-  eventType: EventType;
+  eventType: MeshEventType;
   timestamp: string;
 }
 
@@ -30,7 +30,7 @@ export class EventMeshEngine {
     topic: string,
     senderAgent: string,
     payload: string,
-    eventType: EventType = 'state_change'
+    eventType: MeshEventType = 'state_change'
   ): MeshEvent {
     const event: MeshEvent = {
       id,

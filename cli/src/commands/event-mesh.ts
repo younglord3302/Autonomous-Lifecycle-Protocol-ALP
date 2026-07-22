@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { EventMeshEngine, EventType } from '@alp/parser';
+import { EventMeshEngine, MeshEventType } from '@alp/parser';
 
 export function registerEventMeshCommand(program: Command) {
   const meshCmd = program
@@ -16,7 +16,7 @@ export function registerEventMeshCommand(program: Command) {
     .option('--type <t>', 'Event type (state_change|task_update|agent_broadcast|alert)', 'agent_broadcast')
     .action((id, topic, senderAgent, payload, options) => {
       const engine = new EventMeshEngine();
-      const event = engine.publish(id, topic, senderAgent, payload, options.type as EventType);
+      const event = engine.publish(id, topic, senderAgent, payload, options.type as MeshEventType);
 
       console.log('\n📡 Event Published to Mesh (v35.0.0)');
       console.log('====================================');
