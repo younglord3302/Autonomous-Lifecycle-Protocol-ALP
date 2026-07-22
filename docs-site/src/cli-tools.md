@@ -1,6 +1,6 @@
 # CLI Verification & Tools
 
-The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of CLI tools available in `10.0.0` (The Production-Grade Era, V5/V6). New in v8: `alp schedule`, `alp vault`, and `alp policy --proposal` / `--trust`.
+The `@alp/cli` is more than a validator; it's a complete ecosystem manager. Here is the full suite of **38 CLI commands** available in `16.1.0`. New in v16.1: E2E integration tests, enriched examples, and expanded MCP tooling.
 
 ## Execution Engine (`alp run`)
 
@@ -59,6 +59,20 @@ alp serve --db          # persist a durable state store + analytics
 | `--db` | *New in V4 (Pillar 5).* Persist a durable state store of runtime events to `.alp/.runtime/state.db.json` and expose `/api/analytics` |
 | `--registry` | *V4 Pillar 3.* Host the package registry over HTTP (`/api/registry/*`) |
 | `--registry-token <t>` | *V4.1.0.* Require `Authorization: Bearer <t>` on registry requests. A bare token protects every namespace; a `ns=token` map protects only those namespaces (read + publish) |
+
+## Terminal UI Dashboard (`alp tui`)
+
+*New in `16.0.0`.* `alp tui` launches a real-time, interactive terminal UI dashboard directly in your terminal. It renders an ASCII progress bar, task status breakdowns (`[x]`, `[~]`, `[!]`, `[?]`, `[ ]`), active locks, and a live stream tail of runtime log events with keyboard controls.
+
+```bash
+alp tui
+```
+
+| Key | Description |
+| :--- | :--- |
+| `r` | Force refresh workspace state |
+| `q` | Quit the terminal dashboard |
+| `Ctrl+C` | Terminate |
 
 Endpoints:
 
@@ -538,3 +552,440 @@ alp p2p peers
 | `gossip` | Spread a message to fanout peers (best-effort rumor spreading) |
 | `discover <capability>` | Find agents advertising a capability |
 | `peers` | List all known peers and their capabilities |
+
+## Cross-Domain Trust (`alp domain-trust`) — *v18.4.0*
+
+*New in V14 — The Sovereign Era.* Establish bilateral trust between sovereign
+ALP domains without a global CA. Each domain signs a trust root; links are
+created, accepted, and revoked pairwise.
+
+```bash
+# Create a local domain trust root
+alp domain-trust create-domain local <private-key>
+
+# Link to a remote domain
+alp domain-trust link local remote
+
+# Accept an incoming link
+alp domain-trust accept local <link-id>
+
+# List all trust links
+alp domain-trust list local
+
+# Revoke a link
+alp domain-trust revoke local <link-id>
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `create-domain <domain-id> <private-key>` | Create a signed trust root for a domain |
+| `link <local> <remote>` | Create a pending bilateral trust link |
+| `accept <local> <link-id>` | Accept a pending link |
+| `list [local]` | List all trust links for a domain |
+| `revoke <local> <link-id>` | Revoke an active link |
+
+## Multi-Tenant Isolation (`alp tenant`) — *v18.2.0*
+
+*New in V14 — The Sovereign Era.* Cryptographic workspace boundaries: each
+tenant's `.alp/` directory is sealed with a tenant-specific key, preventing
+cross-tenant data leakage.
+
+```bash
+# Create a tenant
+alp tenant create my-tenant
+
+# List tenants
+alp tenant list
+
+# Manage secrets in a tenant vault
+alp tenant vault my-tenant list
+alp tenant vault my-tenant seal api-key "super-secret"
+alp tenant vault my-tenant unseal api-key
+
+# Delete a tenant
+alp tenant delete my-tenant
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `create <name>` | Create a new tenant with a generated keypair |
+| `list` | List all registered tenants |
+| `vault <id> list\|seal <secret> [value]\|unseal <secret>` | Manage tenant secrets |
+| `delete <id>` | Delete a tenant |
+
+## Autonomous Governance (`alp governance`) — *v18.3.0*
+
+*New in V14 — The Sovereign Era.* Agents vote on policy changes through
+cryptographic ballots. Quorum rules, signed votes, and tallied results ensure
+transparent policy evolution.
+
+```bash
+# Open a new ballot
+alp governance propose "Allow remote agents" policy-remote
+
+# Cast a vote
+alp governance vote <ballot-id> <voter-did> approve "Safe to proceed"
+
+# Close and tally
+alp governance close <ballot-id>
+
+# List all ballots
+alp governance list
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `propose <description> [policy-id]` | Open a new ballot |
+| `vote <ballot-id> <voter-did> <approve\|reject\|abstain> [rationale]` | Cast a signed vote |
+| `close <ballot-id>` | Close ballot and tally results |
+| `list` | List all ballots |
+
+## Self-Healing Workflows (`alp healing`) — *v16.1.0*
+
+*New in V12 — The Sentinel Era.* Inspect workflow healing history and recovery
+reports. The `HealingEngine` automatically retries, skips, rolls back, or
+escalates failed tasks based on configurable strategies.
+
+```bash
+# Show healing actions for a workflow
+alp healing history wf-standard
+
+# Show healing summary report
+alp healing report wf-standard
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `history [workflow-id]` | List past healing actions |
+| `report [workflow-id]` | Show healing summary report |
+
+## Swarm Resilience (`alp resilience`) — *v16.3.0*
+
+*New in V12 — The Sentinel Era.* Monitor swarm resilience: active agents,
+node replacements, and task redistributions. Standby agents are promoted
+automatically when active agents fail heartbeat checks.
+
+```bash
+# List active agents
+alp resilience agents default
+
+# Show resilience report
+alp resilience report default
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `agents [swarm-id]` | List active agents and their capabilities |
+| `report [swarm-id]` | Show resilience report with replacements and redistributions |
+
+## Project Initialization (`alp init`)
+
+Scaffold a new ALP workspace in the current directory. Creates the `.alp/`
+directory with starter `project.alp`, `agents.alp`, and `workflows.alp` files.
+
+```bash
+# Initialize a new ALP workspace
+alp init
+
+# Initialize with a specific project name
+alp init --name my-project
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--name <n>` | Set the project ID in the generated `project.alp` |
+
+## Schema Validation (`alp validate`)
+
+Validate all `.alp` files in the workspace against the JSON Schema definitions.
+Reports syntax errors, unknown object types, and invalid field values.
+
+```bash
+# Validate the current workspace
+alp validate
+
+# Validate a specific directory
+alp validate ./path/to/.alp
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--strict` | Treat warnings as errors |
+| `--quiet` | Suppress per-file output, only show summary |
+
+## Dependency Graph (`alp graph`)
+
+Print the dependency graph as a topologically sorted execution order. Useful
+for understanding task sequencing and detecting cycles.
+
+```bash
+# Print the sorted execution order
+alp graph
+
+# Output as JSON
+alp graph --json
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--json` | Output the graph as a JSON array |
+
+## Debug Inspector (`alp debug`)
+
+Deep-inspect a single ALP object by ID. Shows the fully resolved object with
+all inherited rules, computed dependencies, and effective policies.
+
+```bash
+# Inspect a specific object
+alp debug task-auth
+
+# Show the raw parsed AST
+alp debug task-auth --ast
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--ast` | Show the raw abstract syntax tree |
+
+## Project Status (`alp status`)
+
+Display an overview of the project's current state — task counts grouped by
+status marker (`[x]`, `[~]`, `[ ]`, `[!]`, `[?]`), active agents, and
+project progress.
+
+```bash
+# Show project status
+alp status
+
+# Output as JSON
+alp status --json
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--json` | Output status as JSON |
+
+## Checkpoint & HITL (`alp checkpoint`)
+
+Submit a task for human-in-the-loop review. Sets the task status to `[?]`
+with a review message and optionally notifies via webhook.
+
+```bash
+# Submit for review
+alp checkpoint task-login-ui --ask-human "Please review the login flow"
+
+# Approve a checkpointed task
+alp checkpoint task-login-ui --approve
+
+# Reject with feedback
+alp checkpoint task-login-ui --reject "Needs accessibility audit"
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--ask-human <msg>` | Submit task for human review with a message |
+| `--approve` | Approve a checkpointed task (sets `[~]`) |
+| `--reject <msg>` | Reject with feedback (sets `[!]`) |
+
+## Key Management (`alp keys`)
+
+Generate, inspect, and manage Ed25519 keypairs used for package signing,
+registry trust roots, and identity verification.
+
+```bash
+# Generate a new keypair
+alp keys generate
+
+# Show fingerprint of a public key
+alp keys fingerprint registry.pub
+
+# Manage trust roots
+alp keys trust add demo alp1c0593b2f97ec8a92fa05e5bb
+alp keys trust list
+alp keys trust remove demo
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `generate` | Generate a new Ed25519 keypair (`registry.key` + `registry.pub`) |
+| `fingerprint <file>` | Print the fingerprint of a public key file |
+| `trust add <ns> <fp>` | Pin a fingerprint to a namespace in the trust root |
+| `trust list` | List all configured trust roots |
+| `trust remove <ns>` | Remove a namespace from the trust root |
+
+## Plugin Management (`alp plugin`)
+
+Install, list, and manage ALP plugins that extend the protocol with custom
+object types and validation rules.
+
+```bash
+# List installed plugins
+alp plugin list
+
+# Install a plugin from the registry
+alp plugin install @alp/plugin-jira
+
+# Remove a plugin
+alp plugin remove @alp/plugin-jira
+
+# Show plugin details
+alp plugin info @alp/plugin-jira
+```
+
+| Subcommand | Description |
+| :--- | :--- |
+| `list` | List installed plugins |
+| `install <pkg>` | Install a plugin package |
+| `remove <pkg>` | Remove an installed plugin |
+| `info <pkg>` | Show plugin metadata and registered types |
+
+## Test Harness (`alp test-harness`)
+
+Run the ALP compliance test harness against your workspace. Validates that
+your `.alp` files conform to the specification and all cross-references resolve.
+
+```bash
+# Run the full compliance suite
+alp test-harness
+
+# Run a specific test category
+alp test-harness --category schema
+
+# Output results as JSON
+alp test-harness --json
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--category <c>` | Run only a specific test category (`schema`, `graph`, `policy`) |
+| `--json` | Output test results as JSON |
+
+## Data Import (`alp import`)
+
+Import external data into the ALP workspace. Supports JSON, YAML, and CSV
+formats for bulk-loading tasks, features, and decisions.
+
+```bash
+# Import tasks from a JSON file
+alp import tasks.json
+
+# Import from YAML with type override
+alp import features.yaml --type feature
+
+# Import from a URL
+alp import https://example.com/backlog.json
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--type <t>` | Override the detected object type |
+| `--merge` | Merge with existing objects instead of replacing |
+
+## Package Removal (`alp uninstall`)
+
+Remove a previously installed ALP package from the local registry store.
+
+```bash
+# Uninstall a package
+alp uninstall @scope/my-package
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--force` | Remove even if other packages depend on it |
+
+## Swarm Marketplace (`alp marketplace`)
+
+*New in v36.0.0.* Autonomous swarm marketplace and skill registry for agent skills.
+
+```bash
+# Register an agent skill listing
+alp marketplace register s1 agent-coder code-review --category analysis --cost 0.05
+
+# Invoke a marketplace skill
+alp marketplace invoke s1 agent-reader "Review this pull request"
+```
+
+## Event Mesh (`alp event-mesh`)
+
+*New in v35.0.0.* Pub/sub event mesh topic routing and message dispatch for decoupled swarms.
+
+```bash
+# Subscribe an agent to a topic
+alp event-mesh subscribe agent-1 telemetry.logs
+
+# Publish an event payload
+alp event-mesh publish telemetry.logs '{"level":"info","msg":"heartbeat"}'
+```
+
+## Code Transform (`alp code-transform`)
+
+*New in v34.0.0.* AST refactoring and automated code transformation rules.
+
+```bash
+# Register a transform rule
+alp code-transform register rule-1 "var-to-const" "Replace var with const"
+
+# Apply transforms to source code
+alp code-transform apply rule-1 "var x = 10;"
+```
+
+## Consensus Vote (`alp consensus-vote`)
+
+*New in v33.0.0.* Multi-agent proposal creation, voting, and tallying.
+
+```bash
+# Propose a ballot
+alp consensus-vote propose prop-1 "Deploy v2 to prod" 3
+
+# Cast votes and tally
+alp consensus-vote vote prop-1 agent-1 approve
+alp consensus-vote tally prop-1
+```
+
+## Prompt Optimizer (`alp prompt-optimizer`)
+
+*New in v32.0.0.* Automated prompt compression, instruction tuning, and token optimization.
+
+```bash
+# Optimize a prompt string
+alp prompt-optimizer optimize "Please analyze this code carefully and thoroughly"
+```
+
+## Eval Suite (`alp eval-suite`)
+
+*New in v31.0.0.* Automated LLM output evaluation and regression testing.
+
+```bash
+# Register an evaluation test case
+alp eval-suite register eval-1 "Write a sort function" "def sort"
+
+# Run evaluation suite
+alp eval-suite run eval-1 "def sort(arr): return sorted(arr)"
+```
+
+## Code Index (`alp code-index`)
+
+*New in v30.0.0.* AST symbol indexing, function mapping, and dependency search.
+
+```bash
+# Index a source file
+alp code-index index src/auth.ts "export function authenticate() {}"
+
+# Search indexed symbols
+alp code-index search authenticate
+```
+
+## Edge Model (`alp edge-model`)
+
+*New in v29.0.0.* Local/edge LLM routing and lightweight model execution management.
+
+```bash
+# Register an edge model route
+alp edge-model register edge-1 llama-3-8b 0.001 8192
+
+# Query best model route
+alp edge-model route 4000
+```
+
+

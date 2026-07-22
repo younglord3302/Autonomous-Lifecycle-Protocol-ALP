@@ -2,7 +2,7 @@
   "name": "alp-vscode",
   "displayName": "ALP Language Support",
   "description": "Full language support for the Autonomous Lifecycle Protocol (.alp) — IntelliSense, Go to Definition, Hover, and Diagnostics",
-  "version": "16.0.0",
+  "version": "36.0.0",
   "publisher": "younglord3302",
   "engines": {
     "vscode": "^1.80.0"
@@ -58,6 +58,23 @@
         "id": "property",
         "superType": "property",
         "description": "Style for ALP properties"
+      }
+    ],
+    "commands": [
+      {
+        "command": "alp.showVisualizer",
+        "title": "ALP: Show Interactive DAG Visualizer",
+        "category": "ALP"
+      },
+      {
+        "command": "alp.checkPolicy",
+        "title": "ALP: Check Policy Decision",
+        "category": "ALP"
+      },
+      {
+        "command": "alp.showTimelines",
+        "title": "ALP: Show Scheduled Timelines",
+        "category": "ALP"
       }
     ]
   },

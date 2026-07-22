@@ -76,6 +76,10 @@ jobs:
         working-directory: examples/todo-app
         run: node ../../cli/dist/index.js validate
 
+      - name: Validate examples/monorepo
+        working-directory: examples/monorepo
+        run: node ../../cli/dist/index.js validate
+
       - name: Verify example tasks (quality gates)
         working-directory: examples/todo-app
         run: node ../../cli/dist/index.js verify task-api-crud

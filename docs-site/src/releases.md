@@ -10,7 +10,65 @@ ALP versioning tracks two independent axes:
 - **Specification** (`spec/01-overview`) — the protocol grammar. Locked at **2.0.0 (Stable)**; strict semantic-versioning guarantees apply to implementations.
 - **Toolchain** (`@alp/cli`, `@alp/sdk`, docs-site, integrations) — the implementation and packaging, released on its own cadence.
 
+> 🔮 **Looking Ahead**: See [ROADMAP_V17_V36.md](file:///c:/Users/KGN/Desktop/new%20file%20sys/docs/ROADMAP_V17_V36.md) for the 20-version strategic architecture roadmap spanning v17.0.0 (OpenTelemetry) to v36.0.0 (Sovereign Autonomous Systems).
+
 ## Toolchain
+
+### 36.0.0 — Autonomous Swarm Marketplace & Skill Registry
+- **Swarm Marketplace Engine** (`SwarmMarketplaceEngine` in TS & Python SDK): Agent skill registration, category discovery, skill invocation, rating, cost per call tracking, and audit logging.
+- **CLI & Schema**: `alp marketplace` CLI command and `swarm_marketplace.schema.json` object validation. Full Vitest (434 tests) & Pytest (579 tests) suite passing.
+
+### 35.0.0 — Decoupled Event Mesh
+- **Event Mesh Engine** (`EventMeshEngine`): Asynchronous pub/sub event mesh topic routing and payload broadcasting across swarms.
+- **CLI & Schema**: `alp event-mesh` CLI command and `event_mesh.schema.json` protocol schema.
+
+### 34.0.0 — Code Transformation & Refactoring
+- **Code Transform Engine** (`CodeTransformEngine`): Automated AST refactoring and source code migration rules.
+- **CLI & Schema**: `alp code-transform` CLI command and `code_transform.schema.json`.
+
+### 33.0.0 — Consensus Voting Protocol
+- **Consensus Vote Engine** (`ConsensusVoteEngine`): Multi-agent proposal creation, voting algorithms (majority, supermajority, weighted), and tallying.
+- **CLI & Schema**: `alp consensus-vote` CLI command and `consensus_vote.schema.json`.
+
+### 32.0.0 — Automated Prompt Optimizer
+- **Prompt Optimizer Engine** (`PromptOptimizerEngine`): Prompt compression, instruction tuning, and token efficiency optimizer.
+- **CLI & Schema**: `alp prompt-optimizer` CLI command and `prompt_optimizer.schema.json`.
+
+### 31.0.0 — Model Evaluation Suite
+- **Eval Suite Engine** (`EvalSuiteEngine`): Benchmark case evaluation, output assertions, and regression testing.
+- **CLI & Schema**: `alp eval-suite` CLI command and `eval_suite.schema.json`.
+
+### 30.0.0 — Code Symbol Indexer
+- **Code Index Engine** (`CodeIndexEngine`): AST code symbol indexing, function mapping, and dependency searching.
+- **CLI & Schema**: `alp code-index` CLI command and `code_index.schema.json`.
+
+### 29.0.0 — Edge Model Routing
+- **Edge Model Engine** (`EdgeModelEngine`): Edge-native LLM routing, latency-based selection, and model execution budgeting.
+- **CLI & Schema**: `alp edge-model` CLI command and `edge_model.schema.json`.
+
+### 17.0.0 – 28.0.0 — Production Extensions
+- **v28.0.0**: `@vector_store` (VectorStoreEngine) for vector similarity search and semantic retrieval.
+- **v27.0.0**: `@sandbox_env` (SandboxEnvEngine) for containerized sandboxing and permission enforcement.
+- **v26.0.0**: `@crdt_sync` (CRDTSyncEngine) for distributed multi-node CRDT state synchronization.
+- **v25.0.0**: `@cost_budget` (CostBudgetEngine) for hard-stop token spending limits and financial budgets.
+- **v24.0.0**: `@asset_context` (AssetContextEngine) for workspace asset linking and context binding.
+- **v23.0.0**: `@arch_decomposer` (ArchDecomposerEngine) for system architecture decomposition into tasks/workflows.
+- **v22.0.0**: `@self_healing` (SelfHealingEngine) for automatic patch generation and workspace repair.
+- **v21.0.0**: `@anomaly` (AnomalyDetectorEngine) for statistical runtime behavior anomaly detection.
+- **v20.0.0**: `@cost_optimizer` (CostOptimizerEngine) for predictive token and execution cost reduction.
+- **v19.0.0**: `@resilience` (ResilienceEngine) for fault-tolerant execution, circuit breakers, and retries.
+- **v18.4.0**: `@domain_trust` (DomainTrustAnchor) for cross-domain trust bootstrapping.
+- **v18.3.0**: `@governance` (GovernanceEngine) for policy ballot voting and quorum checking.
+- **v18.2.0**: `@tenant` (TenantVault) for multi-tenant workspace isolation.
+- **v18.1.0**: `@p2p` (P2PSwarm) for decentralized P2P swarm coordination without central servers.
+- **v18.0.0**: `@did_identity` (AgentIdentity) for W3C DID-based agent identity resolution.
+- **v17.0.0**: `@bridge` (ProtocolBridge) for OpenAPI, GraphQL, gRPC, and AsyncAPI spec conversion.
+
+### 16.1.0 — MCP Expansion, Enriched Examples & E2E Tests
+- **4 new MCP server tools**: `alp_check_policy` (policy enforcement queries), `alp_visualize` (Mermaid DAG generation), `alp_search_registry` (type/status/keyword search), `alp_get_timelines` (`@timeline` retrieval). All tools fully tested.
+- **3 new JSON schemas** registered: `contract.schema.json`, `vault.schema.json`, `timeline.schema.json` — added to `schemas/index.js`.
+- **Enriched examples**: `examples/todo-app` governance enriched with `@contract`, `@vault`, `@timeline`. `examples/monorepo` workspace expanded from 2 → 10 objects (`@policy`, `@contract`, `@timeline`, `@vault`, `@task`, `@feature`, `@rule`).
+- **E2E integration test suite** (`cli/tests/e2e.test.ts`): 8 tests covering `alp serve` API (state, graph, events, dashboard), `alp validate`, `alp status`, and `alp policy` (allow + deny). Full suite: 376 tests across 49 files, zero failures.
 
 ### 10.0.0 — Locked Grammar 3.0.0 (V6 — The Governance Era)
 - Formal grammar bumped to **3.0.0**: removed `@type_definition` (deprecated in v8, removed in v9) and added V5 governance objects (`@policy`, `@timeline`, `@contract`, `@vault`) as first-class block types. Promoted `@type` to explicit block status. `repo`, `swarm`, and `package` are now explicit. All parser/SDK version-negotiation references updated from `2.x` to `3.x`.

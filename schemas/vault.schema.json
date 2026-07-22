@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/vault.schema.json",
+  "title": "ALP Vault Object",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": { "type": "string" },
+    "description": { "type": "string" },
+    "recipients": { "type": "array", "items": { "type": "string" } }
+  }
+}

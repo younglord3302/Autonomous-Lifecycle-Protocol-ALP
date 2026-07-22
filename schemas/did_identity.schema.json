@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/did_identity.schema.json",
+  "title": "ALP Decentralized DID Identity Object",
+  "type": "object",
+  "required": ["id", "did_uri", "public_key", "chain_id"],
+  "properties": {
+    "id": { "type": "string" },
+    "did_uri": { "type": "string" },
+    "public_key": { "type": "string" },
+    "chain_id": { "type": "string" },
+    "anchor_block_hash": { "type": "string" },
+    "created_at": { "type": "string" },
+    "description": { "type": "string" }
+  }
+}

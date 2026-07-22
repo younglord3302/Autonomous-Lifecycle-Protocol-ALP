@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/timeline.schema.json",
+  "title": "ALP Timeline Object",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": { "type": "string" },
+    "description": { "type": "string" },
+    "cron": { "type": "string" },
+    "at": { "type": "string" },
+    "status": { "type": "string" },
+    "enabled": { "type": "boolean" }
+  }
+}

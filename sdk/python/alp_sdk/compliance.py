@@ -37,7 +37,8 @@ def _run_bundled(fixture_path: str) -> bool:
 
     parser = AlpParser()
     try:
-        parser.parse_and_validate(open(fixture_path, "r", encoding="utf-8").read())
+        with open(fixture_path, "r", encoding="utf-8") as f:
+            parser.parse_and_validate(f.read())
         return True
     except AlpError:
         return False

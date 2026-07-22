@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/trace.schema.json",
+  "title": "ALP Trace Object",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "span_id": { "type": "string" },
+    "parent_span_id": { "type": "string" },
+    "agent": { "type": "string" },
+    "action": { "type": "string" },
+    "duration_ms": { "type": "number" },
+    "status": { "type": "string" },
+    "attributes": { "type": "object" },
+    "description": { "type": "string" }
+  }
+}

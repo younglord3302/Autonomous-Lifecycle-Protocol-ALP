@@ -7,6 +7,7 @@ ALP provides a dedicated **Language Server Protocol (LSP)** implementation for V
 ## Features
 
 - **IntelliSense Autocompletion**: Type `@` to instantly see all available ALP object markers (e.g., `@task`, `@agent`, `@policy`, `@contract`, `@vault`, `@plan`, `@lesson`, `@offer`, `@trace`, `@migration`). Type `-> ` in any reference field to get an autocomplete dropdown of every ID in your workspace.
+- **Interactive Webview DAG Visualizer**: Click the `$(graph) ALP DAG` status bar item or run `ALP: Show Interactive DAG Visualizer` (`alp.showVisualizer`) to open an in-editor Webview visualizer displaying status-colored cards (`[x]`, `[~]`, `[!]`, `[?]`, `[ ]`), object type badges, and workspace metrics side-by-side with your `.alp` files.
 - **Go to Definition**: Command-click (or Ctrl-click) on any dependency reference (e.g., `-> dec-database`) to instantly jump your editor to the exact file and line where that object is defined.
 - **Hover Metadata**: Hover over any `-> id` reference to pop up a rich tooltip containing the object's description, status, and type without leaving your current file. Hover over block markers and directives for inline documentation.
 - **Real-time Diagnostics**: Syntax errors, schema violations, and V9+ status-marker errors (missing reasons for `[!]` and `[?]`) are highlighted with red squigglies directly in your editor as you type.

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/cost_budget.schema.json",
+  "title": "ALP Fine-Grained Token & Cost Budget Object",
+  "type": "object",
+  "required": ["id", "task_id", "max_tokens", "max_cost_usd"],
+  "properties": {
+    "id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "max_tokens": { "type": "number" },
+    "max_cost_usd": { "type": "number" },
+    "provider": { "type": "string" },
+    "model_tier": { "type": "string" },
+    "description": { "type": "string" }
+  }
+}

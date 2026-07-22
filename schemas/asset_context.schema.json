@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/asset_context.schema.json",
+  "title": "ALP Multi-Modal Asset Context Object",
+  "type": "object",
+  "required": ["id", "asset_type", "mime_type", "digest"],
+  "properties": {
+    "id": { "type": "string" },
+    "asset_type": { "type": "string" },
+    "mime_type": { "type": "string" },
+    "digest": { "type": "string" },
+    "size_bytes": { "type": "number" },
+    "description": { "type": "string" }
+  }
+}

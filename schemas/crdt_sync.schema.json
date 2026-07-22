@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/crdt_sync.schema.json",
+  "title": "ALP Real-Time CRDT Sync Object",
+  "type": "object",
+  "required": ["id", "doc_id", "peer_id", "clock"],
+  "properties": {
+    "id": { "type": "string" },
+    "doc_id": { "type": "string" },
+    "peer_id": { "type": "string" },
+    "clock": { "type": "number" },
+    "state_vector": { "type": "string" },
+    "peers_count": { "type": "number" },
+    "description": { "type": "string" }
+  }
+}

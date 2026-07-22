@@ -24,3 +24,32 @@
   budgets:
     max_iterations: 5
     max_seconds: 600
+
+---
+
+@contract
+  id: contract-api-boundary
+  description: "Runtime boundary validation between frontend and backend agents"
+  from: -> agent-frontend
+  to: -> agent-backend
+  allows:
+    - "api.v1.tasks.read"
+    - "api.v1.tasks.write"
+  denies:
+    - "api.v1.admin.*"
+
+---
+
+@vault
+  id: vault-prod-secrets
+  description: "Encrypted secrets envelope (X25519 + AES-256-GCM)"
+  recipients:
+    - "maintainer.pub"
+
+---
+
+@timeline
+  id: tl-daily-verification
+  description: "Automated daily verification and compliance check"
+  cron: "0 9 * * *"
+  status: [ ]

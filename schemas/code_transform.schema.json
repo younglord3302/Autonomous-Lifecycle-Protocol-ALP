@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/code_transform.schema.json",
+  "title": "ALP Automated AST Code Transformation Object",
+  "type": "object",
+  "required": ["id", "transform_type", "target_file"],
+  "properties": {
+    "id": { "type": "string" },
+    "transform_type": {
+      "type": "string",
+      "enum": ["rename_symbol", "extract_function", "inline_variable", "add_log_guard", "migration_rewrite"]
+    },
+    "target_file": { "type": "string" },
+    "target_symbol": { "type": "string" },
+    "new_symbol": { "type": "string" },
+    "diff_preview": { "type": "string" },
+    "status": { "type": "string", "enum": ["pending", "applied", "reverted"] },
+    "description": { "type": "string" }
+  }
+}

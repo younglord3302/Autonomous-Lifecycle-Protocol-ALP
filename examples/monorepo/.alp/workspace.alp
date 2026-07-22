@@ -25,3 +25,90 @@
     - Monitor cross-project dependencies
   workspace_access:
     - all
+
+---
+
+@rule
+  id: rule-typescript-strict
+  description: "All packages must use strict TypeScript"
+  condition: "tsconfig.strict == true"
+
+---
+
+@policy
+  id: policy-monorepo-deploy
+  description: "Restrict deployments to the CI/CD pipeline agent only"
+  applies_to: -> agent-devops
+  enforcement: strict
+  allow_paths:
+    - "apps/**"
+    - "packages/**"
+    - ".github/**"
+  deny_paths:
+    - ".env*"
+    - "secrets/**"
+  allow_commands:
+    - "npm run build"
+    - "npm test"
+    - "npm run deploy"
+  deny_commands:
+    - "rm -rf"
+    - "curl"
+  budgets:
+    max_iterations: 10
+    max_seconds: 1200
+
+---
+
+@contract
+  id: contract-service-boundary
+  description: "API boundary between frontend and backend microservices"
+  from: -> agent-devops
+  to: -> agent-devops
+  allows:
+    - "api.v1.*"
+  denies:
+    - "internal.*"
+
+---
+
+@timeline
+  id: tl-nightly-integration
+  description: "Nightly cross-service integration test"
+  cron: "0 2 * * *"
+  status: [ ]
+
+---
+
+@vault
+  id: vault-monorepo-secrets
+  description: "Shared secrets for all microservices in the workspace"
+  recipients:
+    - "ops-team.pub"
+
+---
+
+@task
+  id: task-setup-ci
+  status: [x]
+  description: "Configure GitHub Actions CI/CD pipeline for monorepo"
+  verify:
+    - "test -f .github/workflows/ci.yml"
+
+---
+
+@task
+  id: task-deploy-staging
+  status: [~]
+  description: "Deploy all services to staging environment"
+  depends_on:
+    - -> task-setup-ci
+  verify:
+    - "npm run deploy -- --env staging"
+
+---
+
+@feature
+  id: feat-shared-auth
+  status: [~]
+  description: "Unified authentication across all microservices using shared JWT"

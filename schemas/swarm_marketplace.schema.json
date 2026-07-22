@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/swarm_marketplace.schema.json",
+  "title": "ALP Autonomous Swarm Marketplace & Skill Registry Object",
+  "type": "object",
+  "required": ["id", "provider_agent", "skill_name", "category"],
+  "properties": {
+    "id": { "type": "string" },
+    "provider_agent": { "type": "string" },
+    "skill_name": { "type": "string" },
+    "category": { "type": "string" },
+    "cost_per_call": { "type": "number" },
+    "rating": { "type": "number" },
+    "total_invocations": { "type": "number" },
+    "description": { "type": "string" }
+  }
+}

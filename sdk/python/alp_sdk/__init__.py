@@ -20,6 +20,26 @@ from .predictive_policy import (
 from .schedule import TimelineEngine, TimelineResult
 from .contract import ContractEngine, ContractResult, ContractViolation, ContractObject
 from .vault import Vault, SealedSecret, VaultAuditEntry
+from .telemetry import TelemetryEngine, Span
+from .zk_proof import ZKProofEngine, ZKProof
+from .vector_store import VectorStoreEngine, VectorEntry
+from .did_identity import DIDIdentityEngine, DIDDocument
+from .crdt_sync import CRDTSyncEngine, CRDTState
+from .self_healing import SelfHealingEngine, ASTDiagnosis
+from .formal_verification import FormalVerificationEngine, Transition
+from .asset_context import AssetContextEngine, AssetBundle
+from .cost_budget import CostBudgetEngine, CostBudget
+from .sandbox_env import SandboxEnvEngine, SandboxInstance
+from .tenant_mesh import TenantMeshEngine, TenantMesh
+from .arch_decomposer import ArchDecomposerEngine, MicroservicePlan
+from .edge_model import EdgeModelEngine, EdgeModelConfig
+from .code_index import CodeIndexEngine, CodeIndexConfig
+from .eval_suite import EvalSuiteEngine, EvalSuiteConfig
+from .prompt_optimizer import PromptOptimizerEngine, PromptOptimizerConfig
+from .consensus_vote import ConsensusVoteEngine, ConsensusVoteConfig
+from .code_transform import CodeTransformEngine, CodeTransformConfig
+from .event_mesh import EventMeshEngine, EventMeshConfig
+from .swarm_marketplace import SwarmMarketplaceEngine, SkillListing
 from .alpel import (
     AlpelError,
     build_context,

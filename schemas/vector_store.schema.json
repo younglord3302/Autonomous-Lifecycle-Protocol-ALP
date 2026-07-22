@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/vector_store.schema.json",
+  "title": "ALP Vector Store Object",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": { "type": "string" },
+    "dimension": { "type": "number" },
+    "similarity": { "type": "string" },
+    "entries_count": { "type": "number" },
+    "description": { "type": "string" }
+  }
+}

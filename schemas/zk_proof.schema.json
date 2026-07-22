@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/zk_proof.schema.json",
+  "title": "ALP Zero-Knowledge Proof Object",
+  "type": "object",
+  "required": ["id", "statement", "commitment", "proof_hash"],
+  "properties": {
+    "id": { "type": "string" },
+    "statement": { "type": "string" },
+    "commitment": { "type": "string" },
+    "proof_hash": { "type": "string" },
+    "verified": { "type": "boolean" },
+    "created_at": { "type": "string" },
+    "description": { "type": "string" }
+  }
+}

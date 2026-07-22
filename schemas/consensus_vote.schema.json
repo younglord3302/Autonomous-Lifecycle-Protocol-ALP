@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/consensus_vote.schema.json",
+  "title": "ALP Multi-Agent Consensus & Voting Object",
+  "type": "object",
+  "required": ["id", "proposal", "voting_strategy"],
+  "properties": {
+    "id": { "type": "string" },
+    "proposal": { "type": "string" },
+    "voting_strategy": {
+      "type": "string",
+      "enum": ["majority", "weighted", "unanimous", "borda_count"]
+    },
+    "quorum": { "type": "number" },
+    "votes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["voter_agent", "choice"],
+        "properties": {
+          "voter_agent": { "type": "string" },
+          "choice": { "type": "string" },
+          "weight": { "type": "number" },
+          "signature": { "type": "string" }
+        }
+      }
+    },
+    "outcome": { "type": "string" },
+    "passed": { "type": "boolean" },
+    "description": { "type": "string" }
+  }
+}

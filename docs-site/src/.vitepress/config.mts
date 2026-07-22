@@ -1,9 +1,11 @@
 import { defineConfig } from 'vitepress'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-const stylePath = path.resolve('src/.vitepress/public/style.css')
-const starsPath = path.resolve('src/.vitepress/public/stars.js')
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const stylePath = path.resolve(__dirname, 'public/style.css')
+const starsPath = path.resolve(__dirname, 'public/stars.js')
 const styleContent = fs.existsSync(stylePath) ? fs.readFileSync(stylePath, 'utf-8') : ''
 const starsContent = fs.existsSync(starsPath) ? fs.readFileSync(starsPath, 'utf-8') : ''
 
@@ -12,11 +14,30 @@ export default defineConfig({
   description: "Autonomous Lifecycle Protocol",
   base: '/Autonomous-Lifecycle-Protocol-ALP/',
   markdown: {
-    code: {
-      shiki: {
-        langs: [],
+    languages: [
+      {
+        id: 'alp',
+        scopeName: 'source.alp',
+        grammar: {
+          name: 'alp',
+          patterns: [
+            { match: '@[a-z_]+', name: 'keyword.control.alp' },
+            { match: '![a-z_]+', name: 'keyword.directive.alp' },
+            { match: '\\[[ x~!?\\-]\\]', name: 'string.status.alp' }
+          ]
+        }
       },
-    },
+      {
+        id: 'ebnf',
+        scopeName: 'source.ebnf',
+        grammar: {
+          name: 'ebnf',
+          patterns: [
+            { match: '[A-Z_]+', name: 'keyword.ebnf' }
+          ]
+        }
+      }
+    ]
   },
   vite: {
     ssr: {
@@ -24,10 +45,10 @@ export default defineConfig({
     },
   },
   transformHead: () => {
-    return [
-      ['style', {}, styleContent],
-      ['script', {}, starsContent],
-    ]
+    const head: Array<[string, Record<string, string>, string]> = []
+    if (styleContent) head.push(['style', {}, styleContent])
+    if (starsContent) head.push(['script', {}, starsContent])
+    return head
   },
   themeConfig: {
     nav: [
@@ -77,7 +98,8 @@ export default defineConfig({
           { text: '18. Contracts', link: '/spec/18-contracts' },
           { text: '19. Encrypted Vault', link: '/spec/19-vault' },
           { text: '20. Event Sourcing', link: '/spec/20-event-sourcing' },
-          { text: '21. Workflow Visualization', link: '/spec/21-workflow-visualization' }
+          { text: '21. Workflow Visualization', link: '/spec/21-workflow-visualization' },
+          { text: '22. Swarm Marketplace', link: '/spec/22-autonomous-marketplace' }
         ]
       }
     ],

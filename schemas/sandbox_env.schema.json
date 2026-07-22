@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/sandbox_env.schema.json",
+  "title": "ALP Wasm Sandbox & Micro-VM Environment Object",
+  "type": "object",
+  "required": ["id", "engine_type", "memory_mb"],
+  "properties": {
+    "id": { "type": "string" },
+    "engine_type": { "type": "string" },
+    "memory_mb": { "type": "number" },
+    "read_only_fs": { "type": "boolean" },
+    "allowed_commands": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "description": { "type": "string" }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/arch_decomposer.schema.json",
+  "title": "ALP Architecture Monolith Decomposer Object",
+  "type": "object",
+  "required": ["id", "monolith_target", "proposed_microservices"],
+  "properties": {
+    "id": { "type": "string" },
+    "monolith_target": { "type": "string" },
+    "proposed_microservices": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "coupling_score": { "type": "number" },
+    "description": { "type": "string" }
+  }
+}

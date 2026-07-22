@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/edge_model.schema.json",
+  "title": "ALP Edge & On-Device GGUF Local Model Object",
+  "type": "object",
+  "required": ["id", "model_name", "gguf_path"],
+  "properties": {
+    "id": { "type": "string" },
+    "model_name": { "type": "string" },
+    "gguf_path": { "type": "string" },
+    "quantization": { "type": "string" },
+    "context_window": { "type": "number" },
+    "threads": { "type": "number" },
+    "description": { "type": "string" }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/code_index.schema.json",
+  "title": "ALP Semantic Code Index Object",
+  "type": "object",
+  "required": ["id", "language", "source_path"],
+  "properties": {
+    "id": { "type": "string" },
+    "language": { "type": "string" },
+    "source_path": { "type": "string" },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "kind": { "type": "string", "enum": ["function", "class", "method", "variable", "interface", "type", "module"] },
+          "line": { "type": "number" },
+          "signature": { "type": "string" },
+          "doc": { "type": "string" }
+        }
+      }
+    },
+    "embedding_model": { "type": "string" },
+    "chunk_strategy": { "type": "string", "enum": ["function", "class", "file", "block"] },
+    "description": { "type": "string" }
+  }
+}

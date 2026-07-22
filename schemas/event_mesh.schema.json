@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://alp-protocol.org/schemas/event_mesh.schema.json",
+  "title": "ALP Real-Time Agent Collaboration & Event Mesh Object",
+  "type": "object",
+  "required": ["id", "topic", "sender_agent", "payload"],
+  "properties": {
+    "id": { "type": "string" },
+    "topic": { "type": "string" },
+    "sender_agent": { "type": "string" },
+    "payload": { "type": "string" },
+    "event_type": { "type": "string", "enum": ["state_change", "task_update", "agent_broadcast", "alert"] },
+    "timestamp": { "type": "string" },
+    "description": { "type": "string" }
+  }
+}

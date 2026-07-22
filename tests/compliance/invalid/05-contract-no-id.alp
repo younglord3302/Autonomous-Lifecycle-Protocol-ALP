@@ -1,0 +1,6 @@
+!alp-version: 3.0.0
+
+@contract
+  description: "Contract missing required id field"
+  allows:
+    - "api.*"

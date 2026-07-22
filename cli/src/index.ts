@@ -30,12 +30,40 @@ import { pluginCommand } from './commands/plugin';
 import { costCommand } from './commands/cost';
 import { debugCommand } from './commands/debug';
 import { bridgeCommand } from './commands/bridge';
+import { domainTrustCommand } from './commands/domain-trust';
+import { governanceCommand } from './commands/governance';
+import { tenantCommand } from './commands/tenant';
+import { healingCommand } from './commands/healing';
+import { resilienceCommand } from './commands/resilience';
+import { identityCommand } from './commands/identity';
+import { p2pCommand } from './commands/p2p';
+import { tuiCommand } from './commands/tui';
+import { registerTraceCommand } from './commands/trace';
+import { registerZKCommand } from './commands/zk';
+import { registerVectorCommand } from './commands/vector';
+import { registerDIDCommand } from './commands/did';
+import { registerCRDTSyncCommand } from './commands/crdt-sync';
+import { registerHealCommand } from './commands/heal';
+import { registerFormalVerifyCommand } from './commands/formal-verify';
+import { registerAssetCommand } from './commands/asset';
+import { registerBudgetCommand } from './commands/budget';
+import { registerSandboxCommand } from './commands/sandbox';
+import { registerTenantMeshCommand } from './commands/tenant-mesh';
+import { registerDecomposeCommand } from './commands/decompose';
+import { registerEdgeCommand } from './commands/edge';
+import { registerCodeIndexCommand } from './commands/code-index';
+import { registerEvalSuiteCommand } from './commands/eval-suite';
+import { registerPromptOptimizerCommand } from './commands/prompt-optimizer';
+import { registerConsensusVoteCommand } from './commands/consensus-vote';
+import { registerCodeTransformCommand } from './commands/code-transform';
+import { registerEventMeshCommand } from './commands/event-mesh';
+import { registerSwarmMarketplaceCommand } from './commands/swarm-marketplace';
 const program = new Command();
 
 program
   .name('alp')
   .description('Autonomous Lifecycle Protocol (ALP) CLI')
-  .version('16.0.0');
+  .version('36.0.0');
 
 program
   .command('init')
@@ -258,6 +286,67 @@ program
   .argument('<format>', 'Target format: openapi, graphql, grpc, asyncapi')
   .argument('[file]', 'Import from a JSON spec file instead of exporting the local workflow')
   .action((format, file) => bridgeCommand(format, file));
+
+program
+  .command('domain-trust')
+  .description('Manage cross-domain trust relationships (v14)')
+  .argument('<subcommand>', 'create-domain | link | accept | list | revoke')
+  .argument('[args...]', 'Subcommand arguments')
+  .action((subcommand, args) => domainTrustCommand(subcommand, ...args));
+
+program
+  .command('governance')
+  .description('Autonomous governance ballots (v14)')
+  .argument('<subcommand>', 'propose | vote | close | list')
+  .argument('[args...]', 'Subcommand arguments')
+  .action((subcommand, args) => governanceCommand(subcommand, ...args));
+
+program
+  .command('tenant')
+  .description('Multi-tenant isolation (v14)')
+  .argument('<subcommand>', 'create | list | vault | delete')
+  .argument('[args...]', 'Subcommand arguments')
+  .action((subcommand, args) => tenantCommand(subcommand, ...args));
+
+program
+  .command('healing')
+  .description('Self-healing workflow history (v12)')
+  .argument('<subcommand>', 'history | report')
+  .argument('[args...]', 'Subcommand arguments')
+  .action((subcommand, args) => healingCommand(subcommand, ...args));
+
+program
+  .command('resilience')
+  .description('Swarm resilience and agent status (v12)')
+  .argument('<subcommand>', 'agents | report')
+  .argument('[args...]', 'Subcommand arguments')
+  .action((subcommand, args) => resilienceCommand(subcommand, ...args));
+
+program
+  .command('tui')
+  .description('Launch the interactive terminal UI dashboard (v16.0.0)')
+  .action(tuiCommand);
+
+registerTraceCommand(program);
+registerZKCommand(program);
+registerVectorCommand(program);
+registerDIDCommand(program);
+registerCRDTSyncCommand(program);
+registerHealCommand(program);
+registerFormalVerifyCommand(program);
+registerAssetCommand(program);
+registerBudgetCommand(program);
+registerSandboxCommand(program);
+registerTenantMeshCommand(program);
+registerDecomposeCommand(program);
+registerEdgeCommand(program);
+registerCodeIndexCommand(program);
+registerEvalSuiteCommand(program);
+registerPromptOptimizerCommand(program);
+registerConsensusVoteCommand(program);
+registerCodeTransformCommand(program);
+registerEventMeshCommand(program);
+registerSwarmMarketplaceCommand(program);
 
 program.parse(process.argv);
 

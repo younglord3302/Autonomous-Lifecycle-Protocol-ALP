@@ -1,0 +1,27 @@
+!alp-version: 3.0.0
+
+@contract
+  id: contract-compliance-test
+  description: "Test boundary contract"
+  from: -> agent-a
+  to: -> agent-b
+  allows:
+    - "api.*"
+  denies:
+    - "internal.*"
+
+---
+
+@vault
+  id: vault-compliance-test
+  description: "Test vault secret container"
+  recipients:
+    - "admin.pub"
+
+---
+
+@timeline
+  id: timeline-compliance-test
+  description: "Test timeline scheduler"
+  cron: "0 0 * * *"
+  status: [ ]
