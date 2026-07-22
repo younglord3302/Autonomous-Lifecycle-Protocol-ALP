@@ -14,30 +14,10 @@ export default defineConfig({
   description: "Autonomous Lifecycle Protocol",
   base: '/Autonomous-Lifecycle-Protocol-ALP/',
   markdown: {
-    languages: [
-      {
-        id: 'alp',
-        scopeName: 'source.alp',
-        grammar: {
-          name: 'alp',
-          patterns: [
-            { match: '@[a-z_]+', name: 'keyword.control.alp' },
-            { match: '![a-z_]+', name: 'keyword.directive.alp' },
-            { match: '\\[[ x~!?\\-]\\]', name: 'string.status.alp' }
-          ]
-        }
-      },
-      {
-        id: 'ebnf',
-        scopeName: 'source.ebnf',
-        grammar: {
-          name: 'ebnf',
-          patterns: [
-            { match: '[A-Z_]+', name: 'keyword.ebnf' }
-          ]
-        }
-      }
-    ]
+    languageAlias: {
+      alp: 'markdown',
+      ebnf: 'markdown'
+    }
   },
   vite: {
     ssr: {
